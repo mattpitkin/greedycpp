@@ -12,8 +12,8 @@ To Do
 4) for larger problems we will need iterative modified GS instead of modified
 5) for very large problem we will need to recompute the solutions, or read from disk
 
-possible optimizations
-----------------------
+possible optimization
+---------------------
 1) multiply all vectors by square root of weights so Euclidean inner product can be used.
 
 WARNING: while making changes to code, make sure one can reproduce the regression test!!!
