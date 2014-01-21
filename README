@@ -1,0 +1,19 @@
+Usage
+-----
+1) edit settings in greedy.cpp
+2) run 'make'
+3) run './greedy'
+
+To Do
+-----
+1) handle case where number of RB exceeds the estimted number
+2) make code more generic to handle snapshot S not from GW appliction (greedy class?)
+3) add mpi
+4) for larger problems we will need iterative modified GS instead of modified
+5) for very large problem we will need to recompute the solutions, or read from disk
+
+possible optimizations
+----------------------
+1) multiply all vectors by square root of weights so Euclidean inner product can be used.
+
+WARNING: while making changes to code, make sure one can reproduce the regression test!!!
