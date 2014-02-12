@@ -9,6 +9,8 @@
 //#include "nr3.h"
 #include "gauss_wgts.h"
 
+#include <mpi.h> // MPI STUFF
+
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
 #include <iostream>
@@ -47,8 +49,9 @@ double DL = 3.08568025E22;                          // Luminosity distance in me
 typedef struct
 tagTrainSet
 {
-  double *m1, *m2; // each element of the training set is (m1[i],m2[i])
-  int ts_size;     // number of training set elements
+  double *m1, *m2;   // each element of the training set is (m1[i],m2[i])
+  int ts_size;       // number of training set elements
+  char model[100];   // name of gravitational waveform model (ex: TaylorF2_PN3pt5)
 }
 TrainSet;
 
@@ -76,8 +79,7 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
 
 }
 
-
-void BuildTS(const int &m_size, const double &m_low, const double &m_high, TrainSet &ts)
+void BuildTS(const int &m_size, const double &m_low, const double &m_high, const char *model_name, TrainSet &ts)
 {
 
     double *m1_tmp, *m2_tmp, *mass_list;
@@ -115,6 +117,10 @@ void BuildTS(const int &m_size, const double &m_low, const double &m_high, Train
     ts.ts_size = m_size*m_size;
     ts.m2 = m2_tmp;
     ts.m1 = m1_tmp;
+    strcpy(ts.model,model_name);
+
+    std::cout << "Using waveform model: " << ts.model << std::endl;
+
     // NOTE: DONT free m1_tmp, m2_tmp here... do in main through ts
 
     free(mass_list);
@@ -126,6 +132,51 @@ void OutputArray(const int n, double *list)
     for(int i=0;i<n;i++){
         std::cout << list[i] << std::endl;
     }
+}
+
+void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int freq_points,const int quad_type)
+{
+    double *wQuad_tmp, *xQuad_tmp;
+    wQuad_tmp = new double[freq_points];
+    xQuad_tmp = new double[freq_points];
+
+    // -- Gauss-Leg quadrature -- //
+    if(quad_type == 0)
+    {
+        gauleg(a,b,xQuad_tmp,wQuad_tmp,freq_points); // returns grid on [-1,1] from NR3
+    }
+    else if(quad_type == 1)
+    {
+        ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,freq_points);
+    }
+    else
+    {
+        fprintf(stdout,"quadrature rule not coded\n");
+        delete[] wQuad_tmp;
+        delete[] xQuad_tmp;
+        exit(1);
+    }
+
+    /* --- make weights of type gsl_complex_vector --- */
+    gsl_complex zM1;
+    for (int i = 0; i < freq_points; i++) 
+    {
+        GSL_SET_COMPLEX(&zM1,wQuad_tmp[i],0.0);
+        gsl_vector_complex_set(wQuad_c,i,zM1);
+    }
+
+    for (int i = 0; i < freq_points; i++){
+        gsl_vector_set(xQuad_c,i,xQuad_tmp[i]);
+    }
+
+
+    //std::cout << " frequency points \n";
+    //OutputArray(freq_points,xQuad_tmp);
+    //std::cout << "quad weights \n";
+    //OutputArray(freq_points,wQuad_tmp);
+    
+    delete[] wQuad_tmp;
+    delete[] xQuad_tmp;
 }
 
 void gsl_vector_sqrt(gsl_vector_complex *out, const gsl_vector_complex *in)
@@ -170,6 +221,88 @@ void NormalizeVector(gsl_vector_complex *u, const gsl_vector_complex *wQuad)
     gsl_vector_complex_scale(u,nrmc);
 }
 
+// normalize row vectors using weight w //
+void NormalizeTS(gsl_matrix_complex *A, const gsl_vector_complex *w)
+{
+
+    const int rows = A->size1;
+    const int cols = A->size2;
+
+    std::cout << "rows (NTS) = " << rows << std::endl;
+    std::cout << "freq points (NTS) = " << cols << std::endl;
+
+    gsl_complex sum_c, inv_norm_c;
+    gsl_vector_complex *ts_el;
+    double norm;
+
+    ts_el = gsl_vector_complex_alloc(cols);
+
+    for(int i=0; i < rows; i++)
+    {
+
+        gsl_matrix_complex_get_row(ts_el,A,i);
+        NormalizeVector(ts_el,w);
+        gsl_matrix_complex_set_row(A,i,ts_el);
+
+    }
+
+    gsl_vector_complex_free(ts_el);
+
+}
+
+void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts)
+{
+    // TODO: changes to this entire routine needed for different approximants //
+
+    fprintf(stdout,"Populating training set...\n");
+
+    // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
+    double TS_r = 0.0;
+    double TS_i = 0.0;
+    gsl_complex zM;
+    double *params;
+    double PN;
+
+    if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0)
+    {
+        fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
+        PN = 3.5;
+        params = new double[4]; // (m1,m2,tc,phi_c)
+
+        for(int rows = 0; rows < ts.ts_size; rows++)
+        {
+
+            params[0] = ts.m1[rows];
+            params[1] = ts.m2[rows];
+            params[2] = 0.0;  // dummy variable (tc in waveform generation)
+            params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
+
+            for(int cols = 0; cols < xQuad->size; cols++)
+            {
+
+                TF2_Waveform(TS_r, TS_i, params, xQuad->data[cols], 1.0, PN);
+                GSL_SET_COMPLEX(&zM, TS_r, TS_i);
+                gsl_matrix_complex_set(TS_gsl,rows,cols,zM);
+
+                // TODO: Adding PSD should go here //
+            }
+        }
+
+    }
+    else
+    {
+        std::cout << "Approximant not supported!" << std::endl;
+        exit(1);
+    }    
+
+    std::cout << "Training set size is " << TS_gsl->size1 << std::endl;
+
+    /* -- Normalize training space here -- */
+    fprintf(stdout,"Normalizing training set...\n");
+    NormalizeTS(TS_gsl,wQuad);
+
+    delete[] params;
+}
 
 void MGS(gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
 {
@@ -211,6 +344,8 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
           sel_rows: row index defining reduced basis. sel_rows[0] = seed
           dim_RB: number of greedy_points
 */
+
+    fprintf(stdout,"Starting greedy algorithm...\n");
 
     const int rows = A->size1; // number of rows to approximate
     const int cols = A->size2; // samples (for quadrature)
@@ -319,35 +454,6 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
 }
 
 
-// normalize row vectors using weight w //
-void NormalizeTS(gsl_matrix_complex *A, const gsl_vector_complex *w)
-{
-
-    const int rows = A->size1;
-    const int cols = A->size2;
-
-    std::cout << "rows (NTS) = " << rows << std::endl;
-    std::cout << "freq points (NTS) = " << cols << std::endl;
-
-    gsl_complex sum_c, inv_norm_c;
-    gsl_vector_complex *ts_el;
-    double norm;
-
-    ts_el = gsl_vector_complex_alloc(cols);
-
-    for(int i=0; i < rows; i++)
-    {
-
-        gsl_matrix_complex_get_row(ts_el,A,i);
-        NormalizeVector(ts_el,w);
-        gsl_matrix_complex_set_row(A,i,ts_el);
-
-    }
-
-    gsl_vector_complex_free(ts_el);
-
-}
-
 void WriteGreedySelections(const int dim_RB,const int *selected_rows,const TrainSet ts)
 {
     FILE *data;
@@ -394,107 +500,80 @@ int main (int argc, char **argv) {
     // NOTE: use "new" for dynamic memory allocation, will be input in future version
 
     // -- these information should be user input -- //
-    const double a = 40.0;                  // lower frequency value
-    const double b = 1024.0;                // upper frequency value
-    const int freq_points = 1969;           // total number of frequency points
-    const int m_size = 30;                  // parameter points in each m1,m2 direction
-    const double m_low = 1.0*mass_to_sec;   // lower mass value
-    const double m_high = 3.0*mass_to_sec;  // higher mass value
-    const int seed = 0;                     // greedy algorithm seed
-    const double tol = 1e-12;               // greedy algorithm tolerance ( \| app \|^2)
-    const double GWamp = 1.0;               // GW amplitude
-    const double PN = 3.5;                  // waveform's PN order
+    // TODO: these can be input from a parameter file //
+    const double a        = 40.0;                  // lower frequency value
+    const double b        = 1024.0;                // upper frequency value
+    const int freq_points = 1969;                  // total number of frequency points
+    const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
+    const int m_size      = 30;                    // parameter points in each m1,m2 direction
+    const double m_low    = 1.0*mass_to_sec;       // lower mass value
+    const double m_high   = 3.0*mass_to_sec;       // higher mass value
+    const int seed        = 0;                     // greedy algorithm seed
+    const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
+    const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
 
     // -- declare variables --//
-    double *xQuad, *wQuad, *params;
     double *app_err;
     int *selected_rows;
     int dim_RB;
+    int rank, size; // mpi information 
     gsl_matrix_complex *TS_gsl;
-    gsl_vector_complex *wQuad_c;
+    gsl_vector_complex *wQuad;
+    gsl_vector *xQuad;
     TrainSet ts;
 
-    // -- build training set -- //
-    BuildTS(m_size,m_low,m_high,ts);
-
     // -- allocate memory --//
-    wQuad = new double[freq_points];
-    xQuad = new double[freq_points];
-    params = new double[4]; // (m1,m2,tc,phi_c)
+    wQuad = gsl_vector_complex_alloc(freq_points);
+    xQuad = gsl_vector_alloc(freq_points);
+
+    /* -- all procs should have a copy of the quadrature rule -- */
+    // TODO: on single node jobs can this be shared? Whats the best way to impliment it? 
+    MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
+
+    // -- build training set -- //
+    // TODO: read in from file and populate ts //
+    BuildTS(m_size,m_low,m_high,model_wv,ts);
+
     TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
-    wQuad_c = gsl_vector_complex_alloc(freq_points);
 
-    // -- Gauss-Leg quadrature -- //
-    //gauleg(a,b,xQuad,wQuad,freq_points); // returns grid on [-1,1] from NR3
-    ReimannQuad(a,b,xQuad,wQuad,freq_points);
+    // Initialize the MPI library, get number of procs this job is using (size) and unique rank of the processor this thread is running on 
+    MPI::Init(argc, argv);
+    rank = MPI::COMM_WORLD.Get_rank();
+    size = MPI::COMM_WORLD.Get_size();
 
-    /* --- make weights of type gsl_complex_vector --- */
-    gsl_complex zM1;
-    for (int i = 0; i < freq_points; i++) 
-    {
-        GSL_SET_COMPLEX(&zM1,wQuad[i],0.0);
-        gsl_vector_complex_set(wQuad_c,i,zM1);
-    }
+    // Get the name of this processor (usually the hostname).  We call                                                      
+    // memset to ensure the string is null-terminated.  Not all MPI                                                        
+    // implementations null-terminate the processor name since the MPI                                                     
+    // standard specifies that the name is *not* supposed to be returned                                                   
+    // null-terminated.                                                                                                    
+    char name[MPI_MAX_PROCESSOR_NAME];
+    int len;
+    memset(name,0,MPI_MAX_PROCESSOR_NAME);
+    MPI::Get_processor_name(name,len);
+    memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
+    std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
-    //std::cout << " frequency points \n";
-    //OutputArray(freq_points,xQuad);
-    //std::cout << "quad weights \n";
-    //OutputArray(freq_points,wQuad);
+    // Tell the MPI library to release all resources it is using:
+    MPI::Finalize();
     
 
     // -- populate training space -- //
-    // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
-    double TS_r = 0.0;
-    double TS_i = 0.0;
-    gsl_complex zM;
-
-    fprintf(stdout,"Populating training set...\n");
-
-    for(int rows = 0; rows < ts.ts_size; rows++)
-    {
-
-        params[0] = ts.m1[rows];
-        params[1] = ts.m2[rows];
-        params[2] = 0.0;  // dummy variable (tc in waveform generation)
-        params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
-
-        for(int cols = 0; cols < freq_points; cols++)
-        {
-
-            TF2_Waveform(TS_r, TS_i, params, xQuad[cols], GWamp, PN);
-            GSL_SET_COMPLEX(&zM, TS_r, TS_i);
-            gsl_matrix_complex_set(TS_gsl,rows,cols,zM);
-
-            // TO DO: Adding PSD should go here //
-        }
-
-    }
-
-    std::cout << "Training set size is " << TS_gsl->size1 << std::endl;
-
-
-    /* -- Normalize training space here -- */
-    fprintf(stdout,"Normalizing training set...\n");
-    NormalizeTS(TS_gsl,wQuad_c);
+    FillTrainingSet(TS_gsl,xQuad,wQuad,ts);
 
     /* -- greedy algorithm here, same in/out as MGSCP -- */
-    fprintf(stdout,"Starting greedy algorithm...\n");
-    Greedy(seed,TS_gsl,wQuad_c,tol,ts,&selected_rows,&app_err,dim_RB);
+    Greedy(seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
 
     /* --- output quantities of interest to file --- */
     WriteGreedySelections(dim_RB,selected_rows,ts);
     WriteGreedyError(dim_RB,app_err);
-    WriteWaveform(xQuad,TS_gsl,0); // for comparison with other codes
+    WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
 
 
     /* --- free from memory --- */
-    delete[] xQuad;
-    delete[] wQuad;
-    delete[] params;
-
     gsl_matrix_complex_free(TS_gsl);
-    gsl_vector_complex_free(wQuad_c);
+    gsl_vector_complex_free(wQuad);
+    gsl_vector_free(xQuad);
 
     free(app_err);
     free(selected_rows);

@@ -1,8 +1,12 @@
 Usage
 -----
-1) edit settings in greedy.cpp
+1) edit settings in greedy.cpp (comment out mpi stuff)
 2) run 'make'
 3) run './greedy'
+
+if using mpi
+1) run 'make'
+2) mpirun -np NUM_PROCS ./greedympi
 
 To Do
 -----
@@ -11,6 +15,8 @@ To Do
 3) add mpi
 4) for larger problems we will need iterative modified GS instead of modified
 5) for very large problem we will need to recompute the solutions, or read from disk
+6) read in m1 and m2 from file
+7) parameter file
 
 possible optimization
 ---------------------
