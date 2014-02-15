@@ -332,13 +332,78 @@ void MGS(gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,cons
 
 }
 
-//void Greedy(const int seed,const gsl_matrix_complex *A,const gls_vector_complex *wQuad,const double tol,int *greedy_points,int dim_RB)
-void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
+void GreedyWorker(const int rank, const gsl_vector_complex *wQuad,const double tol)
+{
+/* worker routine for computing computationally intensive part of greedy */
+    double worst_app = 1.0;
+    double cols = wQuad->size;
+    double rb_inc_r, rb_inc_i;
+    gsl_vector_complex *rb_new;
+    gsl_complex zm, L2_proj;
+
+    rb_new = gsl_vector_complex_alloc(cols);
+
+    while(worst_app > tol)
+    {
+        MPI_Barrier(MPI_COMM_WORLD); 
+
+        /* -- receive new rb -- */
+        // TODO:this should be broadcasted for speed 
+        for(int i = 0; i < cols; i++){
+            MPI_Recv(&rb_inc_r, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            MPI_Recv(&rb_inc_i, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            GSL_SET_COMPLEX(&zm,rb_inc_r,rb_inc_i);
+            gsl_vector_complex_set(rb_new,i,zm);
+        }
+
+        L2_proj = WeightedInner(wQuad,rb_new,rb_new);
+
+        MPI_Barrier(MPI_COMM_WORLD); // TODO:this should be broadcasted for speed 
+        MPI_Recv(&worst_app, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        fprintf(stdout,"I'm worker %i and the error is %f and l2 proj real %f and image %f\n",rank,worst_app,GSL_REAL(L2_proj),GSL_IMAG(L2_proj));
+    }
+
+    gsl_vector_complex_free(rb_new);
+    
+}
+
+void SplitTrainingSet(const int size,const int rows,int **mystart, int **myend)
+{
+    int *mystart_tmp, *myend_tmp;
+
+    int numprocs_worker = size - 1; // master (proc 0) will do no work
+    int proc_id;
+
+    mystart_tmp = (int *)malloc((size-2)*sizeof(int));
+    myend_tmp   = (int *)malloc((size-2)*sizeof(int));
+    for(int i = 2; i <= size; i++) 
+    {
+        proc_id = i-2;
+        mystart_tmp[i-2] = (rows / numprocs_worker) * proc_id;
+        if (rows % numprocs_worker > proc_id)
+        {
+            mystart_tmp[i-2] += proc_id;
+            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker) + 1;
+        }
+        else
+        {
+            mystart_tmp[i-2] += rows % numprocs_worker;
+            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker);
+        }
+        fprintf(stdout,"Proc %i starting at row %i and ending at row %i",i-1,mystart_tmp[i-2],myend_tmp[i-2]);
+    }
+
+    *mystart = mystart_tmp;
+    *myend   = myend_tmp;
+}
+
+void GreedyMaster(const int size, const int seed,const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
 {
 /* Input: 
           A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
           seed: first greedy pick
           tol: approximation tolerance
+          size: number of procs. if 1 serial mode assumed
 
    Output:
           sel_rows: row index defining reduced basis. sel_rows[0] = seed
@@ -381,7 +446,6 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
     greedy_err    = (double *)malloc(est_RB*sizeof(double));
     RB_space      = gsl_matrix_complex_alloc(est_RB,cols); 
 
-
     /* --- initialize algorithm with seed --- */
     gsl_matrix_complex_get_row(ts_el,A,seed);
     gsl_matrix_complex_set_row(RB_space,0,ts_el);
@@ -389,14 +453,29 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
     dim_RB           = 1;
     greedy_err[0]    = 1.0;
 
+    /* -- if size>1, split up matrix A among worker nodes -- */
+    //NOTE: assumes for loop is "<" for this choice of myend
+    int *mystart, *myend;
+    if(size > 1){
+        SplitTrainingSet(size,rows,&mystart,&myend);
+    }
+
     /* --- Continue approximation until tolerance satisfied --- */
     start = clock();
     while(greedy_err[dim_RB-1] > tol)
     {
-
         gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // get last computed basis
-        worst_err = 0.0;
 
+        if(size > 1){
+            MPI_Barrier(MPI_COMM_WORLD); // TODO:this should be broadcasted for speed
+            for(int i = 1; i <= size-1; i++){
+                for(int j = 0; j< cols; j++){
+                    MPI_Send(&GSL_REAL(gsl_vector_complex_get(last_rb,j)),1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+                    MPI_Send(&GSL_IMAG(gsl_vector_complex_get(last_rb,j)),1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+                }
+            }
+
+        }
         /* --- Loop over training set ---*/
         for(int i = 0; i < rows; i++)
         {
@@ -404,24 +483,50 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
             gsl_matrix_complex_get_row(ts_el,A,i);
 
             L2_proj = WeightedInner(wQuad,last_rb,ts_el);
+            
+
+            /*if(size == 1) //serial
+            {
+                L2_proj = WeightedInner(wQuad,last_rb,ts_el);
+            }
+            else
+            {
+                for(int i = 1; i <= numprocs_worker; i++)
+                {
+                    MPI_Send(&worst_err, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+                }
+            }*/
+
+
 
             gsl_matrix_complex_set(project_coeff,dim_RB-1,i,L2_proj);
 
             tmp = 0;
             for(int j = 0; j < dim_RB; j++)
             {
-               tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-               tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
+                tmpc = gsl_matrix_complex_get(project_coeff,j,i);
+                tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
             }
 
             errors[i] = 1.0 - tmp;
 
+        }
+
+
+        /* -- find worst error here in anticipation of mpi above (minimal overhead in serial) -- */
+        worst_err = 0.0;
+        for(int i = 0; i < rows; i++)
+        {
             if(worst_err < errors[i])
             {
                 worst_err = errors[i];
                 worst_app = i;
             }
+        }
 
+        for(int i = 1; i <= size-1; i++){
+            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Send(&worst_err, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
         }
 
         /* --- add worst approximated element to basis --- */
@@ -451,6 +556,13 @@ void Greedy(const int seed,const gsl_matrix_complex *A,const gsl_vector_complex 
     free(errors);
     gsl_matrix_complex_free(project_coeff);
     gsl_matrix_complex_free(RB_space);
+
+    if(size > 1)
+    {
+        free(mystart);
+        free(myend);
+    }
+    
 }
 
 
@@ -553,30 +665,45 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
+   
+    if(size == 1) // only 1 proc requested (serial mode)
+    {
+        FillTrainingSet(TS_gsl,xQuad,wQuad,ts);
+        GreedyMaster(size,seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+    }
+    else
+    {
+        if(rank == 0){
+            FillTrainingSet(TS_gsl,xQuad,wQuad,ts);
+            GreedyMaster(size,seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+        }
+        else{
+            GreedyWorker(rank,wQuad,tol);
+        }
+
+    }
+
+
+    if(rank == 0)
+    {
+        /* --- output quantities of interest to file --- */
+        WriteGreedySelections(dim_RB,selected_rows,ts);
+        WriteGreedyError(dim_RB,app_err);
+        WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
+
+        free(app_err);
+        free(selected_rows);
+    }
+        
 
     // Tell the MPI library to release all resources it is using:
     MPI::Finalize();
-    
-
-    // -- populate training space -- //
-    FillTrainingSet(TS_gsl,xQuad,wQuad,ts);
-
-    /* -- greedy algorithm here, same in/out as MGSCP -- */
-    Greedy(seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
-
-    /* --- output quantities of interest to file --- */
-    WriteGreedySelections(dim_RB,selected_rows,ts);
-    WriteGreedyError(dim_RB,app_err);
-    WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
 
 
-    /* --- free from memory --- */
     gsl_matrix_complex_free(TS_gsl);
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
 
-    free(app_err);
-    free(selected_rows);
 
     free(ts.m1);
     free(ts.m2);
