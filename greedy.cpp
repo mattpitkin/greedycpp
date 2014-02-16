@@ -281,35 +281,37 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     gsl_vector_complex *wv;
     double *params;
     double PN;
-    int start_ind, end_ind, global_i;
+    int start_ind, end_ind, global_i, matrix_size;
 
     wv = gsl_vector_complex_alloc(xQuad->size);
 
     if(ts.distributed){
-        start_ind = ts.mystart[rank];
-        end_ind   = ts.myend[rank];
+        start_ind   = ts.mystart[rank];
+        end_ind     = ts.myend[rank];
+        matrix_size = ts.matrix_sub_size[rank];
         fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
     }
     else{
-        start_ind = 0;
-        end_ind   = ts.ts_size;
+        start_ind   = 0;
+        matrix_size = ts.ts_size;
+        end_ind     = ts.ts_size;
     }
     
 
     if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0)
     {
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
-        PN = 3.5;
-        params = new double[4]; // (m1,m2,tc,phi_c)
+        PN        = 3.5;
+        params    = new double[4]; // (m1,m2,tc,phi_c)
         params[2] = 0.0;  // dummy variable (tc in waveform generation)
         params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
 
         //for(int rows = start_ind; rows < end_ind; rows++)
         //{
 
-        for(int i = 0; i < ts.matrix_sub_size[rank]; i++)
+        for(int i = 0; i < matrix_size; i++)
         {
-            global_i = ts.mystart[rank] + i;
+            global_i = start_ind + i;
 
             //std::cout << "global i " << global_i << std::endl;
             //params[0] = ts.m1[rows];
@@ -874,8 +876,14 @@ int main (int argc, char **argv) {
     if(size == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
+        std::cout << "Im here 1 " << std::endl;
+
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
+        std::cout << "Im here 2 " << std::endl;
+
         Greedy(seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+        std::cout << "Im here 4 " << std::endl;
+
 
         gsl_matrix_complex_free(TS_gsl);
     }
