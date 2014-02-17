@@ -428,7 +428,29 @@ void SplitTrainingSet(const int size, TrainSet &ts)
 
 }
 
-void GreedyWorker(const int rank, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
+int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
+{
+    int row_rank = 0;
+    bool found_rank = false;
+
+    if(ts.distributed){
+
+        while(found_rank == false)
+        {
+            if( global_row_indx >= ts.mystart[row_rank] && global_row_indx <= ts.myend[row_rank] ){
+                found_rank = true;
+            }
+            else{
+                row_rank = row_rank + 1;
+            }
+        }
+    }
+
+    return row_rank;
+
+}
+
+void GreedyWorker(const int rank, const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
 {
 /* worker routine for computing computationally intensive part of greedy */
     int est_RB = 312;          // estimated number of RB (reasonable upper bound)
@@ -451,6 +473,18 @@ void GreedyWorker(const int rank, const gsl_vector_complex *wQuad,const double t
     vec_imag      = (double *)malloc(cols*sizeof(double));
 
     fprintf(stdout,"I'm worker %i and I was given %i matrix elements from %i to %i\n",rank,ts.matrix_sub_size[rank],ts.mystart[rank],ts.myend[rank]-1);
+
+    /* -- pass seed back to master -- */
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
+    /* -- return seed to master -- */
+    if( (worst_rank-1) == rank){
+        worst_local = seed_global - ts.mystart[rank];
+        gsl_matrix_complex_get_row(ortho_basis,A,worst_local);
+        gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+        MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+    }
 
 
     while(worst_app > tol)
@@ -521,7 +555,7 @@ void GreedyWorker(const int rank, const gsl_vector_complex *wQuad,const double t
     free(errors);
 }
 
-void GreedyMaster(const int size, const gsl_vector_complex *seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
+void GreedyMaster(const int size, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
 {
 /* Input: 
           A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -572,8 +606,20 @@ void GreedyMaster(const int size, const gsl_vector_complex *seed,const gsl_vecto
     RB_space      = gsl_matrix_complex_alloc(est_RB,cols); 
 
     /* --- initialize algorithm with seed --- */
-    gsl_matrix_complex_set_row(RB_space,0,seed);
-    greedy_points[0] = 0; // TODO: this should be set by input
+    int seed_rank = FindRowIndxRank(seed,ts);
+    fprintf(stdout,"seed index %i on proc rank %i\n",seed,seed_rank);
+
+    /* -- request seed from worker -- */
+    MPI_Barrier(MPI_COMM_WORLD);
+    seed_rank = seed_rank+1;
+    MPI_Bcast(&seed_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Recv(vec_real, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    MPI_Recv(vec_imag, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+    gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
+
+
+    greedy_points[0] = seed;
     dim_RB           = 1;
     greedy_err[0]    = 1.0;
 
@@ -836,7 +882,7 @@ int main (int argc, char **argv) {
     xQuad = gsl_vector_alloc(freq_points);
 
     /* -- all procs should have a copy of the quadrature rule -- */
-    // TODO: on single node jobs can this be shared? Whats the best way to impliment it? 
+    // TODO: on nodes can this be shared? Whats the best way to impliment it? 
     MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
 
     // -- build training set -- //
@@ -858,14 +904,11 @@ int main (int argc, char **argv) {
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
-    double *params; // TODO hack for seed, fix
-   
     if(size == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
         Greedy(seed,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
-        gsl_matrix_complex_free(TS_gsl);
     }
     else
     {
@@ -873,25 +916,8 @@ int main (int argc, char **argv) {
         /* -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- */
         SplitTrainingSet(size,ts);
 
-        //TODO: seed should be implimented in a better way
-        if(rank == 0)
-        {
-
-            params = new double[4]; // (m1,m2,tc,phi_c)
-            params[2] = 0.0;  // dummy variable (tc in waveform generation)
-            params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
-            params[0] = ts.m1[seed];
-            params[1] = ts.m2[seed];
-
-            seed_el = gsl_vector_complex_alloc(freq_points);
-            TF2_FullWaveform(seed_el,params,xQuad,1.0,3.5);
-            NormalizeVector(seed_el,wQuad);
-
-            delete[] params;
-        }
-        else
-        {
-            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points); // GSL error handler will abort if too much requested
+        if(rank != 0){
+            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
         }
 
@@ -899,10 +925,10 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,seed_el,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+            GreedyMaster(size,seed,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
         }
         else{
-            GreedyWorker(rank-1,wQuad,tol,TS_gsl,ts);
+            GreedyWorker(rank-1,seed,wQuad,tol,TS_gsl,ts);
             gsl_matrix_complex_free(TS_gsl);
         }
 
@@ -916,6 +942,7 @@ int main (int argc, char **argv) {
         WriteGreedyError(dim_RB,app_err);
         if(size == 1){
             WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
+            gsl_matrix_complex_free(TS_gsl);
         }
 
         free(app_err);
