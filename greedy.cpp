@@ -144,8 +144,7 @@ void BuildTS(const int &m_size, const double &m_low, const double &m_high, const
 
     std::cout << "Using waveform model: " << ts.model << std::endl;
 
-    // NOTE: DONT free m1_tmp, m2_tmp here... do in main through ts
-
+    /* -- NOTE: Free m1_tmp, m2_tmp in main through ts -- */
     free(mass_list);
 
 }
@@ -325,16 +324,9 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
         params[2] = 0.0;  // dummy variable (tc in waveform generation)
         params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
 
-        //for(int rows = start_ind; rows < end_ind; rows++)
-        //{
-
         for(int i = 0; i < matrix_size; i++)
         {
             global_i = start_ind + i;
-
-            //std::cout << "global i " << global_i << std::endl;
-            //params[0] = ts.m1[rows];
-            //params[1] = ts.m2[rows];
             params[0] = ts.m1[global_i];
             params[1] = ts.m2[global_i];
             TF2_FullWaveform(wv,params,xQuad,1.0,PN);
@@ -421,7 +413,7 @@ void SplitTrainingSet(const int size, TrainSet &ts)
         matrix_sub_size_tmp[i] = myend_tmp[i] - mystart_tmp[i];
     }
 
-    // NOTE: DONT free m1_tmp, m2_tmp here, do this in main
+    /* -- NOTE: Free mystart and myend in main -- */
     ts.mystart         = mystart_tmp;
     ts.myend           = myend_tmp;
     ts.matrix_sub_size = matrix_sub_size_tmp;
@@ -450,9 +442,12 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
+
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
 {
-/* worker routine for computing computationally intensive part of greedy */
+
+// worker routine for computing computationally intensive part of greedy //
+
     int continue_work = 1;
     int dim_RB = 1;
     double cols = wQuad->size;
@@ -475,10 +470,10 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
     fprintf(stdout,"I'm worker %i and I was given %i matrix elements from %i to %i\n",rank,ts.matrix_sub_size[rank],ts.mystart[rank],ts.myend[rank]-1);
 
-    /* -- pass seed back to master -- */
+    // -- pass seed back to master -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
-    /* -- return seed to master -- */
+    // -- return seed to master -- //
     if( (worst_rank-1) == rank){
         worst_local = seed_global - ts.mystart[rank];
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
@@ -489,15 +484,15 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
     while(continue_work == 1)
     {
-        /* -- wait for new basis and start next sweep -- */
+        // -- wait for new basis and start next sweep -- //
         MPI_Barrier(MPI_COMM_WORLD);
 
-        /* -- receive new rb -- */
+        // -- receive new rb -- //
         MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
         make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
-        // Compute overlaps of pieces of A with rb_new
+        // Compute overlaps of pieces of A with rb_new //
         for(int i = 0; i < ts.matrix_sub_size[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
@@ -513,7 +508,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
             errors[i] = 1.0 - tmp;
         }
 
-        /* -- find worst error here -- */
+        // -- find worst error here -- //
         tmp = 0.0;
         for(int i = 0; i < ts.matrix_sub_size[rank]; i++)
         {
@@ -525,15 +520,15 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
             }
         }
 
-        /* -- pass worst error and index to master --*/
+        // -- pass worst error and index to master --//
         MPI_Gather(&worst_global,1,MPI_INT,worst_workers_mpi,1,MPI_INT,0,MPI_COMM_WORLD);
         MPI_Gather(&tmp,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
-        /* -- recieve info about which worker proc has next basis -- */
+        // -- recieve info about which worker proc has next basis -- //
         MPI_Barrier(MPI_COMM_WORLD);
         MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
  
-        /* -- return basis to master -- */
+        // -- return basis to master -- //
         if( (worst_rank-1) == rank){
             gsl_matrix_complex_get_row(row_vec,A,worst_local);
             gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
@@ -556,16 +551,16 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
 void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
 {
-/* Input: 
-          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
-          seed: first greedy pick (global indexing)
-          tol: approximation tolerance
-          size: number of procs. if 1 serial mode assumed
-
-   Output:
-          sel_rows: row index defining reduced basis. sel_rows[0] = seed
-          dim_RB: number of greedy_points
-*/
+// Input: 
+//          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
+//          seed: first greedy pick (global indexing)
+//          tol: approximation tolerance
+//          size: number of procs. if 1 serial mode assumed
+//
+//   Output:
+//          sel_rows: row index defining reduced basis. sel_rows[0] = seed
+//          dim_RB: number of greedy_points
+//
 
     fprintf(stdout,"Starting greedy algorithm...\n");
 
@@ -585,30 +580,30 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     double dummy_mpi_double  = -1.0;
     int continue_work = 1;
 
-    /* --- Output waveform here for matlab comparisons --- */
+    // --- Output waveform here for matlab comparisons --- //
     FILE *data;
     char filename[] = "Basis.txt";
 
     gsl_vector_complex *ortho_basis;  // for holding training space elements
     gsl_matrix_complex *RB_space;
 
-    /* --- this memory should be freed here --- */
+    // --- this memory should be freed here --- //
     ortho_basis       = gsl_vector_complex_alloc(cols);
     vec_real          = (double *)malloc(cols*sizeof(double));
     vec_imag          = (double *)malloc(cols*sizeof(double));
     worst_workers_mpi = (int *)malloc(size*sizeof(int));
     worst_errs_mpi    = (double *)malloc(size*sizeof(double));
 
-    /* --- this memory should be freed in main --- */
+    // --- this memory should be freed in main --- //
     greedy_points = (int *)malloc(max_RB*sizeof(int));
     greedy_err    = (double *)malloc(max_RB*sizeof(double));
     RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
 
-    /* --- initialize algorithm with seed --- */
+    // --- initialize algorithm with seed --- //
     int seed_rank = FindRowIndxRank(seed,ts);
     fprintf(stdout,"seed index %i on proc rank %i\n",seed,seed_rank);
 
-    /* -- request seed from worker -- */
+    // -- request seed from worker -- //
     MPI_Barrier(MPI_COMM_WORLD);
     seed_rank = seed_rank+1;
     MPI_Bcast(&seed_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
@@ -622,22 +617,23 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB           = 1;
     greedy_err[0]    = 1.0;
 
-    /* --- Continue approximation until tolerance satisfied --- */
+    // --- Continue approximation until tolerance satisfied --- //
     start = clock();
     while(continue_work == 1)
     {
         gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
-        /* -- send last orthonormal rb to work procs -- */
+        // -- send last orthonormal rb to work procs -- //
         MPI_Barrier(MPI_COMM_WORLD);
         MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
-        /* -- gather worst (local) info from workers -- */
+        // -- gather worst (local) info from workers -- //
+        // TODO: worst errors can be passed along with basis, no need to gather
         MPI_Gather(&dummy_mpi_int,1,MPI_INT,worst_workers_mpi,1,MPI_INT,0,MPI_COMM_WORLD);
         MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
-        /* -- find worst rb amongst all workers -- */
+        // -- find worst rb amongst all workers -- //
         worst_err = 0.0;
         for(int i = 0; i < size - 1; i++){
             if(worst_err < worst_errs_mpi[i+1])
@@ -648,27 +644,27 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
             }
         }
 
-        /* -- tell all workers which one has largest error -- */
+        // -- tell all workers which one has largest error -- //
         MPI_Barrier(MPI_COMM_WORLD);
         MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
 
-        /* -- receive row basis from worker proc worst_rank -- */
+        // -- receive row basis from worker proc worst_rank -- //
         MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         MPI_Recv(vec_imag, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
-        /* -- decide if another greedy sweep is needed, alert workers -- */
+        // -- decide if another greedy sweep is needed, alert workers -- //
         if( (dim_RB+1 == max_RB) || worst_err < tol){
             continue_work = 0;
         }
         MPI_Barrier(MPI_COMM_WORLD);
         MPI_Bcast(&continue_work, 1, MPI_INT,0,MPI_COMM_WORLD);
 
-        /* --- record worst approximated row element (basis) --- */
+        // --- record worst approximated row element (basis) --- //
         greedy_points[dim_RB] = worst_app;
         greedy_err[dim_RB] = worst_err;
 
-        /* --- add worst approximated solution/row to basis set --- */
+        // --- add worst approximated solution/row to basis set --- //
         MGS(ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
@@ -864,19 +860,20 @@ int main (int argc, char **argv) {
     const double b        = 1024.0;                // upper frequency value
     const int freq_points = 1969;                  // total number of frequency points
     const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 400;                    // parameter points in each m1,m2 direction
+    const int m_size      = 30;                    // parameter points in each m1,m2 direction
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
     const int seed        = 0;                     // greedy algorithm seed
     const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
     const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
-    int max_RB = 400;                              // estimated number of RB (reasonable upper bound)
+    int max_RB = 300;                              // estimated number of RB (reasonable upper bound)
 
     // -- declare variables --//
     double *app_err;
     int *selected_rows;
     int dim_RB;
-    int rank, size; // mpi information 
+    int rank = 0;  // mpi information -- if running with mpi these will be reset
+    int size = 1;  // mpi information -- if running with mpi these will be reset
     gsl_matrix_complex *TS_gsl;
     gsl_vector_complex *wQuad, *seed_el;
     gsl_vector *xQuad;
@@ -895,12 +892,12 @@ int main (int argc, char **argv) {
     BuildTS(m_size,m_low,m_high,model_wv,ts);
 
 
-    // Initialize the MPI library, get number of procs this job is using (size) and unique rank of the processor this thread is running on 
+    // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     MPI::Init(argc, argv);
     rank = MPI::COMM_WORLD.Get_rank();
     size = MPI::COMM_WORLD.Get_size();
 
-    // Get the name of this processor (usually the hostname)                                                                             
+    // Get the name of this processor (usually the hostname) //                        
     char name[MPI_MAX_PROCESSOR_NAME];
     int len;
     memset(name,0,MPI_MAX_PROCESSOR_NAME);
@@ -908,6 +905,7 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
+
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
@@ -926,7 +924,6 @@ int main (int argc, char **argv) {
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
         }
 
-        MPI_Barrier(MPI_COMM_WORLD);
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
@@ -938,7 +935,6 @@ int main (int argc, char **argv) {
         }
 
     }
-
 
     if(rank == 0)
     {

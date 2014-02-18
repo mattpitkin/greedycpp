@@ -1,22 +1,33 @@
 Usage
 -----
-1) edit settings in greedy.cpp (comment out mpi stuff)
-2) run 'make'
+ -- serial mode --
+1) edit greedy.cpp (see below)
+2) run 'make Greedy'
 3) run './greedy'
 
-if using mpi
+  -- mpi --
 1) run 'make'
 2) mpirun -np NUM_PROCS ./greedympi
 
+Running without mpi
+-------------------
+
+comment out the following code 
+1) include of mpi.h
+2) GreedyWorker and GreedyMaster routines
+3) MPI::Init and few lines which follow
+4) MPI::Finalize()
+5) GreedyWorker and GreedyMaster function calls within main() 
+
+
+
 To Do
 -----
-1) handle case where number of RB exceeds the estimted number
-2) make code more generic to handle snapshot S not from GW appliction (greedy class?)
-3) add mpi
-4) for larger problems we will need iterative modified GS instead of modified
-5) for very large problem we will need to recompute the solutions, or read from disk
-6) read in m1 and m2 from file
-7) parameter file
+1) make code more generic to handle snapshot S not from GW appliction (greedy class?)
+2) for larger problems we will need iterative modified GS instead of modified
+3) for very large problem we will need to recompute the solutions, or read from disk
+4) read in m1 and m2 from file
+5) parameter file
 
 possible optimization
 ---------------------
