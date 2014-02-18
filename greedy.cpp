@@ -386,10 +386,9 @@ void SplitTrainingSet(const int size, TrainSet &ts)
     int rows = ts.ts_size;
     int proc_id;
 
-
-    mystart_tmp         = (int *)malloc((size-2)*sizeof(int));
-    myend_tmp           = (int *)malloc((size-2)*sizeof(int));
-    matrix_sub_size_tmp = (int *)malloc((size-2)*sizeof(int));
+    mystart_tmp         = (int *)malloc(numprocs_worker*sizeof(int));
+    myend_tmp           = (int *)malloc(numprocs_worker*sizeof(int));
+    matrix_sub_size_tmp = (int *)malloc(numprocs_worker*sizeof(int));
 
     for(int i = 2; i <= size; i++) 
     {
@@ -441,7 +440,6 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
     return row_rank;
 
 }
-
 
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
 {
@@ -541,6 +539,9 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
         dim_RB = dim_RB + 1;
     }
 
+    free(worst_workers_mpi); // free NULL pointers?
+    free(worst_errs_mpi);
+
     gsl_vector_complex_free(last_rb);
     gsl_vector_complex_free(row_vec);
     gsl_matrix_complex_free(project_coeff);
@@ -593,11 +594,11 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     vec_imag          = (double *)malloc(cols*sizeof(double));
     worst_workers_mpi = (int *)malloc(size*sizeof(int));
     worst_errs_mpi    = (double *)malloc(size*sizeof(double));
+    RB_space          = gsl_matrix_complex_alloc(max_RB,cols); 
 
     // --- this memory should be freed in main --- //
     greedy_points = (int *)malloc(max_RB*sizeof(int));
     greedy_err    = (double *)malloc(max_RB*sizeof(double));
-    RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
 
     // --- initialize algorithm with seed --- //
     int seed_rank = FindRowIndxRank(seed,ts);
@@ -853,6 +854,9 @@ void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const in
 int main (int argc, char **argv) {
 
     // NOTE: use "new" for dynamic memory allocation, will be input in future version
+    MPI::Init(argc, argv);
+    //MPI_Init(NULL, NULL);
+
 
     // -- these information should be user input -- //
     // TODO: these can be input from a parameter file //
@@ -860,7 +864,7 @@ int main (int argc, char **argv) {
     const double b        = 1024.0;                // upper frequency value
     const int freq_points = 1969;                  // total number of frequency points
     const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 30;                    // parameter points in each m1,m2 direction
+    const int m_size      = 6;                    // parameter points in each m1,m2 direction
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
     const int seed        = 0;                     // greedy algorithm seed
@@ -875,9 +879,22 @@ int main (int argc, char **argv) {
     int rank = 0;  // mpi information -- if running with mpi these will be reset
     int size = 1;  // mpi information -- if running with mpi these will be reset
     gsl_matrix_complex *TS_gsl;
-    gsl_vector_complex *wQuad, *seed_el;
+    gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
     TrainSet ts;
+
+    // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
+    rank = MPI::COMM_WORLD.Get_rank();
+    size = MPI::COMM_WORLD.Get_size();
+
+    // Get the name of this processor (usually the hostname) //                        
+    char name[MPI_MAX_PROCESSOR_NAME];
+    int len;
+    memset(name,0,MPI_MAX_PROCESSOR_NAME);
+    MPI::Get_processor_name(name,len);
+    memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
+
+    std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
     // -- allocate memory --//
     wQuad = gsl_vector_complex_alloc(freq_points);
@@ -890,21 +907,6 @@ int main (int argc, char **argv) {
     // -- build training set -- //
     // TODO: read in from file and populate ts //
     BuildTS(m_size,m_low,m_high,model_wv,ts);
-
-
-    // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
-    MPI::Init(argc, argv);
-    rank = MPI::COMM_WORLD.Get_rank();
-    size = MPI::COMM_WORLD.Get_size();
-
-    // Get the name of this processor (usually the hostname) //                        
-    char name[MPI_MAX_PROCESSOR_NAME];
-    int len;
-    memset(name,0,MPI_MAX_PROCESSOR_NAME);
-    MPI::Get_processor_name(name,len);
-    memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
-
-    std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
 
     if(size == 1) // only 1 proc requested (serial mode)
@@ -950,9 +952,6 @@ int main (int argc, char **argv) {
         free(selected_rows);
     }
 
-    // Tell the MPI library to release all resources it is using:
-    MPI::Finalize();
-
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
     free(ts.m1);
@@ -963,6 +962,9 @@ int main (int argc, char **argv) {
         free(ts.myend);
         free(ts.matrix_sub_size);
     }
+
+    // Tell the MPI library to release all resources it is using:
+    MPI::Finalize();
 
 }
 
