@@ -234,11 +234,19 @@ gsl_complex WeightedInner(const gsl_vector_complex *weights, const gsl_vector_co
     return ans;
 }
 
-void NormalizeVector(gsl_vector_complex *u, const gsl_vector_complex *wQuad)
+double GetNorm_double(const gsl_vector_complex *u, const gsl_vector_complex *wQuad)
 {
     gsl_complex nrmc = WeightedInner(wQuad,u,u);
     double nrm = gsl_complex_abs(nrmc);
     nrm = sqrt(nrm);
+    //GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
+    return nrm;
+}
+
+void NormalizeVector(gsl_vector_complex *u, const gsl_vector_complex *wQuad)
+{
+    gsl_complex nrmc;// = GetNorm_complex(u,wQuad);
+    double nrm = GetNorm_double(u,wQuad);
     GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
     gsl_vector_complex_scale(u,nrmc);
 }
@@ -350,8 +358,18 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     gsl_vector_complex_free(wv);
 }
 
-void MGS(gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
+void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
 {
+/*  Modified GS routine. 
+
+   Input:  RB_space:    an existing orthonormal set of basis vectors
+           ortho_basis: basis we shall orthogonalize agains RB_space
+           wQuad:       quadrature weights for inner products
+           dim_RB:      number of elements currently in RB_space
+   Output: ortho_basis: orthonormal basis vector
+           ru:           1-by-(dim_RB+1) slice of the R matrix (from QR = A)
+*/
+          
 
     int quad_num = RB_space->size2;
     gsl_complex L2_proj, tmp;
@@ -360,6 +378,8 @@ void MGS(gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,cons
 
     basis = gsl_vector_complex_alloc(quad_num);
 
+    gsl_vector_complex_set_zero(ru); // if not done, R matrix fills up below diagonal with .5 instead of 0
+
 
     for(int i = 0; i < dim_RB; i++)
     {
@@ -367,10 +387,16 @@ void MGS(gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,cons
 
         /* --- ortho_basis = ortho_basis - L2_proj*basis; --- */
         L2_proj = WeightedInner(wQuad,basis,ortho_basis);
+        gsl_vector_complex_set(ru,i,L2_proj);
         gsl_vector_complex_scale(basis,L2_proj); // basis <- basis*L2_proj
         gsl_vector_complex_sub(ortho_basis,basis); // ortho_basis <- ortho_basis - basis
 
     }
+
+    double nrm = GetNorm_double(ortho_basis,wQuad);
+    gsl_complex nrmc;
+    GSL_SET_COMPLEX(&nrmc,nrm,0.0);
+    gsl_vector_complex_set(ru,dim_RB,nrmc);
 
     NormalizeVector(ortho_basis,wQuad);
 
@@ -582,11 +608,14 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     int continue_work = 1;
 
     // --- Output waveform here for matlab comparisons --- //
-    FILE *data;
-    char filename[] = "Basis.txt";
+    FILE *rb_data, *r_data;
+    char rb_filename[] = "Basis.txt";
+    char r_filename[]  = "R.txt";
 
-    gsl_vector_complex *ortho_basis;  // for holding training space elements
-    gsl_matrix_complex *RB_space;
+    gsl_vector_complex *ortho_basis, *ru;
+    gsl_matrix_complex *RB_space, *R_matrix;
+
+    ru = gsl_vector_complex_alloc(max_RB); // TODO: only need upper part, will this initialize to zeros?
 
     // --- this memory should be freed here --- //
     ortho_basis       = gsl_vector_complex_alloc(cols);
@@ -595,6 +624,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     worst_workers_mpi = (int *)malloc(size*sizeof(int));
     worst_errs_mpi    = (double *)malloc(size*sizeof(double));
     RB_space          = gsl_matrix_complex_alloc(max_RB,cols); 
+    R_matrix          = gsl_matrix_complex_alloc(max_RB,max_RB);
 
     // --- this memory should be freed in main --- //
     greedy_points = (int *)malloc(max_RB*sizeof(int));
@@ -666,7 +696,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        MGS(ortho_basis,RB_space,wQuad,dim_RB);
+        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
 
@@ -681,12 +712,23 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     *sel_rows = greedy_points;
     *app_err = greedy_err;
 
+    /*--- write R and RB to file ---*/
+    rb_data = fopen(rb_filename,"w");
+    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
+    fclose(rb_data);
+    r_data = fopen(r_filename,"w");
+    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
+    fclose(r_data);
+
+
     gsl_vector_complex_free(ortho_basis);
-    gsl_matrix_complex_free(RB_space);
+    gsl_matrix_complex_free(RB_space);  //TODO: this and R_Matrx should be written to file
+    gsl_matrix_complex_free(R_matrix);
     free(vec_real);
     free(vec_imag);
     free(worst_workers_mpi);
     free(worst_errs_mpi);
+    gsl_vector_complex_free(ru);
 
 }
 
@@ -719,10 +761,13 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     FILE *data;
     char filename[] = "Basis.txt";
 
-    gsl_vector_complex *ts_el, *last_rb, *ortho_basis;  // for holding training space elements
-    gsl_matrix_complex *RB_space;
+    gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
+    gsl_matrix_complex *RB_space, *R_matrix;
     double *errors;                       // approximation errors with RB space of dimension dim_RB
     gsl_matrix_complex *project_coeff; // h = coeff_i e_i is approximation we seek
+
+    ru = gsl_vector_complex_alloc(max_RB);
+
 
     /* --- this memory should be freed here --- */
     ts_el         = gsl_vector_complex_alloc(cols);
@@ -735,6 +780,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     greedy_points = (int *)malloc(max_RB*sizeof(int));
     greedy_err    = (double *)malloc(max_RB*sizeof(double));
     RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
+    R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB); // SEE NOTE AT END OF ROUTINE
 
     /* --- initialize algorithm with seed --- */
     gsl_matrix_complex_get_row(ts_el,A,seed);
@@ -787,8 +833,9 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
         /* --- add worst approximated solution to basis set --- */
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        MGS(ortho_basis,RB_space,wQuad,dim_RB);
+        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
+        gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
 
         fprintf(stdout,"RB dimension %i || Current row selection %i || Approximation error %1.14e\n",dim_RB,worst_app,worst_err);
@@ -807,7 +854,10 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_vector_complex_free(ortho_basis);
     free(errors);
     gsl_matrix_complex_free(project_coeff);
-    gsl_matrix_complex_free(RB_space);
+    gsl_matrix_complex_free(RB_space); // this and R_matrix should be written to file
+    gsl_matrix_complex_free(R_matrix);
+    gsl_vector_complex_free(ru);
+
 }
 
 void WriteGreedySelections(const int dim_RB,const int *selected_rows,const TrainSet ts)
@@ -864,7 +914,7 @@ int main (int argc, char **argv) {
     const double b        = 1024.0;                // upper frequency value
     const int freq_points = 1969;                  // total number of frequency points
     const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 6;                    // parameter points in each m1,m2 direction
+    const int m_size      = 30;                    // parameter points in each m1,m2 direction
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
     const int seed        = 0;                     // greedy algorithm seed
