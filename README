@@ -23,6 +23,7 @@ comment out the following code
 
 To Do
 -----
+0) R matrix (from QR) has 0 for R(0,0), whereas it should be 1
 1) make code more generic to handle snapshot S not from GW appliction (greedy class?)
 2) for larger problems we will need iterative modified GS instead of modified
 3) for very large problem we will need to recompute the solutions, or read from disk
