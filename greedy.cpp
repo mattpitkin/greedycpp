@@ -9,7 +9,7 @@
 //#include "nr3.h"
 #include "gauss_wgts.h"
 
-#include <mpi.h> // MPI STUFF
+//#include <mpi.h> // MPI STUFF
 
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
@@ -101,15 +101,16 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
 
 }
 
-void BuildTS(const int &m_size, const double &m_low, const double &m_high, const char *model_name, TrainSet &ts)
+void BuildTS_tensor_product(const int &m_size, const double &m_low, const double &m_high, const char *model_name, TrainSet &ts)
 {
 
     double *m1_tmp, *m2_tmp, *mass_list;
     double m_i, m_j;
     int counter = 0;
+    ts.ts_size = m_size*m_size; // specific to tensor product TS
 
-    m1_tmp = (double *)malloc(m_size*m_size*sizeof(double));
-    m2_tmp = (double *)malloc(m_size*m_size*sizeof(double));
+    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
     mass_list = (double *)malloc(m_size*sizeof(double));
 
     if(m1_tmp==NULL || m2_tmp==NULL || mass_list==NULL)
@@ -135,8 +136,8 @@ void BuildTS(const int &m_size, const double &m_low, const double &m_high, const
         }
     }
 
+
     /* --- fill training set data structure --- */
-    ts.ts_size = m_size*m_size;
     ts.m2 = m2_tmp;
     ts.m1 = m1_tmp;
     ts.distributed = false; // by default. set to true if SplitTrainingSet is called
@@ -146,6 +147,35 @@ void BuildTS(const int &m_size, const double &m_low, const double &m_high, const
 
     /* -- NOTE: Free m1_tmp, m2_tmp in main through ts -- */
     free(mass_list);
+
+}
+
+void BuildTS_from_file(const char *ts_file, const char *model_name, TrainSet &ts)
+{
+
+    std::cout << "Reading TS points from file: " << ts_file << std::endl;
+
+    ts.ts_size = 900;
+
+    double *m1_tmp, *m2_tmp;
+    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+
+    FILE *data;
+    data = fopen(ts_file,"r");
+    for (int i = 0; i <= 900; i++)
+    {
+        //fscanf(data, "%f %f", &m1_tmp[i],&m2_tmp[i]);
+        fscanf(data, "%lf", &m1_tmp[i]);
+        fscanf(data, "%lf", &m2_tmp[i]);
+    }
+    fclose(data);
+
+
+    ts.m2 = m2_tmp;
+    ts.m1 = m1_tmp;
+    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
+    strcpy(ts.model,model_name);
 
 }
 
