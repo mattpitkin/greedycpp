@@ -150,30 +150,33 @@ void BuildTS_tensor_product(const int &m_size, const double &m_low, const double
 
 }
 
-void BuildTS_from_file(const char *ts_file, const char *model_name, TrainSet &ts)
+void BuildTS_from_file(const char *ts_file, const int ts_size, const char *model_name, TrainSet &ts)
 {
 
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
-    ts.ts_size = 900;
-
     double *m1_tmp, *m2_tmp;
-    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
-    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+    m1_tmp = (double *)malloc(ts_size*sizeof(double));
+    m2_tmp = (double *)malloc(ts_size*sizeof(double));
+    int counter = 0;
 
     FILE *data;
     data = fopen(ts_file,"r");
-    for (int i = 0; i <= 900; i++)
-    {
-        //fscanf(data, "%f %f", &m1_tmp[i],&m2_tmp[i]);
-        fscanf(data, "%lf", &m1_tmp[i]);
-        fscanf(data, "%lf", &m2_tmp[i]);
+    while(fscanf(data, "%lf %lf", &m1_tmp[counter],&m2_tmp[counter]) != EOF){
+        counter = counter + 1;
     }
     fclose(data);
 
+    std::cout << "ts size = " << counter << std::endl;
 
-    ts.m2 = m2_tmp;
-    ts.m1 = m1_tmp;
+    if( counter != ts_size){
+        std::cout << "TS file size does not match expected size" << std::endl;
+        exit(1);
+    }
+    
+    ts.ts_size     = ts_size;
+    ts.m2          = m2_tmp;
+    ts.m1          = m1_tmp;
     ts.distributed = false; // by default. set to true if SplitTrainingSet is called
     strcpy(ts.model,model_name);
 
@@ -434,6 +437,83 @@ void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matri
 
 }
 
+
+void IMGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
+{
+/*  Iterated modified GS routine. 
+
+   Input:  RB_space:    an existing orthonormal set of basis vectors
+           ortho_basis: basis we shall orthogonalize agains RB_space
+           wQuad:       quadrature weights for inner products
+           dim_RB:      number of elements currently in RB_space (ortho_basis is dim_RB+1 element)
+   Output: ortho_basis: orthonormal basis vector
+           ru:           1-by-(dim_RB+1) slice of the R matrix (from QR = A)
+
+   Hoffmann, "ITERATIVE ALGORITHMS FOR GRAM-SCHMIDT ORTHOGONALIZATION"
+
+*/
+
+    double ortho_condition = .5; // IMGS stopping condition (HARD CODED!!)
+
+    int quad_num     = RB_space->size2;
+    int r_size       = ru->size;
+    double nrm_prev  = GetNorm_double(ortho_basis,wQuad);
+    bool flag        = false;
+    int iter         = 0;
+    gsl_vector_complex *e,*r_last;
+    double nrm_current;
+    gsl_complex nrmc_current;
+
+    // --- allocate memory --- //
+    e = gsl_vector_complex_alloc(quad_num);
+    r_last = gsl_vector_complex_alloc(r_size);
+
+    gsl_vector_complex_memcpy(e,ortho_basis);
+    NormalizeVector(e,wQuad);
+    gsl_vector_complex_set_zero(ru); // if not done, R matrix fills up below diagonal with .5 instead of 0
+
+    // TODO: code below looks to have some redundent parts -- after working cleanup
+
+    while(!flag)
+    {
+        gsl_vector_complex_memcpy(ortho_basis,e);
+        gsl_vector_complex_set_zero(r_last);
+
+        MGS(r_last,ortho_basis,RB_space,wQuad,dim_RB);
+
+        gsl_vector_complex_add(ru,r_last);
+        nrmc_current = gsl_vector_complex_get(r_last,dim_RB);
+        nrm_current = GSL_REAL(nrmc_current);
+
+        gsl_vector_complex_scale(ortho_basis,nrmc_current);
+
+
+        if( nrm_current/nrm_prev <= ortho_condition )
+        {
+            nrm_prev = nrm_current;
+            iter = iter + 1;
+            gsl_vector_complex_memcpy(e,ortho_basis);
+
+        }
+        else
+        {
+            flag = true;
+        }
+
+        nrm_current  = GetNorm_double(ortho_basis,wQuad);
+        GSL_SET_COMPLEX(&nrmc_current,nrm_current,0.0);
+        gsl_vector_complex_set(ru,dim_RB,nrmc_current);
+
+        NormalizeVector(ortho_basis,wQuad);
+
+    }
+
+    gsl_vector_complex_free(e);
+    gsl_vector_complex_free(r_last);
+
+}
+
+
 void SplitTrainingSet(const int size, TrainSet &ts)
 {
     int *mystart_tmp, *myend_tmp, *matrix_sub_size_tmp;
@@ -497,6 +577,7 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
+/*
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
 {
 
@@ -726,7 +807,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
@@ -742,7 +824,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     *sel_rows = greedy_points;
     *app_err = greedy_err;
 
-    /*--- write R and RB to file ---*/
+    //--- write R and RB to file ---//
     rb_data = fopen(rb_filename,"w");
     gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
     fclose(rb_data);
@@ -761,6 +843,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     gsl_vector_complex_free(ru);
 
 }
+*/
+
 
 void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
 {
@@ -785,11 +869,12 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     double tmp,worst_err;      // errors in greedy sweep
     int worst_app;             // worst error stored
     gsl_complex tmpc;          // worst error temp
-    int continue_work = 1;
+    bool continue_work = true;
 
-    /* --- Output waveform here for matlab comparisons --- */
-    FILE *data;
-    char filename[] = "Basis.txt";
+    // --- Output waveform here for matlab comparisons --- //
+    FILE *rb_data, *r_data;
+    char rb_filename[] = "Basis.txt";
+    char r_filename[]  = "R.txt";
 
     gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
     gsl_matrix_complex *RB_space, *R_matrix;
@@ -815,13 +900,16 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     /* --- initialize algorithm with seed --- */
     gsl_matrix_complex_get_row(ts_el,A,seed);
     gsl_matrix_complex_set_row(RB_space,0,ts_el);
+    GSL_SET_COMPLEX(&tmpc,1.0,0.0);
+    gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // compute to mpi routine
+
     greedy_points[0] = seed;
     dim_RB           = 1;
     greedy_err[0]    = 1.0;
 
     /* --- Continue approximation until tolerance satisfied --- */
     start = clock();
-    while(continue_work == 1)
+    while(continue_work)
     {
 
         gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // get last computed basis
@@ -857,13 +945,14 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
         greedy_err[dim_RB] = worst_err;
 
         /* -- decide if another greedy sweep is needed -- */
-        if( (dim_RB+1 == max_RB) || worst_err < tol){
-            continue_work = 0;
+        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts.ts_size == dim_RB) ){
+            continue_work = false;
         }
 
         /* --- add worst approximated solution to basis set --- */
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
@@ -878,6 +967,14 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
     *sel_rows = greedy_points;
     *app_err = greedy_err;
+
+    //--- write R and RB to file ---//
+    rb_data = fopen(rb_filename,"w");
+    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
+    fclose(rb_data);
+    r_data = fopen(r_filename,"w");
+    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
+    fclose(r_data);
 
     gsl_vector_complex_free(ts_el);
     gsl_vector_complex_free(last_rb);
@@ -934,23 +1031,23 @@ void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const in
 int main (int argc, char **argv) {
 
     // NOTE: use "new" for dynamic memory allocation, will be input in future version
-    MPI::Init(argc, argv);
-    //MPI_Init(NULL, NULL);
+    //MPI::Init(argc, argv);
 
 
     // -- these information should be user input -- //
     // TODO: these can be input from a parameter file //
     const double a        = 40.0;                  // lower frequency value
     const double b        = 1024.0;                // upper frequency value
-    const int freq_points = 1969;                  // total number of frequency points
+    const int freq_points = 300;                  // total number of frequency points
     const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 30;                    // parameter points in each m1,m2 direction
+    const int m_size      = 17;                    // parameter points in each m1,m2 direction
+    const int ts_size     = 900;                   // if reading ts from file, specify size
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
     const int seed        = 0;                     // greedy algorithm seed
     const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
     const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
-    int max_RB = 300;                              // estimated number of RB (reasonable upper bound)
+    int max_RB            = 250;                   // estimated number of RB (reasonable upper bound)
 
     // -- declare variables --//
     double *app_err;
@@ -958,10 +1055,12 @@ int main (int argc, char **argv) {
     int dim_RB;
     int rank = 0;  // mpi information -- if running with mpi these will be reset
     int size = 1;  // mpi information -- if running with mpi these will be reset
+    FILE *data1;
     gsl_matrix_complex *TS_gsl;
     gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
     TrainSet ts;
+/*
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     rank = MPI::COMM_WORLD.Get_rank();
@@ -975,6 +1074,7 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
+*/
 
     // -- allocate memory --//
     wQuad = gsl_vector_complex_alloc(freq_points);
@@ -986,8 +1086,8 @@ int main (int argc, char **argv) {
 
     // -- build training set -- //
     // TODO: read in from file and populate ts //
-    BuildTS(m_size,m_low,m_high,model_wv,ts);
-
+    //BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
+    BuildTS_from_file("TS_Points.txt",ts_size,model_wv,ts);
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
@@ -998,9 +1098,10 @@ int main (int argc, char **argv) {
     else
     {
 
-        /* -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- */
+        // -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- //
         SplitTrainingSet(size,ts);
 
+/*
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
@@ -1015,6 +1116,7 @@ int main (int argc, char **argv) {
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
             gsl_matrix_complex_free(TS_gsl);
         }
+*/
 
     }
 
@@ -1030,6 +1132,19 @@ int main (int argc, char **argv) {
 
         free(app_err);
         free(selected_rows);
+
+/*
+        // --- output training set (assumes 1 proc) --- //
+        char filename[] = "TS_Points.txt";
+        data1 = fopen(filename,"w");
+        for(int i = 0; i < ts.ts_size ; i++)
+        {
+            //fprintf(data1,"%.15lf %.15lf\n",ts.m1[i]/mass_to_sec,ts.m2[i]/mass_to_sec);
+            fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
+        }
+        fclose(data1);
+*/
+
     }
 
     gsl_vector_complex_free(wQuad);
@@ -1044,7 +1159,7 @@ int main (int argc, char **argv) {
     }
 
     // Tell the MPI library to release all resources it is using:
-    MPI::Finalize();
+    //MPI::Finalize();
 
 }
 
