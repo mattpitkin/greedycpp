@@ -36,27 +36,13 @@
 
 #include "spa_waveforms.h"
 #include "psd.h"
-
+#include "TrainingSet.h"
 
 /*-- constants --*/
 double c = 299792458.0;                             // speed of light
 double c2 = c*c;
 double mass_to_sec = 1.98892e30*6.67428E-11/(c2*c); // Conversion factor to change Solar Mass units to seconds. assumes G = 6.67428E-11 and SolarMass = 1.98892e30
 double DL = 3.08568025E22;                          // Luminosity distance in meters, set to one megaparsec
-
-
-/*-- Training Set data structure -- */
-typedef struct
-tagTrainSet
-{
-  double *m1, *m2;      // each element of the training set is (m1[i],m2[i])
-  int ts_size;          // number of training set elements
-  bool distributed;     // true if training set will be split over worker procs/nodes
-  int *matrix_sub_size; // ts.myend[rank] - ts.mystart[rank] --> number of rows on each proc
-  int *mystart, *myend; // maps global row index of A into local worker index (when distributed = true)
-  char model[100];      // name of gravitational waveform model (ex: TaylorF2_PN3pt5)
-}
-TrainSet;
 
 
 /* --- fill array with linear spacing --- */
@@ -98,87 +84,6 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
     {
         wQuad[i] = (b-a)/( (double) (freq_points-1) );
     }
-
-}
-
-void BuildTS_tensor_product(const int &m_size, const double &m_low, const double &m_high, const char *model_name, TrainSet &ts)
-{
-
-    double *m1_tmp, *m2_tmp, *mass_list;
-    double m_i, m_j;
-    int counter = 0;
-    ts.ts_size = m_size*m_size; // specific to tensor product TS
-
-    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
-    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
-    mass_list = (double *)malloc(m_size*sizeof(double));
-
-    if(m1_tmp==NULL || m2_tmp==NULL || mass_list==NULL)
-    {
-        std::cout << "Failed to allocate memory in BuildTS" << std::endl;
-        free(m1_tmp); free(m2_tmp); free(mass_list);
-        exit(1);
-    }
-
-    Linspace(m_size, m_low, m_high, mass_list); // m_size equidistant points from m_low to m_high
-
-    // mass_list x mass_list tensor product -- (m1_temp[i],m2_temp[i]) ith training set element
-    for(int i = 0; i < m_size; i++)
-    {
-        m_i = mass_list[i];
-
-        for(int j = 0; j < m_size; j++)
-        {
-            m_j = mass_list[j];
-            m1_tmp[counter] = m_i;
-            m2_tmp[counter] = m_j;
-            counter = counter + 1;
-        }
-    }
-
-
-    /* --- fill training set data structure --- */
-    ts.m2 = m2_tmp;
-    ts.m1 = m1_tmp;
-    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
-    strcpy(ts.model,model_name);
-
-    std::cout << "Using waveform model: " << ts.model << std::endl;
-
-    /* -- NOTE: Free m1_tmp, m2_tmp in main through ts -- */
-    free(mass_list);
-
-}
-
-void BuildTS_from_file(const char *ts_file, const int ts_size, const char *model_name, TrainSet &ts)
-{
-
-    std::cout << "Reading TS points from file: " << ts_file << std::endl;
-
-    double *m1_tmp, *m2_tmp;
-    m1_tmp = (double *)malloc(ts_size*sizeof(double));
-    m2_tmp = (double *)malloc(ts_size*sizeof(double));
-    int counter = 0;
-
-    FILE *data;
-    data = fopen(ts_file,"r");
-    while(fscanf(data, "%lf %lf", &m1_tmp[counter],&m2_tmp[counter]) != EOF){
-        counter = counter + 1;
-    }
-    fclose(data);
-
-    std::cout << "ts size = " << counter << std::endl;
-
-    if( counter != ts_size){
-        std::cout << "TS file size does not match expected size" << std::endl;
-        exit(1);
-    }
-    
-    ts.ts_size     = ts_size;
-    ts.m2          = m2_tmp;
-    ts.m1          = m1_tmp;
-    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
-    strcpy(ts.model,model_name);
 
 }
 
@@ -513,48 +418,6 @@ void IMGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matr
 
 }
 
-
-void SplitTrainingSet(const int size, TrainSet &ts)
-{
-    int *mystart_tmp, *myend_tmp, *matrix_sub_size_tmp;
-
-    int numprocs_worker = size - 1; // master (proc 0) will do no work
-    int rows = ts.ts_size;
-    int proc_id;
-
-    mystart_tmp         = (int *)malloc(numprocs_worker*sizeof(int));
-    myend_tmp           = (int *)malloc(numprocs_worker*sizeof(int));
-    matrix_sub_size_tmp = (int *)malloc(numprocs_worker*sizeof(int));
-
-    for(int i = 2; i <= size; i++) 
-    {
-        proc_id = i-2;
-        mystart_tmp[i-2] = (rows / numprocs_worker) * proc_id;
-        if (rows % numprocs_worker > proc_id)
-        {
-            mystart_tmp[i-2] += proc_id;
-            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker) + 1;
-        }
-        else
-        {
-            mystart_tmp[i-2] += rows % numprocs_worker;
-            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker);
-        }
-    }
-
-    ts.distributed = true;
-
-    for(int i = 0; i < size - 1; i++){
-        matrix_sub_size_tmp[i] = myend_tmp[i] - mystart_tmp[i];
-    }
-
-    /* -- NOTE: Free mystart and myend in main -- */
-    ts.mystart         = mystart_tmp;
-    ts.myend           = myend_tmp;
-    ts.matrix_sub_size = matrix_sub_size_tmp;
-
-}
-
 int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 {
     int row_rank = 0;
@@ -574,6 +437,63 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
     }
 
     return row_rank;
+
+}
+
+void WriteGreedySelections(const int dim_RB,const int *selected_rows,const TrainSet ts)
+{
+    FILE *data;
+    char filename[] = "GreedyPoints.txt";
+    data = fopen(filename,"w");
+    for(int i = 0; i < dim_RB ; i++)
+    {
+        fprintf(data,"%1.14f %1.14f\n",ts.m1[selected_rows[i]]/mass_to_sec,ts.m2[selected_rows[i]]/mass_to_sec);
+    }
+    fclose(data);
+}
+
+void WriteGreedyError(const int dim_RB, const double *app_err)
+{
+
+    FILE *data;
+    char filename[] = "ApproxErrors.txt";
+    data = fopen(filename,"w");
+    for(int i = 0; i < dim_RB ; i++)
+    {
+        fprintf(data,"%1.14f\n",app_err[i]);
+    }
+    fclose(data);
+
+}
+
+void WriteGreedyRB(const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix)
+{
+    // --- Output waveform here for matlab comparisons --- //
+    FILE *rb_data, *r_data;
+    char rb_filename[] = "Basis.txt";
+    char r_filename[]  = "R.txt";
+
+    //--- write R and RB to file ---//
+    rb_data = fopen(rb_filename,"w");
+    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
+    fclose(rb_data);
+    r_data = fopen(r_filename,"w");
+    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
+    fclose(r_data);
+
+}
+
+void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const int indx)
+{
+
+    FILE *data;
+    char filename[] = "MockWaveform.txt";
+    data = fopen(filename,"w");
+    for(int cols = 0; cols < TS_gsl->size2 ; cols++)
+    {
+        fprintf(data,"%1.12e %1.12e %1.12e\n",xQuad[cols], GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)),GSL_IMAG( gsl_matrix_complex_get(TS_gsl,indx,cols) ));
+    }
+    fclose(data);
 
 }
 
@@ -846,7 +766,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 */
 
 
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts)
 {
 /* Input: 
           A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -871,31 +791,24 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_complex tmpc;          // worst error temp
     bool continue_work = true;
 
-    // --- Output waveform here for matlab comparisons --- //
-    FILE *rb_data, *r_data;
-    char rb_filename[] = "Basis.txt";
-    char r_filename[]  = "R.txt";
 
     gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
     gsl_matrix_complex *RB_space, *R_matrix;
     double *errors;                       // approximation errors with RB space of dimension dim_RB
     gsl_matrix_complex *project_coeff; // h = coeff_i e_i is approximation we seek
 
-    ru = gsl_vector_complex_alloc(max_RB);
-
 
     /* --- this memory should be freed here --- */
     ts_el         = gsl_vector_complex_alloc(cols);
     last_rb       = gsl_vector_complex_alloc(cols);
     ortho_basis   = gsl_vector_complex_alloc(cols);
+    ru = gsl_vector_complex_alloc(max_RB);
     errors        = (double *)malloc(rows*sizeof(double));
     project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
-
-    /* --- this memory should be freed in main --- */
     greedy_points = (int *)malloc(max_RB*sizeof(int));
     greedy_err    = (double *)malloc(max_RB*sizeof(double));
     RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
-    R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB); // SEE NOTE AT END OF ROUTINE
+    R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
 
     /* --- initialize algorithm with seed --- */
     gsl_matrix_complex_get_row(ts_el,A,seed);
@@ -904,7 +817,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // compute to mpi routine
 
     greedy_points[0] = seed;
-    dim_RB           = 1;
+    int dim_RB           = 1;
     greedy_err[0]    = 1.0;
 
     /* --- Continue approximation until tolerance satisfied --- */
@@ -951,8 +864,8 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
         /* --- add worst approximated solution to basis set --- */
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        //IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
@@ -965,68 +878,26 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
     fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
     dim_RB = dim_RB - 1;
-    *sel_rows = greedy_points;
-    *app_err = greedy_err;
 
-    //--- write R and RB to file ---//
-    rb_data = fopen(rb_filename,"w");
-    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
-    fclose(rb_data);
-    r_data = fopen(r_filename,"w");
-    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
-    fclose(r_data);
+    // -- output relevant information -- //
+    WriteGreedyRB(RB_space, R_matrix);
+    WriteGreedySelections(dim_RB,greedy_points,ts);
+    WriteGreedyError(dim_RB,greedy_err);
+
+
 
     gsl_vector_complex_free(ts_el);
     gsl_vector_complex_free(last_rb);
     gsl_vector_complex_free(ortho_basis);
+    gsl_vector_complex_free(ru);
     free(errors);
     gsl_matrix_complex_free(project_coeff);
+    free(greedy_points);
+    free(greedy_err);
     gsl_matrix_complex_free(RB_space); // this and R_matrix should be written to file
     gsl_matrix_complex_free(R_matrix);
-    gsl_vector_complex_free(ru);
 
 }
-
-void WriteGreedySelections(const int dim_RB,const int *selected_rows,const TrainSet ts)
-{
-    FILE *data;
-    char filename[] = "GreedyPoints.txt";
-    data = fopen(filename,"w");
-    for(int i = 0; i < dim_RB ; i++)
-    {
-        fprintf(data,"%1.14f %1.14f\n",ts.m1[selected_rows[i]]/mass_to_sec,ts.m2[selected_rows[i]]/mass_to_sec);
-    }
-    fclose(data);
-}
-
-void WriteGreedyError(const int dim_RB, const double *app_err)
-{
-
-    FILE *data;
-    char filename[] = "ApproxErrors.txt";
-    data = fopen(filename,"w");
-    for(int i = 0; i < dim_RB ; i++)
-    {
-        fprintf(data,"%1.14f\n",app_err[i]);
-    }
-    fclose(data);
-
-}
-
-void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const int indx)
-{
-
-    FILE *data;
-    char filename[] = "MockWaveform.txt";
-    data = fopen(filename,"w");
-    for(int cols = 0; cols < TS_gsl->size2 ; cols++)
-    {
-        fprintf(data,"%1.12e %1.12e %1.12e\n",xQuad[cols], GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)),GSL_IMAG( gsl_matrix_complex_get(TS_gsl,indx,cols) ));
-    }
-    fclose(data);
-
-}
-
 
 int main (int argc, char **argv) {
 
@@ -1038,21 +909,18 @@ int main (int argc, char **argv) {
     // TODO: these can be input from a parameter file //
     const double a        = 40.0;                  // lower frequency value
     const double b        = 1024.0;                // upper frequency value
-    const int freq_points = 300;                  // total number of frequency points
+    const int freq_points = 1969;                  // total number of frequency points
     const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 17;                    // parameter points in each m1,m2 direction
+    const int m_size      = 30;                    // parameter points in each m1,m2 direction
     const int ts_size     = 900;                   // if reading ts from file, specify size
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
     const int seed        = 0;                     // greedy algorithm seed
     const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
     const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
-    int max_RB            = 250;                   // estimated number of RB (reasonable upper bound)
+    int max_RB            = 300;                   // estimated number of RB (reasonable upper bound)
 
     // -- declare variables --//
-    double *app_err;
-    int *selected_rows;
-    int dim_RB;
     int rank = 0;  // mpi information -- if running with mpi these will be reset
     int size = 1;  // mpi information -- if running with mpi these will be reset
     FILE *data1;
@@ -1086,14 +954,14 @@ int main (int argc, char **argv) {
 
     // -- build training set -- //
     // TODO: read in from file and populate ts //
-    //BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
-    BuildTS_from_file("TS_Points.txt",ts_size,model_wv,ts);
+    BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
+    //BuildTS_from_file("TS_Points.txt",ts_size,model_wv,ts);
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts);
     }
     else
     {
@@ -1122,16 +990,10 @@ int main (int argc, char **argv) {
 
     if(rank == 0)
     {
-        /* --- output quantities of interest to file --- */
-        WriteGreedySelections(dim_RB,selected_rows,ts);
-        WriteGreedyError(dim_RB,app_err);
         if(size == 1){
             WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
             gsl_matrix_complex_free(TS_gsl);
         }
-
-        free(app_err);
-        free(selected_rows);
 
 /*
         // --- output training set (assumes 1 proc) --- //
