@@ -9,7 +9,7 @@
 //#include "nr3.h"
 #include "gauss_wgts.h"
 
-//#include <mpi.h> // MPI STUFF
+#include <mpi.h> // MPI STUFF
 
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
@@ -497,7 +497,7 @@ void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const in
 
 }
 
-/*
+
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
 {
 
@@ -607,7 +607,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     free(errors);
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts,int **sel_rows,double **app_err,int &dim_RB)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -637,16 +637,10 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     int dummy_mpi_int        = -1;
     double dummy_mpi_double  = -1.0;
     int continue_work = 1;
-
-    // --- Output waveform here for matlab comparisons --- //
-    FILE *rb_data, *r_data;
-    char rb_filename[] = "Basis.txt";
-    char r_filename[]  = "R.txt";
+    int dim_RB       = 1;
 
     gsl_vector_complex *ortho_basis, *ru;
     gsl_matrix_complex *RB_space, *R_matrix;
-
-    ru = gsl_vector_complex_alloc(max_RB); // TODO: only need upper part, will this initialize to zeros?
 
     // --- this memory should be freed here --- //
     ortho_basis       = gsl_vector_complex_alloc(cols);
@@ -656,10 +650,9 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     worst_errs_mpi    = (double *)malloc(size*sizeof(double));
     RB_space          = gsl_matrix_complex_alloc(max_RB,cols); 
     R_matrix          = gsl_matrix_complex_alloc(max_RB,max_RB);
-
-    // --- this memory should be freed in main --- //
-    greedy_points = (int *)malloc(max_RB*sizeof(int));
-    greedy_err    = (double *)malloc(max_RB*sizeof(double));
+    greedy_points     = (int *)malloc(max_RB*sizeof(int));
+    greedy_err        = (double *)malloc(max_RB*sizeof(double));
+    ru                = gsl_vector_complex_alloc(max_RB);
 
     // --- initialize algorithm with seed --- //
     int seed_rank = FindRowIndxRank(seed,ts);
@@ -741,42 +734,37 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
     fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
     dim_RB = dim_RB - 1;
-    *sel_rows = greedy_points;
-    *app_err = greedy_err;
 
-    //--- write R and RB to file ---//
-    rb_data = fopen(rb_filename,"w");
-    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
-    fclose(rb_data);
-    r_data = fopen(r_filename,"w");
-    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
-    fclose(r_data);
+    // -- output relevant information -- //
+    WriteGreedyRB(RB_space, R_matrix);
+    WriteGreedySelections(dim_RB,greedy_points,ts);
+    WriteGreedyError(dim_RB,greedy_err);
 
 
     gsl_vector_complex_free(ortho_basis);
-    gsl_matrix_complex_free(RB_space);  //TODO: this and R_Matrx should be written to file
-    gsl_matrix_complex_free(R_matrix);
     free(vec_real);
     free(vec_imag);
     free(worst_workers_mpi);
     free(worst_errs_mpi);
+    gsl_matrix_complex_free(RB_space); 
+    gsl_matrix_complex_free(R_matrix);
+    free(greedy_points);
+    free(greedy_err);
     gsl_vector_complex_free(ru);
 
 }
-*/
-
 
 void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts)
 {
-/* Input: 
-          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
-          seed: first greedy pick
-          tol: approximation tolerance
-
-   Output:
-          sel_rows: row index defining reduced basis. sel_rows[0] = seed
-          dim_RB: number of greedy_points
-*/
+// Input: 
+//          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
+//          seed: first greedy pick
+//          tol: approximation tolerance
+//
+// Output:
+//          sel_rows: row index defining reduced basis. sel_rows[0] = seed
+//          dim_RB: number of greedy_points
+//
 
     fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
@@ -798,7 +786,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_matrix_complex *project_coeff; // h = coeff_i e_i is approximation we seek
 
 
-    /* --- this memory should be freed here --- */
+    // --- this memory should be freed here --- //
     ts_el         = gsl_vector_complex_alloc(cols);
     last_rb       = gsl_vector_complex_alloc(cols);
     ortho_basis   = gsl_vector_complex_alloc(cols);
@@ -810,17 +798,17 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
     R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
 
-    /* --- initialize algorithm with seed --- */
+    // --- initialize algorithm with seed --- //
     gsl_matrix_complex_get_row(ts_el,A,seed);
     gsl_matrix_complex_set_row(RB_space,0,ts_el);
     GSL_SET_COMPLEX(&tmpc,1.0,0.0);
     gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // compute to mpi routine
 
     greedy_points[0] = seed;
-    int dim_RB           = 1;
+    int dim_RB       = 1;
     greedy_err[0]    = 1.0;
 
-    /* --- Continue approximation until tolerance satisfied --- */
+    // --- Continue approximation until tolerance satisfied --- //
     start = clock();
     while(continue_work)
     {
@@ -828,7 +816,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
         gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // get last computed basis
         worst_err = 0.0;
 
-        /* --- Loop over training set ---*/
+        // --- Loop over training set ---//
         for(int i = 0; i < rows; i++)
         {
 
@@ -853,16 +841,16 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
         }
 
-        /* --- add worst approximated element to basis --- */
+        // --- add worst approximated element to basis --- //
         greedy_points[dim_RB] = worst_app;
         greedy_err[dim_RB] = worst_err;
 
-        /* -- decide if another greedy sweep is needed -- */
+        // -- decide if another greedy sweep is needed -- //
         if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts.ts_size == dim_RB) ){
             continue_work = false;
         }
 
-        /* --- add worst approximated solution to basis set --- */
+        // --- add worst approximated solution to basis set --- //
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
         //IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
@@ -885,7 +873,6 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     WriteGreedyError(dim_RB,greedy_err);
 
 
-
     gsl_vector_complex_free(ts_el);
     gsl_vector_complex_free(last_rb);
     gsl_vector_complex_free(ortho_basis);
@@ -902,7 +889,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 int main (int argc, char **argv) {
 
     // NOTE: use "new" for dynamic memory allocation, will be input in future version
-    //MPI::Init(argc, argv);
+    MPI::Init(argc, argv);
 
 
     // -- these information should be user input -- //
@@ -928,7 +915,6 @@ int main (int argc, char **argv) {
     gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
     TrainSet ts;
-/*
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     rank = MPI::COMM_WORLD.Get_rank();
@@ -942,7 +928,7 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
-*/
+
 
     // -- allocate memory --//
     wQuad = gsl_vector_complex_alloc(freq_points);
@@ -969,7 +955,6 @@ int main (int argc, char **argv) {
         // -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- //
         SplitTrainingSet(size,ts);
 
-/*
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
@@ -978,13 +963,12 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,&selected_rows,&app_err,dim_RB);
+            GreedyMaster(size,max_RB,seed,wQuad,tol,ts);
         }
         else{
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
             gsl_matrix_complex_free(TS_gsl);
         }
-*/
 
     }
 
@@ -1020,8 +1004,8 @@ int main (int argc, char **argv) {
         free(ts.matrix_sub_size);
     }
 
-    // Tell the MPI library to release all resources it is using:
-    //MPI::Finalize();
+    // Tell the MPI library to release all resources it is using
+    MPI::Finalize();
 
 }
 
