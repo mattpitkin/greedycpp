@@ -9,6 +9,30 @@ Usage
 1) run 'make'
 2) mpirun -np NUM_PROCS ./greedympi
 
+-- mpi on SuperMike2 --
+
+0) add the following to ~/.soft:
++Intel-13.0.0
+@default
++gsl-1.15-Intel-13.0.0
+@default
++openmpi-1.6.3-Intel-13.0.0
+@default
+
+and run 'resoft'
+
+1) open make file and replace mpi install command with
+
+mpicxx -o greedympi greedy.cpp TrainingSet.cpp -I/usr/local/packages/gsl/1.15/Intel-13.0.0/include -L/usr/local/packages/gsl/1.15/Intel-13.0.0/lib -lgsl -lgslcblas -lm
+
+2) run 'make'
+
+3) open mpiGreedyQsub and set number of nodes.
+
+4) run 'qsub mpiGreedyQsub' (this will print a jobID to screen)
+
+5) monitor job with qstat jobID
+
 Running without mpi
 -------------------
 
