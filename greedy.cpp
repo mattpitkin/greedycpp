@@ -942,11 +942,12 @@ int main (int argc, char **argv) {
     const int ts_size     = 2734;                  // if reading ts from file, specify size
     const double m_low    = 1.0*mass_to_sec;       // lower mass value
     const double m_high   = 3.0*mass_to_sec;       // higher mass value
+    bool load_from_file   = false;                 // load training points from file instead (file name used is below)
     const int seed        = 0;                     // greedy algorithm seed
     const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
     const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
     int max_RB            = 900;                   // estimated number of RB (reasonable upper bound)
-    bool whiten           = true;                 // whether or not to whiten the waveforms with the ASD when calculating overlaps
+    bool whiten           = false;                 // whether or not to whiten the waveforms with the ASD when calculating overlaps
 
     // -- declare variables --//
     int rank = 0;  // mpi information -- if running with mpi these will be reset
@@ -981,8 +982,14 @@ int main (int argc, char **argv) {
 
     // -- build training set -- //
     // TODO: read in from file and populate ts //
-    //BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
-    BuildTS_from_file("test_bank.txt",ts_size,model_wv,ts);
+    if(load_from_file)
+    {
+        BuildTS_from_file("test_bank.txt",ts_size,model_wv,ts);
+    }
+    else
+    {
+        BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
+    }
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
@@ -998,7 +1005,7 @@ int main (int argc, char **argv) {
 
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
-            FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
+            FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1,whiten);
         }
 
         fprintf(stdout,"Finished distribution of training set\n");
