@@ -90,6 +90,21 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
 
 }
 
+void DynamicQuad(double *wQuad, gsl_vector *xQuad, const int freq_points)
+{
+    double this_f, next_f;
+
+    this_f = gsl_vector_get(xQuad, 0);
+    for(int i = 0; i < freq_points-1; i++)
+    {
+        next_f = gsl_vector_get(xQuad, i+1);
+        wQuad[i] = next_f - this_f;
+        this_f = next_f;
+    }
+    // set weight of last point to 0
+    wQuad[freq_points-1] = 0.;
+}
+
 void OutputArray(const int n, double *list)
 {
     for(int i=0;i<n;i++){
@@ -146,7 +161,10 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
 {
     double *wQuad_tmp, *xQuad_tmp;
     wQuad_tmp = new double[freq_points];
-    xQuad_tmp = new double[freq_points];
+    if(quad_type != 2)
+    {
+        xQuad_tmp = new double[freq_points];
+    }
 
     // -- Gauss-Leg quadrature -- //
     if(quad_type == 0)
@@ -156,6 +174,10 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
     else if(quad_type == 1)
     {
         ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,freq_points);
+    }
+    else if(quad_type == 2)
+    {
+        DynamicQuad(wQuad_tmp, xQuad_c, freq_points);
     }
     else
     {
@@ -173,8 +195,11 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
         gsl_vector_complex_set(wQuad_c,i,zM1);
     }
 
-    for (int i = 0; i < freq_points; i++){
-        gsl_vector_set(xQuad_c,i,xQuad_tmp[i]);
+    if(quad_type != 2)
+    {
+        for (int i = 0; i < freq_points; i++){
+            gsl_vector_set(xQuad_c,i,xQuad_tmp[i]);
+        }
     }
 
 
@@ -940,7 +965,6 @@ int main (int argc, char **argv) {
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
 
-
     //----- Checking the number of Variables passed to the Executable -----//
     if (argc != 2) {
         std::cerr << "Arguments: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
@@ -1013,6 +1037,19 @@ int main (int argc, char **argv) {
     // -- allocate memory --//
     wQuad = gsl_vector_complex_alloc(freq_points);
     xQuad = gsl_vector_alloc(freq_points);
+
+    // load frequency vector for dynamic frequency 
+    if(quad_type == 2)
+    {
+        FILE *fvecf = fopen("frequency_vector.txt", "r");
+        gsl_status = gsl_vector_fscanf(fvecf, xQuad);
+        fclose(fvecf);
+        if( gsl_status == GSL_EFAILED )
+        {
+            fprintf(stderr, "Error reading frequency_vector.txt\n");
+            exit(1);
+        }
+    }
 
     /* -- all procs should have a copy of the quadrature rule -- */
     // TODO: on nodes can this be shared? Whats the best way to impliment it? 
