@@ -986,8 +986,8 @@ int main (int argc, char **argv) {
       return(EXIT_FAILURE);
     }
 
-    const double a        = cfg.lookup("a");              // lower frequency value
-    const double b        = cfg.lookup("b");              // upper frequency value
+    const double a        = cfg.lookup("a");              // lower value x_min (physical domain)
+    const double b        = cfg.lookup("b");              // upper value x_max (physical domain)
     const int freq_points = cfg.lookup("freq_points");    // total number of frequency points
     const int quad_type   = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
     const int m_size      = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
