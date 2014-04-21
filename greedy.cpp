@@ -16,6 +16,7 @@
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
 #include <iostream>
+#include <iomanip>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -294,8 +295,14 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
         for(int i = 0; i < matrix_size; i++)
         {
             global_i = start_ind + i;
-            params[0] = ts.m1[global_i] * mass_to_sec;
-            params[1] = ts.m2[global_i] * mass_to_sec;
+
+            //params[0] = ts.m1[global_i] * mass_to_sec;
+            //params[1] = ts.m2[global_i] * mass_to_sec;
+
+            params[0] = ts.m1[global_i];
+            params[1] = ts.m2[global_i];
+
+
             TF2_FullWaveform(wv,params,xQuad,1.0,PN);
             // divide by the ASD to whiten
             if(whiten)
@@ -762,8 +769,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        //IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
@@ -930,65 +937,18 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
 int main (int argc, char **argv) {
 
-    // NOTE: use "new" for dynamic memory allocation, will be input in future version
+
+
+    // --- setup MPI info ---//
     MPI::Init(argc, argv);
 
-    libconfig::Config cfg;
-
-    // Read the file. If there is an error, report it and exit.
-/*
-    try
-    {
-      cfg.readFile("tmp.cfg");
-    }
-    catch(const FileIOException &fioex)
-    {
-      std::cerr << "I/O error while reading file." << std::endl;
-      return(EXIT_FAILURE);
-    }
-    catch(const ParseException &pex)
-    {
-      std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-                << " - " << pex.getError() << std::endl;
-      return(EXIT_FAILURE);
-    }
-*/
-
-    cfg.readFile("tmp.cfg");
-    double test_pi = cfg.lookup("test_pi");
-    std::cout << "pi is " << test_pi << std::endl;
-
-    // -- these information should be user input -- //
-    // TODO: these can be input from a parameter file //
-    const double a        = 40.0;                  // lower frequency value
-    const double b        = 1024.0;                // upper frequency value
-    const int freq_points = 1968;                  // total number of frequency points
-    const int quad_type   = 1;                     // 0 = LGL, 1 = Reimman sum
-    const int m_size      = 30;                    // parameter points in each m1,m2 direction
-    const int ts_size     = 2734;                  // if reading ts from file, specify size
-    const double m_low    = 1.0*mass_to_sec;       // lower mass value
-    const double m_high   = 3.0*mass_to_sec;       // higher mass value
-    bool load_from_file   = false;                 // load training points from file instead (file name used is below)
-    const int seed        = 0;                     // greedy algorithm seed
-    const double tol      = 1e-12;                 // greedy algorithm tolerance ( \| app \|^2)
-    const char model_wv[] = "TaylorF2_PN3pt5";     // type of gravitational waveform model
-    int max_RB            = 900;                   // estimated number of RB (reasonable upper bound)
-    bool whiten           = false;                 // whether or not to whiten the waveforms with the ASD when calculating overlaps
-
-    // -- declare variables --//
-    int rank = 0;  // mpi information -- if running with mpi these will be reset
-    int size = 1;  // mpi information -- if running with mpi these will be reset
-    FILE *data1;
-    gsl_matrix_complex *TS_gsl;
-    gsl_vector_complex *wQuad;
-    gsl_vector *xQuad;
-    TrainSet ts;
+    int rank = 0;  // needed for serial mode too
+    int size = 1;  // needed for serial mode too
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     rank = MPI::COMM_WORLD.Get_rank();
     size = MPI::COMM_WORLD.Get_size();
 
-    // Get the name of this processor (usually the hostname) //                        
     char name[MPI_MAX_PROCESSOR_NAME];
     int len;
     memset(name,0,MPI_MAX_PROCESSOR_NAME);
@@ -996,6 +956,63 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
+
+
+
+    //----- Checking the number of Variables passed to the Executable -----//
+    if (argc != 2) {
+        std::cerr << "Arguments: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
+        exit(0);
+    }
+    std::cout << "parameter file is: " << argv[1] << std::endl;
+
+
+    //--- Read input (config) file. If there is an error, report it and exit ---//
+    // TODO: with MPI, multiple procs reading same paramter file... seems bad //
+    libconfig::Config cfg;
+    try
+    {
+      //cfg.readFile("tmp.cfg");
+      cfg.readFile(argv[1]);
+    }
+    catch(const libconfig::FileIOException &fioex)
+    {
+      std::cerr << "I/O error while reading file." << std::endl;
+      return(EXIT_FAILURE);
+    }
+    catch(const libconfig::ParseException &pex)
+    {
+      std::cerr << "Parse error " << std::endl;
+      return(EXIT_FAILURE);
+    }
+
+    const double a        = cfg.lookup("a");              // lower frequency value
+    const double b        = cfg.lookup("b");              // upper frequency value
+    const int freq_points = cfg.lookup("freq_points");    // total number of frequency points
+    const int quad_type   = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
+    const int m_size      = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
+    const int ts_size     = cfg.lookup("ts_size");        // if reading ts from file, specify size
+    double m_low          = cfg.lookup("m_low");          // lower mass value (in solar masses)
+    double m_high         = cfg.lookup("m_high");         // higher mass value (in solar masses)
+    bool load_from_file   = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
+    const int seed        = cfg.lookup("seed");           // greedy algorithm seed
+    const double tol      = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
+    std::string model_str = cfg.lookup("model_str");      // type of gravitational waveform model
+    int max_RB            = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
+    bool whiten           = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
+
+    m_low                 = m_low * mass_to_sec;
+    m_high                = m_high * mass_to_sec;
+    const char * model_wv = model_str.c_str();
+
+
+
+    // -- declare variables --//
+    FILE *data1;
+    gsl_matrix_complex *TS_gsl;
+    gsl_vector_complex *wQuad;
+    gsl_vector *xQuad;
+    TrainSet ts;
 
 
     // -- allocate memory --//
@@ -1007,7 +1024,6 @@ int main (int argc, char **argv) {
     MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
 
     // -- build training set -- //
-    // TODO: read in from file and populate ts //
     if(load_from_file)
     {
         BuildTS_from_file("test_bank.txt",ts_size,model_wv,ts);
