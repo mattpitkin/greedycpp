@@ -769,8 +769,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        //IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
@@ -901,8 +901,8 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
         // --- add worst approximated solution to basis set --- //
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        //IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-        MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
