@@ -1,0 +1,29 @@
+#!/bin/bash
+# No shell commands before PBS is set up.
+#
+# "workq" is the default job queue.
+#PBS -q workq 
+#
+# Set the appropriate project allocation code
+#PBS -A hpc_numrel05 
+#
+# Set number of nodes and number of processors on each node
+# to be used. Set ppn (number of cores) to 16 for SuperMike2.
+#PBS -l nodes=2:ppn=16
+#
+# Set time job is allowed to run in hh:mm:ss
+#PBS -l walltime=00:5:00 
+#
+# Send stdout to a named file
+#PBS -o mpiGreedy.out 
+#
+# Merge stderr messages with stdout
+#PBS -j oe 
+#
+# Give the job a name for easier tracking
+#PBS -N mpiGreedy.job
+#
+# Shell commands may begin here
+
+export NPROCS=`wc -l $PBS_NODEFILE |gawk '//{print $1}'`
+mpirun -machinefile $PBS_NODEFILE -np $NPROCS /home/rsmith/projects/greedycpp/greedympi
