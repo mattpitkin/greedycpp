@@ -9,7 +9,9 @@
 //#include "nr3.h"
 #include "gauss_wgts.h"
 
-#include <mpi.h> // MPI STUFF
+#include <libconfig.h++>
+
+#include <mpi.h>
 
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
@@ -891,6 +893,30 @@ int main (int argc, char **argv) {
     // NOTE: use "new" for dynamic memory allocation, will be input in future version
     MPI::Init(argc, argv);
 
+    libconfig::Config cfg;
+
+    // Read the file. If there is an error, report it and exit.
+/*
+    try
+    {
+      cfg.readFile("tmp.cfg");
+    }
+    catch(const FileIOException &fioex)
+    {
+      std::cerr << "I/O error while reading file." << std::endl;
+      return(EXIT_FAILURE);
+    }
+    catch(const ParseException &pex)
+    {
+      std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+                << " - " << pex.getError() << std::endl;
+      return(EXIT_FAILURE);
+    }
+*/
+
+    cfg.readFile("tmp.cfg");
+    double test_pi = cfg.lookup("test_pi");
+    std::cout << "pi is " << test_pi << std::endl;
 
     // -- these information should be user input -- //
     // TODO: these can be input from a parameter file //
