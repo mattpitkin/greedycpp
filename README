@@ -1,3 +1,14 @@
+Goal
+----
+Given a parameterized model h, whose physical variable is x, and a collection of
+evaluations at a training set p we have a training space
+
+   { h(x_j;t_i) }
+
+
+... ADD MORE HERE
+
+
 Usage
 -----
 

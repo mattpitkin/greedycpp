@@ -100,6 +100,8 @@ void OutputArray(const int n, double *list)
 void MakeWeightedInnerProduct(gsl_vector_complex *wQuad)
 {
 
+    // TODO: error check that input weight and wQuad are of equal length //
+
     int gsl_status;
     gsl_complex z;
     double a;
