@@ -97,6 +97,49 @@ void OutputArray(const int n, double *list)
     }
 }
 
+void MakeWeightedInnerProduct(gsl_vector_complex *wQuad)
+{
+
+    int gsl_status;
+    gsl_complex z;
+    double a;
+    gsl_vector *asd;
+
+    // load the weight //
+    fprintf(stdout, "Loading ASD (weight) ...\n");
+    asd = gsl_vector_alloc(wQuad->size);
+    FILE *asdf = fopen("ASD.txt", "r");
+    gsl_status = gsl_vector_fscanf(asdf, asd);
+    fclose(asdf);
+    if( gsl_status == GSL_EFAILED )
+    {
+        fprintf(stderr, "Error reading ASD.txt\n");
+        exit(1);
+    }
+
+    // divide by the ASD //
+    for(int jj = 0; jj < wQuad->size; jj++)
+    {
+        z = gsl_vector_complex_get(wQuad, jj);
+        a = gsl_vector_get(asd, jj);
+        /*if(i < 10 && jj < 10)
+        {
+            fprintf(stdout, "i: %i j: %i\n  a: %e  z before: %e + i %e", i, jj, a, GSL_REAL(z), GSL_IMAG(z));
+        }*/
+
+        // TODO: should this be squared for ASD?
+        z = gsl_complex_div_real(z, a);
+
+        /*if(i < 10 && jj < 10){
+            fprintf(stdout, "  z after: %e + i %e\n", GSL_REAL(z), GSL_IMAG(z));
+        }*/
+        gsl_vector_complex_set(wQuad, jj, z);
+    }
+
+    gsl_vector_free(asd);
+
+}
+
 void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int freq_points,const int quad_type)
 {
     double *wQuad_tmp, *xQuad_tmp;
@@ -237,39 +280,17 @@ void TF2_FullWaveform(gsl_vector_complex *wv, double *params, const gsl_vector *
 
 }
 
-
-void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts, const int rank, const bool whiten)
+void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts, const int rank)
 {
-    // TODO: changes to this entire routine needed for different approximants //
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
 
     // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
     gsl_vector_complex *wv;
     double *params;
-    double PN;
     int start_ind, end_ind, global_i, matrix_size;
-    int gsl_status;
-    gsl_vector *asd;
-    gsl_complex z;
-    double a;
 
     wv = gsl_vector_complex_alloc(xQuad->size);
-    // if whitening, load the ASD
-    if (whiten)
-    {
-        fprintf(stdout, "Loading ASD to whiten...\n");
-        asd = gsl_vector_alloc(xQuad->size);
-        FILE *asdf = fopen("ASD.txt", "r");
-        gsl_status = gsl_vector_fscanf(asdf, asd);
-        fclose(asdf);
-        if( gsl_status == GSL_EFAILED )
-        {
-            fprintf(stderr, "Error reading ASD.txt\n");
-            exit(1);
-        }
-    }
-
 
     if(ts.distributed){
         start_ind   = ts.mystart[rank];
@@ -284,65 +305,33 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     }
     
 
-    if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0)
-    {
+    if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0){
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
-        PN        = 3.5;
         params    = new double[4]; // (m1,m2,tc,phi_c)
         params[2] = 0.0;  // dummy variable (tc in waveform generation)
         params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
 
-        for(int i = 0; i < matrix_size; i++)
-        {
+        for(int i = 0; i < matrix_size; i++){
             global_i = start_ind + i;
-
-            //params[0] = ts.m1[global_i] * mass_to_sec;
-            //params[1] = ts.m2[global_i] * mass_to_sec;
-
             params[0] = ts.m1[global_i];
             params[1] = ts.m2[global_i];
 
-
-            TF2_FullWaveform(wv,params,xQuad,1.0,PN);
-            // divide by the ASD to whiten
-            if(whiten)
-            {
-                for(int jj = 0; jj < xQuad->size; jj++)
-                {
-                    z = gsl_vector_complex_get(wv, jj);
-                    a = gsl_vector_get(asd, jj);
-                    /*if(i < 10 && jj < 10)
-                    {
-                        fprintf(stdout, "i: %i j: %i\n  a: %e  z before: %e + i %e", i, jj, a, GSL_REAL(z), GSL_IMAG(z));
-                    }*/
-                    z = gsl_complex_div_real(z, a);
-                    /*if(i < 10 && jj < 10)
-                    {
-                        fprintf(stdout, "  z after: %e + i %e\n", GSL_REAL(z), GSL_IMAG(z));
-                    }*/
-                    gsl_vector_complex_set(wv, jj, z);
-                }
-            }
+            TF2_FullWaveform(wv,params,xQuad,1.0,3.5);
             gsl_matrix_complex_set_row(TS_gsl,i,wv);
         }
 
     }
-    else
-    {
-        std::cout << "Approximant not supported!" << std::endl;
+    else{
+        std::cerr << "Approximant not supported!" << std::endl;
         exit(1);
     }    
 
-    std::cout << "Training set size is " << ts.ts_size << std::endl;
-
-    /* -- Normalize training space here -- */
+    // -- Normalize training space here -- //
     fprintf(stdout,"Normalizing training set...\n");
     NormalizeTS(TS_gsl,wQuad);
 
     delete[] params;
     gsl_vector_complex_free(wv);
-    if(whiten){
-        gsl_vector_free(asd);}
 }
 
 void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
@@ -1006,7 +995,6 @@ int main (int argc, char **argv) {
     const char * model_wv = model_str.c_str();
 
 
-
     // -- declare variables --//
     FILE *data1;
     gsl_matrix_complex *TS_gsl;
@@ -1023,6 +1011,12 @@ int main (int argc, char **argv) {
     // TODO: on nodes can this be shared? Whats the best way to impliment it? 
     MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
 
+    // role inner product weight into wQuad //
+    if(whiten){
+        MakeWeightedInnerProduct(wQuad);
+    }
+
+
     // -- build training set -- //
     if(load_from_file)
     {
@@ -1036,7 +1030,7 @@ int main (int argc, char **argv) {
     if(size == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
-        FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0,whiten);
+        FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
         Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts);
     }
     else
@@ -1047,7 +1041,7 @@ int main (int argc, char **argv) {
 
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
-            FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1,whiten);
+            FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
         }
 
         fprintf(stdout,"Finished distribution of training set\n");
