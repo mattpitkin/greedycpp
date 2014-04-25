@@ -480,38 +480,24 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
-void WriteGreedySelections(const int dim_RB,const int *selected_rows,const TrainSet ts)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts)
 {
-    FILE *data;
-    char filename[] = "GreedyPoints.txt";
-    data = fopen(filename,"w");
+    FILE *rb_data, *r_data, *err_data, *pts_data;
+    char rb_filename[]  = "Basis.txt";
+    char r_filename[]   = "R.txt";
+    char err_filename[] = "ApproxErrors.txt";
+    char pts_filename[] = "GreedyPoints.txt";
+
+    //---write errors and greedy points to file ---//
+    err_data = fopen(err_filename,"w");
+    pts_data = fopen(pts_filename,"w");
     for(int i = 0; i < dim_RB ; i++)
     {
-        fprintf(data,"%1.14f %1.14f\n",ts.m1[selected_rows[i]]/mass_to_sec,ts.m2[selected_rows[i]]/mass_to_sec);
+        fprintf(err_data,"%1.14f\n",app_err[i]);
+        fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]]/mass_to_sec,ts.m2[sel_rows[i]]/mass_to_sec);
     }
-    fclose(data);
-}
-
-void WriteGreedyError(const int dim_RB, const double *app_err)
-{
-
-    FILE *data;
-    char filename[] = "ApproxErrors.txt";
-    data = fopen(filename,"w");
-    for(int i = 0; i < dim_RB ; i++)
-    {
-        fprintf(data,"%1.14f\n",app_err[i]);
-    }
-    fclose(data);
-
-}
-
-void WriteGreedyRB(const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix)
-{
-    // --- Output waveform here for matlab comparisons --- //
-    FILE *rb_data, *r_data;
-    char rb_filename[] = "Basis.txt";
-    char r_filename[]  = "R.txt";
+    fclose(err_data);
+    fclose(pts_data);
 
     //--- write R and RB to file ---//
     rb_data = fopen(rb_filename,"w");
@@ -776,9 +762,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyRB(RB_space, R_matrix);
-    WriteGreedySelections(dim_RB,greedy_points,ts);
-    WriteGreedyError(dim_RB,greedy_err);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts);
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -908,9 +892,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyRB(RB_space, R_matrix);
-    WriteGreedySelections(dim_RB,greedy_points,ts);
-    WriteGreedyError(dim_RB,greedy_err);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts);
 
 
     gsl_vector_complex_free(ts_el);
