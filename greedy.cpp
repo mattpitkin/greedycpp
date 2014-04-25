@@ -482,6 +482,8 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts)
 {
+    // TODO: swith to no output rb, specifiy output folder (or use date to specify it)
+
     FILE *rb_data, *r_data, *err_data, *pts_data;
     char rb_filename[]  = "Basis.txt";
     char r_filename[]   = "R.txt";
@@ -959,33 +961,34 @@ int main (int argc, char **argv) {
       return(EXIT_FAILURE);
     }
 
-    const double a        = cfg.lookup("a");              // lower value x_min (physical domain)
-    const double b        = cfg.lookup("b");              // upper value x_max (physical domain)
-    const int freq_points = cfg.lookup("freq_points");    // total number of frequency points
-    const int quad_type   = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
-    const int m_size      = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
-    const int ts_size     = cfg.lookup("ts_size");        // if reading ts from file, specify size
-    double m_low          = cfg.lookup("m_low");          // lower mass value (in solar masses)
-    double m_high         = cfg.lookup("m_high");         // higher mass value (in solar masses)
-    bool load_from_file   = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
-    const int seed        = cfg.lookup("seed");           // greedy algorithm seed
-    const double tol      = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
-    std::string model_str = cfg.lookup("model_str");      // type of gravitational waveform model
-    int max_RB            = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
-    bool whiten           = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
+    const double a         = cfg.lookup("a");              // lower value x_min (physical domain)
+    const double b         = cfg.lookup("b");              // upper value x_max (physical domain)
+    const int freq_points  = cfg.lookup("freq_points");    // total number of frequency points
+    const int quad_type    = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
+    const int m_size       = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
+    const int ts_file_size = cfg.lookup("ts_file_size");   // if reading ts from file, specify size
+    const int param_dim    = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
+    double m_low           = cfg.lookup("m_low");          // lower mass value (in solar masses)
+    double m_high          = cfg.lookup("m_high");         // higher mass value (in solar masses)
+    bool load_from_file    = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
+    const int seed         = cfg.lookup("seed");           // greedy algorithm seed
+    const double tol       = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
+    std::string model_str  = cfg.lookup("model_str");      // type of gravitational waveform model
+    std::string ts_file_str= cfg.lookup("ts_file_str");
+    int max_RB             = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
+    bool whiten            = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
 
-    m_low                 = m_low * mass_to_sec;
-    m_high                = m_high * mass_to_sec;
-    const char * model_wv = model_str.c_str();
+    m_low                     = m_low * mass_to_sec;
+    m_high                    = m_high * mass_to_sec;
+    const char * model_wv     = model_str.c_str();
+    const char * ts_file_name = ts_file_str.c_str();
 
 
     // -- declare variables --//
-    FILE *data1;
     gsl_matrix_complex *TS_gsl;
     gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
     TrainSet ts;
-
 
     // -- allocate memory --//
     wQuad = gsl_vector_complex_alloc(freq_points);
@@ -1000,15 +1003,13 @@ int main (int argc, char **argv) {
         MakeWeightedInnerProduct(wQuad);
     }
 
-
     // -- build training set -- //
-    if(load_from_file)
-    {
-        BuildTS_from_file("test_bank.txt",ts_size,model_wv,ts);
+    ts_alloc(param_dim,m_size,ts_file_size,load_from_file,model_wv,ts);
+    if(load_from_file){
+        BuildTS_from_file(ts_file_name,ts);
     }
-    else
-    {
-        BuildTS_tensor_product(m_size,m_low,m_high,model_wv,ts);
+    else{
+        BuildTS_tensor_product(m_size,m_low,m_high,ts);
     }
 
     if(size == 1) // only 1 proc requested (serial mode)
@@ -1047,18 +1048,7 @@ int main (int argc, char **argv) {
             gsl_matrix_complex_free(TS_gsl);
         }
 
-/*
-        // --- output training set (assumes 1 proc) --- //
-        char filename[] = "TS_Points.txt";
-        data1 = fopen(filename,"w");
-        for(int i = 0; i < ts.ts_size ; i++)
-        {
-            //fprintf(data1,"%.15lf %.15lf\n",ts.m1[i]/mass_to_sec,ts.m2[i]/mass_to_sec);
-            fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
-        }
-        fclose(data1);
-*/
-
+        //WriteTrainingSet(ts);
     }
 
     gsl_vector_complex_free(wQuad);

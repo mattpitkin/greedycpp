@@ -22,6 +22,43 @@
 #include "TrainingSet.h"
 
 
+void ts_alloc(const int param_dim,const int m_size, const int ts_file_size,const bool load_from_file, const char *model_name, TrainSet &ts)
+{
+
+    // parameter space dimension //
+    ts.param_dim = param_dim;
+
+    // determine number of ts elements //
+    if(load_from_file){
+        ts.ts_size = ts_file_size;
+    }
+    else{
+        ts.ts_size = pow(m_size,param_dim);
+    }
+
+    // allocate memory //
+    double *m1_tmp, *m2_tmp;
+    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
+
+    if(m1_tmp==NULL || m2_tmp==NULL)
+    {
+        std::cout << "Failed to allocate memory in BuildTS" << std::endl;
+        free(m1_tmp); free(m2_tmp);
+        exit(1);
+    }
+
+    ts.m2 = m2_tmp;
+    ts.m1 = m1_tmp;
+
+    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
+    strcpy(ts.model,model_name);
+
+    std::cout << "Using waveform model: " << ts.model << std::endl;
+
+}
+
+
 void uniform(const int &n, const double &a, const double &b, double *SomeArray)
 {
     double factor = (b-a)/(double)(n-1);
@@ -31,22 +68,19 @@ void uniform(const int &n, const double &a, const double &b, double *SomeArray)
     }
 }
 
-void BuildTS_tensor_product(const int &m_size, const double &m_low, const double &m_high, const char *model_name, TrainSet &ts)
+void BuildTS_tensor_product(const int &m_size, const double &m_low, const double &m_high, TrainSet &ts)
 {
 
-    double *m1_tmp, *m2_tmp, *mass_list;
+    double *mass_list;
     double m_i, m_j;
     int counter = 0;
-    ts.ts_size = m_size*m_size; // specific to tensor product TS
 
-    m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
-    m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
     mass_list = (double *)malloc(m_size*sizeof(double));
 
-    if(m1_tmp==NULL || m2_tmp==NULL || mass_list==NULL)
+    if(mass_list==NULL)
     {
         std::cout << "Failed to allocate memory in BuildTS" << std::endl;
-        free(m1_tmp); free(m2_tmp); free(mass_list);
+        free(mass_list);
         exit(1);
     }
 
@@ -60,20 +94,12 @@ void BuildTS_tensor_product(const int &m_size, const double &m_low, const double
         for(int j = 0; j < m_size; j++)
         {
             m_j = mass_list[j];
-            m1_tmp[counter] = m_i;
-            m2_tmp[counter] = m_j;
+            ts.m1[counter] = m_i;
+            ts.m2[counter] = m_j;
             counter = counter + 1;
         }
     }
 
-
-    /* --- fill training set data structure --- */
-    ts.m2 = m2_tmp;
-    ts.m1 = m1_tmp;
-    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
-    strcpy(ts.model,model_name);
-
-    std::cout << "Using waveform model: " << ts.model << std::endl;
 
     /* -- NOTE: Free m1_tmp, m2_tmp in main through ts -- */
     free(mass_list);
@@ -81,35 +107,26 @@ void BuildTS_tensor_product(const int &m_size, const double &m_low, const double
 }
 
 
-void BuildTS_from_file(const char *ts_file, const int ts_size, const char *model_name, TrainSet &ts)
+void BuildTS_from_file(const char *ts_file, TrainSet &ts)
 {
 
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
-    double *m1_tmp, *m2_tmp;
-    m1_tmp = (double *)malloc(ts_size*sizeof(double));
-    m2_tmp = (double *)malloc(ts_size*sizeof(double));
     int counter = 0;
 
     FILE *data;
     data = fopen(ts_file,"r");
-    while(fscanf(data, "%lf %lf", &m1_tmp[counter],&m2_tmp[counter]) != EOF){
+    while(fscanf(data, "%lf %lf", &ts.m1[counter],&ts.m2[counter]) != EOF){
         counter = counter + 1;
     }
     fclose(data);
 
     std::cout << "ts size = " << counter << std::endl;
 
-    if( counter != ts_size){
+    if( counter != ts.ts_size){
         std::cout << "TS file size does not match expected size" << std::endl;
         exit(1);
     }
-
-    ts.ts_size     = ts_size;
-    ts.m2          = m2_tmp;
-    ts.m1          = m1_tmp;
-    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
-    strcpy(ts.model,model_name);
 
 }
 
@@ -155,7 +172,20 @@ void SplitTrainingSet(const int size, TrainSet &ts)
 
 }
 
+void WriteTrainingSet(const TrainSet ts)
+{
 
+    FILE *data1;
+
+    char filename[] = "TS_Points.txt";
+    data1 = fopen(filename,"w");
+    for(int i = 0; i < ts.ts_size ; i++)
+    {   
+        //fprintf(data1,"%.15lf %.15lf\n",ts.m1[i]/mass_to_sec,ts.m2[i]/mass_to_sec);
+        fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
+    }
+    fclose(data1);
+}
 
 
 
