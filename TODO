@@ -1,0 +1,20 @@
+Some items to do
+
+1) current masses are in units of solar mass. For maximum flexibility, the ts class should carry around this information as well a how to multiply m1,m2 for input into the model generation routine. the greedy.cpp code itself should not need to use or know about these complexities
+
+2) code should be able handle the higher dimensional cases. preferably arbitrary dimensions, and ts should again handle this. 
+
+3) interfacing with rompy to call waveform models and leverage other features
+
+4) computing waveforms on the fly instead upfront 
+
+5) amplitude and phase should be treated like any other model and, in that way, passed to model_wv as a flag
+
+6) code should be as appliciation independnet as possible. removing GW jargon everywhere
+
+7) code should be checkpointable
+
+8) output files should go to common folder along with config file used for the simulation. 
+
+8a) binary or hdf5 output? ignore basis.txt output?
+
