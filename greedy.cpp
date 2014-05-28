@@ -480,15 +480,22 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * out_fldr)
 {
-    // TODO: swith to no output rb, specifiy output folder (or use date to specify it)
-
     FILE *rb_data, *r_data, *err_data, *pts_data;
-    char rb_filename[]  = "Basis.txt";
-    char r_filename[]   = "R.txt";
-    char err_filename[] = "ApproxErrors.txt";
-    char pts_filename[] = "GreedyPoints.txt";
+    char rb_filename[100];
+    char r_filename[100];
+    char err_filename[100];
+    char pts_filename[100];
+
+    strcpy(rb_filename,out_fldr);
+    strcat(rb_filename,"/Basis.txt");
+    strcpy(r_filename,out_fldr);
+    strcat(r_filename,"/R.txt");
+    strcpy(err_filename,out_fldr);
+    strcat(err_filename,"/ApproxErrors.txt");
+    strcpy(pts_filename,out_fldr);
+    strcat(pts_filename,"/GreedyPoints.txt");
 
     //---write errors and greedy points to file ---//
     err_data = fopen(err_filename,"w");
@@ -635,7 +642,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     free(errors);
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * out_fldr)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -764,7 +771,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr);
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -780,7 +787,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
 }
 
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts)
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * out_fldr)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -894,7 +901,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr);
 
 
     gsl_vector_complex_free(ts_el);
@@ -961,28 +968,41 @@ int main (int argc, char **argv) {
       return(EXIT_FAILURE);
     }
 
-    const double a         = cfg.lookup("a");              // lower value x_min (physical domain)
-    const double b         = cfg.lookup("b");              // upper value x_max (physical domain)
-    const int freq_points  = cfg.lookup("freq_points");    // total number of frequency points
-    const int quad_type    = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
-    const int m_size       = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
-    const int ts_file_size = cfg.lookup("ts_file_size");   // if reading ts from file, specify size
-    const int param_dim    = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
-    double m_low           = cfg.lookup("m_low");          // lower mass value (in solar masses)
-    double m_high          = cfg.lookup("m_high");         // higher mass value (in solar masses)
-    bool load_from_file    = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
-    const int seed         = cfg.lookup("seed");           // greedy algorithm seed
-    const double tol       = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
-    std::string model_str  = cfg.lookup("model_str");      // type of gravitational waveform model
-    std::string ts_file_str= cfg.lookup("ts_file_str");
-    int max_RB             = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
-    bool whiten            = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
+    const double a           = cfg.lookup("a");              // lower value x_min (physical domain)
+    const double b           = cfg.lookup("b");              // upper value x_max (physical domain)
+    const int freq_points    = cfg.lookup("freq_points");    // total number of frequency points
+    const int quad_type      = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
+    const int m_size         = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
+    const int ts_file_size   = cfg.lookup("ts_file_size");   // if reading ts from file, specify size
+    const int param_dim      = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
+    double m_low             = cfg.lookup("m_low");          // lower mass value (in solar masses)
+    double m_high            = cfg.lookup("m_high");         // higher mass value (in solar masses)
+    bool load_from_file      = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
+    const int seed           = cfg.lookup("seed");           // greedy algorithm seed
+    const double tol         = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
+    std::string model_str    = cfg.lookup("model_str");      // type of gravitational waveform model
+    std::string ts_file_str  = cfg.lookup("ts_file_str");
+    int max_RB               = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
+    bool whiten              = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
+    std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
 
     m_low                     = m_low * mass_to_sec;
     m_high                    = m_high * mass_to_sec;
     const char * model_wv     = model_str.c_str();
     const char * ts_file_name = ts_file_str.c_str();
+    const char * out_fldr     = out_fldr_str.c_str();
+    char shell_command[100];
+ 
+    /**----- Creating Run Directory  -----**/
+    if(size == 1 || rank == 0){
 
+        strcpy(shell_command, "mkdir -p -m700 ");
+        strcat(shell_command, out_fldr);
+        system(shell_command);
+
+        snprintf(shell_command,100,"cp %s %s",argv[1],out_fldr);
+        system(shell_command);
+    }
 
     // -- declare variables --//
     gsl_matrix_complex *TS_gsl;
@@ -1016,7 +1036,7 @@ int main (int argc, char **argv) {
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts);
+        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr);
     }
     else
     {
@@ -1032,7 +1052,7 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ts);
+            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,out_fldr);
         }
         else{
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
