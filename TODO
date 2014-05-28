@@ -14,7 +14,5 @@ Some items to do
 
 7) code should be checkpointable
 
-8) output files should go to common folder along with config file used for the simulation. 
-
-8a) binary or hdf5 output? ignore basis.txt output?
+8) binary or hdf5 output? ignore basis.txt output?
 
