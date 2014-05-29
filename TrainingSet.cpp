@@ -22,19 +22,13 @@
 #include "TrainingSet.h"
 
 
-void ts_alloc(const int param_dim,const int m_size, const int ts_file_size,const bool load_from_file, const char *model_name, TrainSet &ts)
+void ts_alloc(const int ts_size, const int param_dim, const char *model_name, TrainSet &ts)
 {
 
     // parameter space dimension //
     ts.param_dim = param_dim;
 
-    // determine number of ts elements //
-    if(load_from_file){
-        ts.ts_size = ts_file_size;
-    }
-    else{
-        ts.ts_size = pow(m_size,param_dim);
-    }
+    ts.ts_size = ts_size;
 
     // allocate memory //
     double *m1_tmp, *m2_tmp;

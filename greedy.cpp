@@ -16,6 +16,7 @@
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <stdio.h>
 #include <math.h>
@@ -112,7 +113,7 @@ void OutputArray(const int n, double *list)
     }
 }
 
-void MakeWeightedInnerProduct(gsl_vector_complex *wQuad)
+void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *asdf)
 {
 
     // TODO: error check that input weight and wQuad are of equal length //
@@ -125,12 +126,10 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad)
     // load the weight //
     fprintf(stdout, "Loading ASD (weight) ...\n");
     asd = gsl_vector_alloc(wQuad->size);
-    FILE *asdf = fopen("ASD.txt", "r");
     gsl_status = gsl_vector_fscanf(asdf, asd);
-    fclose(asdf);
     if( gsl_status == GSL_EFAILED )
     {
-        fprintf(stderr, "Error reading ASD.txt\n");
+        fprintf(stderr, "Error reading ASD file\n");
         exit(1);
     }
 
@@ -209,7 +208,7 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
     //OutputArray(freq_points,wQuad_tmp);
     
     delete[] wQuad_tmp;
-    delete[] xQuad_tmp;
+    if (quad_type != 2) delete[] xQuad_tmp;
 }
 
 void gsl_vector_sqrt(gsl_vector_complex *out, const gsl_vector_complex *in)
@@ -942,6 +941,26 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
 }
 
+static int fcount_pts(const char *infile) {
+    //const char *c_str = infile.c_str();
+    //FILE *fvec = fopen(c_str, "r");
+    std::ifstream fvec(infile);
+    // counts the number of lines in the given file not beginning with "#"
+    // to get the number of points
+    std::string line;
+    int points = 0;
+    while (std::getline(fvec, line))
+    {
+        if (line.compare(0, 1, "#") != 0)
+            ++points;
+
+    }
+    //fclose(fvec);
+
+    return points;
+}
+
+
 int main (int argc, char **argv) {
 
 
@@ -992,31 +1011,87 @@ int main (int argc, char **argv) {
       return(EXIT_FAILURE);
     }
 
-    const double a           = cfg.lookup("a");              // lower value x_min (physical domain)
-    const double b           = cfg.lookup("b");              // upper value x_max (physical domain)
-    const int freq_points    = cfg.lookup("freq_points");    // total number of frequency points
-    const int quad_type      = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum
-    const int m_size         = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
-    const int ts_file_size   = cfg.lookup("ts_file_size");   // if reading ts from file, specify size
-    const int param_dim      = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
-    double m_low             = cfg.lookup("m_low");          // lower mass value (in solar masses)
-    double m_high            = cfg.lookup("m_high");         // higher mass value (in solar masses)
+    // run settings
     bool load_from_file      = cfg.lookup("load_from_file"); // load training points from file instead (file name used is below)
+    const int quad_type      = cfg.lookup("quad_type");      // 0 = LGL, 1 = Reimman sum, 2 = Dynamic (frequency vector file required)
     const int seed           = cfg.lookup("seed");           // greedy algorithm seed
     const double tol         = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
     std::string model_str    = cfg.lookup("model_str");      // type of gravitational waveform model
-    std::string ts_file_str  = cfg.lookup("ts_file_str");
     int max_RB               = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
     bool whiten              = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
     std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
 
-    m_low                     = m_low * mass_to_sec;
-    m_high                    = m_high * mass_to_sec;
     const char * model_wv     = model_str.c_str();
-    const char * ts_file_name = ts_file_str.c_str();
     const char * out_fldr     = out_fldr_str.c_str();
     char shell_command[100];
  
+
+    // initialize needed variables
+    double a;              // lower value x_min (physical domain)
+    double b;              // upper value x_max (physical domain)
+    int freq_points;       // total number of frequency points
+    const char *fvec_file_name;
+    const char *ts_file_name;
+    int m_size;
+    int param_dim;
+    double m_low, m_high;
+    int ts_size;
+
+    const char *asd_file_name;
+
+    int gsl_status;
+    bool cfg_status;
+
+    // populate the variables based on inputs from configuration file
+    if (quad_type == 2) // Dynamic, need to look up frequency vector
+    {
+        cfg_status = cfg.lookupValue("frequency_vector_file", fvec_file_name); // specify the frequency vector to use from a file
+        if (!cfg_status)
+        {
+            fprintf(stderr, "frequency_vector_file not found in config file\n");
+            exit(1);
+        }
+        freq_points = fcount_pts(fvec_file_name);
+    }
+    else
+    {
+        a = cfg.lookup("a");
+        b = cfg.lookup("b");
+        freq_points = cfg.lookup("freq_points");
+    }
+
+    if (load_from_file) // need to get training set size from file
+    {
+        cfg_status = cfg.lookupValue("ts_file", ts_file_name);
+        if (!cfg_status)
+        {
+            fprintf(stderr, "ts_file not found in config file\n");
+            exit(1);
+        }
+        ts_size = fcount_pts(ts_file_name);
+    }
+    else
+    {
+        m_size          = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
+        param_dim       = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
+        m_low           = cfg.lookup("m_low");          // lower mass value (in solar masses)
+        m_high          = cfg.lookup("m_high");         // higher mass value (in solar masses)
+        m_low           = m_low * mass_to_sec;
+        m_high          = m_high * mass_to_sec;
+
+        ts_size = pow(m_size, param_dim); 
+    }
+
+    if (whiten)
+    {
+        cfg_status = cfg.lookupValue("asd_file", asd_file_name);
+        if (!cfg_status)
+        {
+            fprintf(stderr, "asd_file not found in config file\n");
+            exit(1);
+        }
+    }
+
     /**----- Creating Run Directory  -----**/
     if(size == 1 || rank == 0){
 
@@ -1041,14 +1116,15 @@ int main (int argc, char **argv) {
     // load frequency vector for dynamic frequency 
     if(quad_type == 2)
     {
-        FILE *fvecf = fopen("frequency_vector.txt", "r");
+        FILE *fvecf = fopen(fvec_file_name, "r");
         gsl_status = gsl_vector_fscanf(fvecf, xQuad);
         fclose(fvecf);
         if( gsl_status == GSL_EFAILED )
         {
-            fprintf(stderr, "Error reading frequency_vector.txt\n");
+            fprintf(stderr, "Error reading frequency vector from %s\n", fvec_file_name);
             exit(1);
         }
+
     }
 
     /* -- all procs should have a copy of the quadrature rule -- */
@@ -1057,11 +1133,13 @@ int main (int argc, char **argv) {
 
     // role inner product weight into wQuad //
     if(whiten){
-        MakeWeightedInnerProduct(wQuad);
+        FILE *asdf = fopen(asd_file_name, "r");
+        MakeWeightedInnerProduct(wQuad, asdf);
+        fclose(asdf);
     }
 
     // -- build training set -- //
-    ts_alloc(param_dim,m_size,ts_file_size,load_from_file,model_wv,ts);
+    ts_alloc(ts_size, param_dim, model_wv, ts);
     if(load_from_file){
         BuildTS_from_file(ts_file_name,ts);
     }
