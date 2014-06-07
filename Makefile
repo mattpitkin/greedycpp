@@ -1,8 +1,9 @@
 all: GreedyMPI
-##Greedy GreedyMPI
-#
+
+LDLIBS = -lgsl -lgslcblas -lconfig++ -lhdf5
+
 Greedy: greedy.cpp
-	g++ -o greedy greedy.cpp TrainingSet.cpp -lgsl -lgslcblas
+	g++ -o greedy greedy.cpp TrainingSet.cpp $(LDLIBS)
 
 GreedyMPI: greedy.cpp
-	mpicxx -o greedympi greedy.cpp TrainingSet.cpp -lgsl -lgslcblas -lconfig++
+	mpicxx -o greedympi greedy.cpp TrainingSet.cpp $(LDLIBS)

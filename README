@@ -6,7 +6,13 @@ training set points p_i, we have a training space
 
    { h(x_j;p_i) }
 
- 
+
+
+Requirements
+------------
+mpi
+libconfig
+hdf5 
 
 
 Usage

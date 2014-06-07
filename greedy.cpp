@@ -8,10 +8,11 @@
 
 //#include "nr3.h"
 #include "gauss_wgts.h"
-
 #include <libconfig.h++>
-
 #include <mpi.h>
+
+#include "hdf5.h"
+#define FILE_H5 "file.h5"
 
 //#include <boost/numeric/ublas/vector.hpp>
 //#include <boost/numeric/ublas/io.hpp>
@@ -68,6 +69,21 @@ void gsl_vector_complex_parts(double *v_real, double *v_imag, const gsl_vector_c
     }
 }
 
+void gsl_vector_complex_gsl_parts(gsl_vector *v_real, gsl_vector *v_imag, const gsl_vector_complex * v_gsl)
+{
+
+    double tmp_r, tmp_i;
+
+    for(int i = 0; i < v_gsl->size; i++)
+    {
+        tmp_r = GSL_REAL(gsl_vector_complex_get(v_gsl,i));
+        tmp_i = GSL_IMAG(gsl_vector_complex_get(v_gsl,i));
+
+        gsl_vector_set(v_real, i,tmp_r);
+        gsl_vector_set(v_imag, i,tmp_i);
+    }
+}
+
 void make_gsl_vector_complex_parts(const double *v_real, const double *v_imag,gsl_vector_complex * v_gsl)
 {
     gsl_complex tmpc;
@@ -76,6 +92,47 @@ void make_gsl_vector_complex_parts(const double *v_real, const double *v_imag,gs
         GSL_SET_COMPLEX(&tmpc,v_real[i],v_imag[i]);
         gsl_vector_complex_set(v_gsl,i,tmpc);
     }
+}
+
+
+void gsl_matrix_complex_fprintf_part(FILE *rb_data, const gsl_matrix_complex * m_gsl,const char *part)
+{
+/* output the real part of m_gsl, using the first cols columns and rows rows, to file. */
+
+    const int cols = m_gsl->size2;
+    const int rows = m_gsl->size1;
+
+    gsl_vector_complex *v_gsl;
+    double *vec_real, *vec_imag;
+    v_gsl         = gsl_vector_complex_alloc(cols);
+    vec_real      = (double *)malloc(cols*sizeof(double));
+    vec_imag      = (double *)malloc(cols*sizeof(double));
+
+    for(int ii = 0; ii < rows; ii++)
+    {
+        gsl_matrix_complex_get_row(v_gsl,m_gsl, ii);
+        gsl_vector_complex_parts(vec_real,vec_imag,v_gsl);
+
+        for(int jj = 0; jj < cols; jj++)
+        {
+            if(strcmp(part,"real") == 0){
+                fprintf(rb_data, "%1.12e\t",vec_real[jj]);
+            }
+            else if(strcmp(part,"imag") == 0){
+                fprintf(rb_data, "%1.12e\t",vec_imag[jj]);
+            }
+            else{
+                fprintf(stderr,"part unknown");
+                exit(1);
+            }
+
+            fprintf(rb_data,"\n");
+        }
+    }
+
+    gsl_vector_complex_free(v_gsl);
+    free(vec_real);
+    free(vec_imag);
 }
 
 void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,const int freq_points)
@@ -480,24 +537,48 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * out_fldr)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * out_fldr,const char *datatype)
 {
-    FILE *rb_data, *r_data, *err_data, *pts_data;
-    char rb_filename[100];
-    char r_filename[100];
+    FILE *rb_real_data, *rb_imag_data, *r_real_data, *r_imag_data, *err_data, *pts_data;
+    FILE *rb_data, *r_data;
+    char rb_real_filename[100];
+    char rb_imag_filename[100];
+    char r_real_filename[100];
+    char r_imag_filename[100];
     char err_filename[100];
     char pts_filename[100];
+    char rb_filename[100];
+    char r_filename[100];
 
-    strcpy(rb_filename,out_fldr);
-    strcat(rb_filename,"/Basis.txt");
-    strcpy(r_filename,out_fldr);
-    strcat(r_filename,"/R.txt");
+    if(strcmp(datatype,"txt") == 0){
+        strcpy(rb_real_filename,out_fldr);
+        strcat(rb_real_filename,"/Basis_real.txt");
+        strcpy(rb_imag_filename,out_fldr);
+        strcat(rb_imag_filename,"/Basis_imag.txt");
+        strcpy(r_real_filename,out_fldr);
+        strcat(r_real_filename,"/R_real.txt");
+        strcpy(r_imag_filename,out_fldr);
+        strcat(r_imag_filename,"/R_imag.txt");
+        fprintf(stdout,"Im here 0");
+    } 
+    else if(strcmp(datatype,"bin") == 0){
+        strcpy(rb_filename,out_fldr);
+        strcat(rb_filename,"/Basis.bin");
+        strcpy(r_filename,out_fldr);
+        strcat(r_filename,"/R.bin");
+        fprintf(stdout,"Im here");
+    }
+    else{
+        fprintf(stderr,"file type not supported");
+        exit(1);
+    }
+
     strcpy(err_filename,out_fldr);
     strcat(err_filename,"/ApproxErrors.txt");
     strcpy(pts_filename,out_fldr);
     strcat(pts_filename,"/GreedyPoints.txt");
 
-    //---write errors and greedy points to file ---//
+    //--- write errors and greedy points to text file ---//
     err_data = fopen(err_filename,"w");
     pts_data = fopen(pts_filename,"w");
     for(int i = 0; i < dim_RB ; i++)
@@ -509,12 +590,28 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     fclose(pts_data);
 
     //--- write R and RB to file ---//
-    rb_data = fopen(rb_filename,"w");
-    gsl_matrix_complex_fprintf(rb_data,RB_space, "%1.15e");
-    fclose(rb_data);
-    r_data = fopen(r_filename,"w");
-    gsl_matrix_complex_fprintf(r_data,R_matrix, "%1.15e");
-    fclose(r_data);
+    if(strcmp(datatype,"txt") == 0){
+        rb_real_data = fopen(rb_real_filename,"w");
+        gsl_matrix_complex_fprintf_part(rb_real_data,RB_space,"real");
+        fclose(rb_real_data);
+        rb_imag_data = fopen(rb_imag_filename,"w");
+        gsl_matrix_complex_fprintf_part(rb_imag_data,RB_space,"imag");
+        fclose(rb_imag_data);
+        r_real_data = fopen(r_real_filename,"w");
+        gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
+        fclose(r_real_data);
+        r_imag_data = fopen(r_imag_filename,"w");
+        gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
+        fclose(r_imag_data);
+    }
+    else{
+        rb_data = fopen(rb_filename,"w");
+        gsl_matrix_complex_fwrite(rb_data,RB_space);
+        fclose(rb_data);
+        r_data = fopen(r_filename,"w");
+        gsl_matrix_complex_fwrite(r_data,R_matrix);
+        fclose(r_data);
+    }
 
 }
 
@@ -771,7 +868,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"bin");
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -901,7 +998,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"bin");
 
 
     gsl_vector_complex_free(ts_el);
