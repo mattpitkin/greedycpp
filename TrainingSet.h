@@ -25,7 +25,7 @@ tagTrainSet
 TrainSet;
 
 // determine training set sizes and allocates memory //
-void ts_alloc(const int,const int, const int,const bool, const char *, TrainSet &);
+void ts_alloc(const int ts_size, const int param_dim, const char *model_name, TrainSet &ts);
 
 // generates uniform spacing //
 void uniform(const int &, const double &, const double &, double *);
