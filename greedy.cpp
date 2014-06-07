@@ -868,7 +868,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"bin");
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"txt");
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -998,7 +998,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"bin");
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"txt");
 
 
     gsl_vector_complex_free(ts_el);
