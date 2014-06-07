@@ -8,11 +8,9 @@ Some items to do
 
 4) computing waveforms on the fly instead upfront 
 
-5) amplitude and phase should be treated like any other model and, in that way, passed to model_wv as a flag
+5) code should be as appliciation independnet as possible. removing GW jargon everywhere
 
-6) code should be as appliciation independnet as possible. removing GW jargon everywhere
+6) code should be checkpointable
 
-7) code should be checkpointable
-
-8) binary or hdf5 output? ignore basis.txt output?
+7) binary or hdf5 output? ignore basis.txt output?
 
