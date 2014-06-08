@@ -150,8 +150,9 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
 
 }
 
-void DynamicQuad(double *wQuad, gsl_vector *xQuad, const int freq_points)
+void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int freq_points)
 {
+/* compute quadrature weights as Reimann sum-like rule with nonuniform xQuad */
     double this_f, next_f;
 
     this_f = gsl_vector_get(xQuad, 0);
@@ -172,20 +173,22 @@ void OutputArray(const int n, double *list)
     }
 }
 
-void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *asdf)
+void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *weightf)
 {
+/* If the inner product includes a weight W(x), incorporate this by modifying the quadrature weights accordingly 
+   Note: this routine is only called if 'weighted = true' from configuration (input) file. */
 
     // TODO: error check that input weight and wQuad are of equal length //
 
     int gsl_status;
     gsl_complex z;
     double a;
-    gsl_vector *asd;
+    gsl_vector *weight;
 
     // load the weight //
     fprintf(stdout, "Loading ASD (weight) ...\n");
-    asd = gsl_vector_alloc(wQuad->size);
-    gsl_status = gsl_vector_fscanf(asdf, asd);
+    weight = gsl_vector_alloc(wQuad->size);
+    gsl_status = gsl_vector_fscanf(weightf, weight);
     if( gsl_status == GSL_EFAILED )
     {
         fprintf(stderr, "Error reading ASD file\n");
@@ -196,7 +199,7 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *asdf)
     for(int jj = 0; jj < wQuad->size; jj++)
     {
         z = gsl_vector_complex_get(wQuad, jj);
-        a = gsl_vector_get(asd, jj);
+        a = gsl_vector_get(weight, jj);
 
         // TODO: should this be squared for ASD?
         z = gsl_complex_div_real(z, a);
@@ -204,7 +207,7 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *asdf)
         gsl_vector_complex_set(wQuad, jj, z);
     }
 
-    gsl_vector_free(asd);
+    gsl_vector_free(weight);
 
 }
 
@@ -212,33 +215,26 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
 {
     double *wQuad_tmp, *xQuad_tmp;
     wQuad_tmp = new double[freq_points];
-    if(quad_type != 2)
-    {
-        xQuad_tmp = new double[freq_points];
-    }
+    xQuad_tmp = new double[freq_points];
 
-    // -- Gauss-Leg quadrature -- //
-    if(quad_type == 0)
-    {
+    // -- Quadrature rule for inner product between rows -- //
+    if(quad_type == 0) {
         gauleg(a,b,xQuad_tmp,wQuad_tmp,freq_points); // returns grid on [-1,1] from NR3
     }
-    else if(quad_type == 1)
-    {
+    else if(quad_type == 1){
         ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,freq_points);
     }
-    else if(quad_type == 2)
-    {
+    else if(quad_type == 2){
         DynamicQuad(wQuad_tmp, xQuad_c, freq_points);
     }
-    else
-    {
-        fprintf(stdout,"quadrature rule not coded\n");
+    else{
+        fprintf(stderr,"quadrature rule not coded\n");
         delete[] wQuad_tmp;
         delete[] xQuad_tmp;
         exit(1);
     }
 
-    /* --- make weights of type gsl_complex_vector --- */
+    /* --- Make quad weights and points of type gsl_complex_vector --- */
     gsl_complex zM1;
     for (int i = 0; i < freq_points; i++) 
     {
@@ -253,14 +249,8 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
         }
     }
 
-
-    //std::cout << " frequency points \n";
-    //OutputArray(freq_points,xQuad_tmp);
-    //std::cout << "quad weights \n";
-    //OutputArray(freq_points,wQuad_tmp);
-    
     delete[] wQuad_tmp;
-    if (quad_type != 2) delete[] xQuad_tmp;
+    delete[] xQuad_tmp;
 }
 
 void gsl_vector_sqrt(gsl_vector_complex *out, const gsl_vector_complex *in)
@@ -1113,7 +1103,7 @@ int main (int argc, char **argv) {
     const double tol         = cfg.lookup("tol");            // greedy algorithm tolerance ( \| app \|^2)
     std::string model_str    = cfg.lookup("model_str");      // type of gravitational waveform model
     int max_RB               = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
-    bool whiten              = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
+    bool weighted_inner      = cfg.lookup("weighted_inner"); // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
     std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
     std::string out_form_str = cfg.lookup("out_file_format");
 
@@ -1134,7 +1124,7 @@ int main (int argc, char **argv) {
     double m_low, m_high;
     int ts_size;
 
-    const char *asd_file_name;
+    const char *weight_file_name;
 
     int gsl_status;
     bool cfg_status;
@@ -1179,12 +1169,12 @@ int main (int argc, char **argv) {
         ts_size = pow(m_size, param_dim); 
     }
 
-    if (whiten)
+    if (weighted_inner)
     {
-        cfg_status = cfg.lookupValue("asd_file", asd_file_name);
+        cfg_status = cfg.lookupValue("weight_file", weight_file_name);
         if (!cfg_status)
         {
-            fprintf(stderr, "asd_file not found in config file\n");
+            fprintf(stderr, "weight_file not found in config file\n");
             exit(1);
         }
     }
@@ -1228,11 +1218,11 @@ int main (int argc, char **argv) {
     // TODO: on nodes can this be shared? Whats the best way to impliment it? 
     MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
 
-    // role inner product weight into wQuad //
-    if(whiten){
-        FILE *asdf = fopen(asd_file_name, "r");
-        MakeWeightedInnerProduct(wQuad, asdf);
-        fclose(asdf);
+    // Role inner product weight into wQuad //
+    if(weighted_inner){
+        FILE *weightf = fopen(weight_file_name, "r");
+        MakeWeightedInnerProduct(wQuad, weightf);
+        fclose(weightf);
     }
 
     // -- build training set -- //
