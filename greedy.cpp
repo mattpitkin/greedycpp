@@ -98,7 +98,9 @@ void make_gsl_vector_complex_parts(const double *v_real, const double *v_imag,gs
 
 void gsl_matrix_complex_fprintf_part(FILE *rb_data, const gsl_matrix_complex * m_gsl,const char *part)
 {
-/* output the real part of m_gsl, using the first cols columns and rows rows, to file. */
+/* output the real part of matrix m_gsl, using the first cols columns and rows rows, to file. */
+
+// NOTE: text output so that A = R * Q is desired QR decomposition //
 
     const int cols = m_gsl->size2;
     const int rows = m_gsl->size1;
@@ -126,9 +128,9 @@ void gsl_matrix_complex_fprintf_part(FILE *rb_data, const gsl_matrix_complex * m
                 fprintf(stderr,"part unknown");
                 exit(1);
             }
-
-            fprintf(rb_data,"\n");
         }
+
+        fprintf(rb_data,"\n");
     }
 
     gsl_vector_complex_free(v_gsl);
@@ -195,17 +197,10 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *asdf)
     {
         z = gsl_vector_complex_get(wQuad, jj);
         a = gsl_vector_get(asd, jj);
-        /*if(i < 10 && jj < 10)
-        {
-            fprintf(stdout, "i: %i j: %i\n  a: %e  z before: %e + i %e", i, jj, a, GSL_REAL(z), GSL_IMAG(z));
-        }*/
 
         // TODO: should this be squared for ASD?
         z = gsl_complex_div_real(z, a);
 
-        /*if(i < 10 && jj < 10){
-            fprintf(stdout, "  z after: %e + i %e\n", GSL_REAL(z), GSL_IMAG(z));
-        }*/
         gsl_vector_complex_set(wQuad, jj, z);
     }
 
@@ -763,7 +758,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     free(errors);
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * out_fldr)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * out_fldr, const char *out_file_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -790,6 +785,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     double *vec_real, *vec_imag;
     int *worst_workers_mpi;
     double *worst_errs_mpi;
+    gsl_complex tmpc;
     int dummy_mpi_int        = -1;
     double dummy_mpi_double  = -1.0;
     int continue_work = 1;
@@ -824,6 +820,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
 
 
+    GSL_SET_COMPLEX(&tmpc,1.0,0.0); // assumes normalized solutions
+    gsl_matrix_complex_set(R_matrix,0,0,tmpc);
     greedy_points[0] = seed;
     dim_RB           = 1;
     greedy_err[0]    = 1.0;
@@ -892,7 +890,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"txt");
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,out_file_format);
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -908,10 +906,10 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
 }
 
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * out_fldr)
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * out_fldr, const char *out_file_format)
 {
 // Input: 
-//          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
+//          A: gsl matrix of solutions (each row is a solution, cols are quadrature samples)
 //          seed: first greedy pick
 //          tol: approximation tolerance
 //
@@ -956,7 +954,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_matrix_complex_get_row(ts_el,A,seed);
     gsl_matrix_complex_set_row(RB_space,0,ts_el);
     GSL_SET_COMPLEX(&tmpc,1.0,0.0);
-    gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // compute to mpi routine
+    gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // assumes normalized solutions
 
     greedy_points[0] = seed;
     int dim_RB       = 1;
@@ -1022,7 +1020,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,"txt");
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,out_file_format);
 
 
     gsl_vector_complex_free(ts_el);
@@ -1117,9 +1115,11 @@ int main (int argc, char **argv) {
     int max_RB               = cfg.lookup("max_RB");         // estimated number of RB (reasonable upper bound)
     bool whiten              = cfg.lookup("whiten");         // whether or not to whiten the waveforms with the ASD when calculating overlaps
     std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
+    std::string out_form_str = cfg.lookup("out_file_format");
 
-    const char * model_wv     = model_str.c_str();
-    const char * out_fldr     = out_fldr_str.c_str();
+    const char * model_wv        = model_str.c_str();
+    const char * out_fldr        = out_fldr_str.c_str();
+    const char * out_file_format = out_form_str.c_str();
     char shell_command[100];
  
 
@@ -1248,7 +1248,7 @@ int main (int argc, char **argv) {
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr);
+        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr,out_file_format);
     }
     else
     {
@@ -1264,7 +1264,7 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,out_fldr);
+            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,out_fldr,out_file_format);
         }
         else{
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
