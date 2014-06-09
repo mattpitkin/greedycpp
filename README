@@ -1,3 +1,6 @@
+WARNING: while making changes to code, make sure one can reproduce the
+example test!!!
+
 Overview
 --------
 Given a parameterized model h(x;p), whose physical variable is x and
@@ -6,6 +9,11 @@ training set points p_i, we have a training space
 
    { h(x_j;p_i) }
 
+This training space fills up a matrix A. This routine finds a low-rank
+approximation of A by a pivoted QR (aka greedy) decomposition. The output
+are a collection of p_i (greedy parameter values), the orthonormal basis,
+and an R matrix such that A = R * Q where the rows of Q are precisely the 
+basis.
 
 
 Requirements
@@ -31,7 +39,7 @@ Usage
 
 run a simple test case with
 
-mpirun -np 1 ./ greedympi RegressionTest/test1.cfg
+mpirun -np 1 ./ greedympi example1/test1.cfg
 
 
 
@@ -77,18 +85,11 @@ if gsl not found run
 
 gsl-config --cflags --libs-without-cblas
 
-and the output says what must be added to g++ for to compile and link. Standard spot is in /usr/libs or some lsc soft thing or opt/local
-
-
-To Do
------
-1) make code more generic to handle snapshot S not from GW appliction (greedy class?)
-2) for very large problem we will need to recompute the solutions, or read from disk
+and the output says what must be added to g++ for to compile and link. Standard spot is in /usr/libs or opt/local
 
 
 possible optimization
 ---------------------
 1) multiply all vectors by square root of weights so Euclidean inner product can be used.
 
-WARNING: while making changes to code, make sure one can reproduce the regression test!!!
 
