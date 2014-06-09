@@ -6,6 +6,7 @@
  3.5PN inspiral waveform (TaylorF2) in the stationary phase approximation
  Used in both ROQ and Full computations
  -----------------------------------------------------------------------------*/
+
 void TF2_Waveform(double &TF2_Real, double &TF2_Imag, double *theta, double frq, double amp, double PN)
 {
     const double gammaE = 0.5772156649015328; // Euler–Mascheroni constant
@@ -63,3 +64,33 @@ void TF2_Waveform(double &TF2_Real, double &TF2_Imag, double *theta, double frq,
    // printf(" %4.6e %4.6e\n", TF2_Real,TF2_Imag);//exit(0);
     
 }
+
+// this routine is interface with greedy routine -- returns gsl data type //
+void TF2_FullWaveform(gsl_vector_complex *wv, double *params, const gsl_vector *xQuad, double amp, double PN)
+{
+
+    double *more_params;
+    more_params = new double[4]; // (m1,m2,tc,phi_c)
+
+    more_params[0] = params[0];
+    more_params[1] = params[1];
+    more_params[2] = 0.0;  // dummy variable (tc in waveform generation)
+    more_params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
+
+
+    // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
+    double TS_r = 0.0;
+    double TS_i = 0.0;
+    gsl_complex zM;
+
+    for(int cols = 0; cols < xQuad->size; cols++)
+    {
+        TF2_Waveform(TS_r, TS_i, more_params, xQuad->data[cols], amp, PN);
+        GSL_SET_COMPLEX(&zM, TS_r, TS_i);
+        gsl_vector_complex_set(wv,cols,zM);
+    }
+
+    delete[] more_params;
+}
+
+

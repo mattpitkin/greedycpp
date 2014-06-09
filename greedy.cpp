@@ -325,34 +325,20 @@ void NormalizeTS(gsl_matrix_complex *A, const gsl_vector_complex *w)
 
 }
 
-void TF2_FullWaveform(gsl_vector_complex *wv, double *params, const gsl_vector *xQuad, double amp, double PN)
-{
-    // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
-    double TS_r = 0.0;
-    double TS_i = 0.0;
-    gsl_complex zM;
-
-    for(int cols = 0; cols < xQuad->size; cols++)
-    {
-        TF2_Waveform(TS_r, TS_i, params, xQuad->data[cols], amp, PN);
-        GSL_SET_COMPLEX(&zM, TS_r, TS_i);
-        gsl_vector_complex_set(wv,cols,zM);
-    }
-
-}
-
+// *** THIS SHOULD BE ONLY MODEL SPECIFIC PART OF THE CODE *** //
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts, const int rank)
 {
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
 
-    // parameter list such that (m1(param),m2(param)) is a unique point in parameter space
     gsl_vector_complex *wv;
     double *params;
     int start_ind, end_ind, global_i, matrix_size;
 
-    wv = gsl_vector_complex_alloc(xQuad->size);
+    params = new double[ts.param_dim]; // for TF2 model this is (m1,m2)
+    wv     = gsl_vector_complex_alloc(xQuad->size);
 
+    // -- decide which chunk of TS to compute on this proc -- //
     if(ts.distributed){
         start_ind   = ts.mystart[rank];
         end_ind     = ts.myend[rank];
@@ -364,20 +350,19 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
         matrix_size = ts.ts_size;
         end_ind     = ts.ts_size;
     }
-    
 
+
+    // *** BEGIN MODEL SPECIFIC SECTION *** //
+    // This is where a new model should go...add to the list and loop over paramters //
     if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0){
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
-        params    = new double[4]; // (m1,m2,tc,phi_c)
-        params[2] = 0.0;  // dummy variable (tc in waveform generation)
-        params[3] = 0.0;  // dummy variable (phi_c in waveform generation)
 
         for(int i = 0; i < matrix_size; i++){
             global_i = start_ind + i;
             params[0] = ts.m1[global_i] * ts.p1_scale;
             params[1] = ts.m2[global_i] * ts.p2_scale;
 
-            TF2_FullWaveform(wv,params,xQuad,1.0,3.5);
+            TF2_FullWaveform(wv,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
             gsl_matrix_complex_set_row(TS_gsl,i,wv);
         }
 
@@ -386,6 +371,9 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
         std::cerr << "Approximant not supported!" << std::endl;
         exit(1);
     }    
+    // *** END MODEL SPECIFIC SECTION *** //
+
+
 
     // -- Normalize training space here -- //
     fprintf(stdout,"Normalizing training set...\n");
