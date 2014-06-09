@@ -40,7 +40,7 @@
 //#include <gsl/gsl_errno.h>
 
 #include "spa_waveforms.h"
-#include "psd.h"
+//#include "psd.h"
 #include "TrainingSet.h"
 
 /* --- fill array with linear spacing --- */
