@@ -173,9 +173,7 @@ void WriteTrainingSet(const TrainSet ts)
 
     char filename[] = "TS_Points.txt";
     data1 = fopen(filename,"w");
-    for(int i = 0; i < ts.ts_size ; i++)
-    {   
-        //fprintf(data1,"%.15lf %.15lf\n",ts.m1[i]/mass_to_sec,ts.m2[i]/mass_to_sec);
+    for(int i = 0; i < ts.ts_size ; i++){   
         fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
     }
     fclose(data1);

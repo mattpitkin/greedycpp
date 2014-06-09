@@ -15,6 +15,8 @@ typedef struct
 tagTrainSet
 {
   double *m1, *m2;      // each element of the training set is (m1[i],m2[i])
+  double p1_scale;      // scale each m1[i] so that input to model is p1_scale * m1[i] (default p1_scale = 1)
+  double p2_scale;      // same as p1_scale, but for m2[i]
   int param_dim;        // number of paramteric dimensions
   int ts_size;          // number of training set elements
   bool distributed;     // true if training set will be split over worker procs/nodes

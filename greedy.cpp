@@ -43,13 +43,6 @@
 #include "psd.h"
 #include "TrainingSet.h"
 
-/*-- constants --*/
-double c = 299792458.0;                             // speed of light
-double c2 = c*c;
-double mass_to_sec = 1.98892e30*6.67428E-11/(c2*c); // Conversion factor to change Solar Mass units to seconds. assumes G = 6.67428E-11 and SolarMass = 1.98892e30
-double DL = 3.08568025E22;                          // Luminosity distance in meters, set to one megaparsec
-
-
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
 {
@@ -381,8 +374,8 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 
         for(int i = 0; i < matrix_size; i++){
             global_i = start_ind + i;
-            params[0] = ts.m1[global_i];
-            params[1] = ts.m2[global_i];
+            params[0] = ts.m1[global_i] * ts.p1_scale;
+            params[1] = ts.m2[global_i] * ts.p2_scale;
 
             TF2_FullWaveform(wv,params,xQuad,1.0,3.5);
             gsl_matrix_complex_set_row(TS_gsl,i,wv);
@@ -568,14 +561,12 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
         strcat(r_real_filename,"/R_real.txt");
         strcpy(r_imag_filename,out_fldr);
         strcat(r_imag_filename,"/R_imag.txt");
-        fprintf(stdout,"Im here 0");
     } 
     else if(strcmp(datatype,"bin") == 0){
         strcpy(rb_filename,out_fldr);
         strcat(rb_filename,"/Basis.bin");
         strcpy(r_filename,out_fldr);
         strcat(r_filename,"/R.bin");
-        fprintf(stdout,"Im here");
     }
     else{
         fprintf(stderr,"file type not supported");
@@ -593,7 +584,7 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     for(int i = 0; i < dim_RB ; i++)
     {
         fprintf(err_data,"%1.14f\n",app_err[i]);
-        fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]]/mass_to_sec,ts.m2[sel_rows[i]]/mass_to_sec);
+        fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]],ts.m2[sel_rows[i]]);
     }
     fclose(err_data);
     fclose(pts_data);
@@ -992,13 +983,17 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
             continue_work = false;
         }
 
+
         // --- add worst approximated solution to basis set --- //
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
+
         IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+
         //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
+
 
         fprintf(stdout,"RB dimension %i || Current row selection %i || Approximation error %1.14e\n",dim_RB,worst_app,worst_err);
 
@@ -1106,12 +1101,13 @@ int main (int argc, char **argv) {
     bool weighted_inner      = cfg.lookup("weighted_inner"); // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
     std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
     std::string out_form_str = cfg.lookup("out_file_format");
+    double p1_scale          = cfg.lookup("p1_scale");       // scale each m1[i] so that input to model is p1_scale * m1[i]
+    double p2_scale          = cfg.lookup("p2_scale");       // scale each m2[i] so that input to model is p2_scale * m2[i]
 
     const char * model_wv        = model_str.c_str();
     const char * out_fldr        = out_fldr_str.c_str();
     const char * out_file_format = out_form_str.c_str();
     char shell_command[100];
- 
 
     // initialize needed variables
     double a;              // lower value x_min (physical domain)
@@ -1124,10 +1120,19 @@ int main (int argc, char **argv) {
     double m_low, m_high;
     int ts_size;
 
+    gsl_matrix_complex *TS_gsl;
+    gsl_vector_complex *wQuad;
+    gsl_vector *xQuad;
+    TrainSet ts;
+
     const char *weight_file_name;
 
     int gsl_status;
     bool cfg_status;
+
+    // set ts paramter scale factors //
+    ts.p1_scale = p1_scale;
+    ts.p2_scale = p2_scale;
 
     // populate the variables based on inputs from configuration file
     if (quad_type == 2) // Dynamic, need to look up frequency vector
@@ -1163,8 +1168,6 @@ int main (int argc, char **argv) {
         param_dim       = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
         m_low           = cfg.lookup("m_low");          // lower mass value (in solar masses)
         m_high          = cfg.lookup("m_high");         // higher mass value (in solar masses)
-        m_low           = m_low * mass_to_sec;
-        m_high          = m_high * mass_to_sec;
 
         ts_size = pow(m_size, param_dim); 
     }
@@ -1179,6 +1182,10 @@ int main (int argc, char **argv) {
         }
     }
 
+    // -- allocate memory --//
+    wQuad = gsl_vector_complex_alloc(freq_points);
+    xQuad = gsl_vector_alloc(freq_points);
+
     /**----- Creating Run Directory  -----**/
     if(size == 1 || rank == 0){
 
@@ -1190,15 +1197,6 @@ int main (int argc, char **argv) {
         system(shell_command);
     }
 
-    // -- declare variables --//
-    gsl_matrix_complex *TS_gsl;
-    gsl_vector_complex *wQuad;
-    gsl_vector *xQuad;
-    TrainSet ts;
-
-    // -- allocate memory --//
-    wQuad = gsl_vector_complex_alloc(freq_points);
-    xQuad = gsl_vector_alloc(freq_points);
 
     // load frequency vector for dynamic frequency 
     if(quad_type == 2)
@@ -1225,7 +1223,7 @@ int main (int argc, char **argv) {
         fclose(weightf);
     }
 
-    // -- build training set -- //
+    // -- build training set (colletion of points) -- //
     ts_alloc(ts_size, param_dim, model_wv, ts);
     if(load_from_file){
         BuildTS_from_file(ts_file_name,ts);
@@ -1263,6 +1261,7 @@ int main (int argc, char **argv) {
 
     }
 
+/*
     if(rank == 0)
     {
         if(size == 1){
@@ -1270,9 +1269,9 @@ int main (int argc, char **argv) {
             gsl_matrix_complex_free(TS_gsl);
         }
 
-        //WriteTrainingSet(ts);
+        WriteTrainingSet(ts);
     }
-
+*/
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
     free(ts.m1);
