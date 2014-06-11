@@ -130,32 +130,32 @@ void gsl_matrix_complex_fprintf_part(FILE *rb_data, const gsl_matrix_complex * m
     free(vec_imag);
 }
 
-void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,const int freq_points)
+void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,const int quad_points)
 {
 
-    Linspace(freq_points, a, b, xQuad);
+    Linspace(quad_points, a, b, xQuad);
 
-    for(int i = 0; i < freq_points; i++)
+    for(int i = 0; i < quad_points; i++)
     {
-        wQuad[i] = (b-a)/( (double) (freq_points-1) );
+        wQuad[i] = (b-a)/( (double) (quad_points-1) );
     }
 
 }
 
-void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int freq_points)
+void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int quad_points)
 {
 /* compute quadrature weights as Reimann sum-like rule with nonuniform xQuad */
     double this_f, next_f;
 
     this_f = gsl_vector_get(xQuad, 0);
-    for(int i = 0; i < freq_points-1; i++)
+    for(int i = 0; i < quad_points-1; i++)
     {
         next_f = gsl_vector_get(xQuad, i+1);
         wQuad[i] = next_f - this_f;
         this_f = next_f;
     }
     // set weight of last point to 0
-    wQuad[freq_points-1] = 0.;
+    wQuad[quad_points-1] = 0.;
 }
 
 void OutputArray(const int n, double *list)
@@ -203,21 +203,21 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *weightf)
 
 }
 
-void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int freq_points,const int quad_type)
+void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int quad_points,const int quad_type)
 {
     double *wQuad_tmp, *xQuad_tmp;
-    wQuad_tmp = new double[freq_points];
-    xQuad_tmp = new double[freq_points];
+    wQuad_tmp = new double[quad_points];
+    xQuad_tmp = new double[quad_points];
 
     // -- Quadrature rule for inner product between rows -- //
     if(quad_type == 0) {
-        gauleg(a,b,xQuad_tmp,wQuad_tmp,freq_points); // returns grid on [-1,1] from NR3
+        gauleg(a,b,xQuad_tmp,wQuad_tmp,quad_points); // returns grid on [-1,1] from NR3
     }
     else if(quad_type == 1){
-        ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,freq_points);
+        ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,quad_points);
     }
     else if(quad_type == 2){
-        DynamicQuad(wQuad_tmp, xQuad_c, freq_points);
+        DynamicQuad(wQuad_tmp, xQuad_c,quad_points);
     }
     else{
         fprintf(stderr,"quadrature rule not coded\n");
@@ -228,7 +228,7 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
 
     /* --- Make quad weights and points of type gsl_complex_vector --- */
     gsl_complex zM1;
-    for (int i = 0; i < freq_points; i++) 
+    for (int i = 0; i < quad_points; i++) 
     {
         GSL_SET_COMPLEX(&zM1,wQuad_tmp[i],0.0);
         gsl_vector_complex_set(wQuad_c,i,zM1);
@@ -236,7 +236,7 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
 
     if(quad_type != 2)
     {
-        for (int i = 0; i < freq_points; i++){
+        for (int i = 0; i < quad_points; i++){
             gsl_vector_set(xQuad_c,i,xQuad_tmp[i]);
         }
     }
@@ -1097,9 +1097,9 @@ int main (int argc, char **argv) {
     char shell_command[100];
 
     // initialize needed variables
-    double a;              // lower value x_min (physical domain)
-    double b;              // upper value x_max (physical domain)
-    int freq_points;       // total number of frequency points
+    double x_min;              // lower value x_min (physical domain)
+    double x_max;              // upper value x_max (physical domain)
+    int quad_points;           // total number of frequency points
     const char *fvec_file_name;
     const char *ts_file_name;
     int m_size;
@@ -1130,13 +1130,13 @@ int main (int argc, char **argv) {
             fprintf(stderr, "frequency_vector_file not found in config file\n");
             exit(1);
         }
-        freq_points = fcount_pts(fvec_file_name);
+        quad_points = fcount_pts(fvec_file_name);
     }
     else
     {
-        a = cfg.lookup("a");
-        b = cfg.lookup("b");
-        freq_points = cfg.lookup("freq_points");
+        x_min = cfg.lookup("x_min");
+        x_max = cfg.lookup("x_max");
+        quad_points = cfg.lookup("quad_points");
     }
 
     if (load_from_file) // need to get training set size from file
@@ -1170,8 +1170,8 @@ int main (int argc, char **argv) {
     }
 
     // -- allocate memory --//
-    wQuad = gsl_vector_complex_alloc(freq_points);
-    xQuad = gsl_vector_alloc(freq_points);
+    wQuad = gsl_vector_complex_alloc(quad_points);
+    xQuad = gsl_vector_alloc(quad_points);
 
     /**----- Creating Run Directory  -----**/
     if(size == 1 || rank == 0){
@@ -1201,7 +1201,7 @@ int main (int argc, char **argv) {
 
     /* -- all procs should have a copy of the quadrature rule -- */
     // TODO: on nodes can this be shared? Whats the best way to impliment it? 
-    MakeQuadratureRule(wQuad,xQuad,a,b,freq_points,quad_type);
+    MakeQuadratureRule(wQuad,xQuad,x_min,x_max,quad_points,quad_type);
 
     // Role inner product weight into wQuad //
     if(weighted_inner){
@@ -1210,7 +1210,7 @@ int main (int argc, char **argv) {
         fclose(weightf);
     }
 
-    // -- build training set (colletion of points) -- //
+    // -- build training set (collection of points) -- //
     ts_alloc(ts_size, param_dim, model_wv, ts);
     if(load_from_file){
         BuildTS_from_file(ts_file_name,ts);
@@ -1221,7 +1221,7 @@ int main (int argc, char **argv) {
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
-        TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,freq_points); // GSL error handler will abort if too much requested
+        TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,quad_points); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
         Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr,out_file_format);
     }
@@ -1232,7 +1232,7 @@ int main (int argc, char **argv) {
         SplitTrainingSet(size,ts);
 
         if(rank != 0){
-            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],freq_points);
+            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],quad_points);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
         }
 

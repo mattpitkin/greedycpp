@@ -31,7 +31,8 @@ void ts_alloc(const int ts_size, const int param_dim,
 void uniform(const int &, const double &, const double &, double *);
 
 // these routines will populate m1 and m2 //
-void BuildTS_tensor_product(const int &, const double &, const double &, TrainSet &);
+void BuildTS_tensor_product(const int &, const double &, 
+                            const double &, TrainSet &);
 void BuildTS_from_file(const char *, TrainSet &);
 
 // this routine distributed the ts over procs //
