@@ -34,8 +34,7 @@ Usage
 
          -- mpi --
 1) run 'make'
-2) mpirun -np NUM_PROCS ./greedympi
-
+2) mpirun -np NUM_PROCS ./greedympi PARAM_FILE.cfg
 
 run a simple test case with
 
