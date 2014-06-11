@@ -40,7 +40,7 @@
 //#include <gsl/gsl_errno.h>
 
 #include "spa_waveforms.h"
-#include "TrainingSet.hpp"
+#include "training_set.hpp"
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
