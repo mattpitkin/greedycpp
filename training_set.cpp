@@ -19,7 +19,7 @@
 #include <gsl/gsl_vector_complex.h>
 #include <gsl/gsl_block_complex_float.h>
 
-#include "TrainingSet.hpp"
+#include "training_set.hpp"
 
 
 void ts_alloc(const int ts_size, const int param_dim, const char *model_name, TrainSet &ts)

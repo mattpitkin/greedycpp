@@ -1,5 +1,5 @@
-#ifndef TrainingSet_hpp
-#define TrainingSet_hpp
+#ifndef training_set_hpp
+#define training_set_hpp
 
 /*
   TrainSet should contain all information about the training set and, if 
@@ -42,5 +42,5 @@ void SplitTrainingSet(const int, TrainSet &);
 void WriteTrainingSet(const TrainSet);
 
 
-#endif /* TrainingSet_hpp */
+#endif /* training_set_hpp */
 
