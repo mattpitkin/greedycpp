@@ -9,8 +9,8 @@ typedef struct
 tagTrainSet
 {
   double *m1, *m2;      // each element of the training set is (m1[i],m2[i])
-  double p1_scale;      // scale each m1[i] so that input to model is p1_scale * m1[i] (default p1_scale = 1)
-  double p2_scale;      // same as p1_scale, but for m2[i]
+  double **params;      // matrix where the columns are the parameters (param_dim columns) and the rows their indexing (ts_size rows)
+  double *param_scale;  // param_scale[i] scales ith paramter so that input to model is param_scale[i] * param_i (all scale's default is 1)
   int param_dim;        // number of paramteric dimensions
   int ts_size;          // number of training set elements
   char model[100];      // name of model (ex: TaylorF2_PN3pt5)
@@ -31,8 +31,7 @@ void ts_alloc(const int ts_size, const int param_dim,
 void uniform(const int &, const double &, const double &, double *);
 
 // these routines will populate m1 and m2 //
-void BuildTS_tensor_product(const int &, const double &, 
-                            const double &, TrainSet &);
+void BuildTS_tensor_product(const int &, const double &, const double &, TrainSet &);
 void BuildTS_from_file(const char *, TrainSet &);
 
 // this routine distributed the ts over procs //

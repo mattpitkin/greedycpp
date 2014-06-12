@@ -34,7 +34,6 @@ void ts_alloc(const int ts_size, const int param_dim, const char *model_name, Tr
     double *m1_tmp, *m2_tmp;
     m1_tmp = (double *)malloc(ts.ts_size*sizeof(double));
     m2_tmp = (double *)malloc(ts.ts_size*sizeof(double));
-
     if(m1_tmp==NULL || m2_tmp==NULL)
     {
         std::cout << "Failed to allocate memory in BuildTS" << std::endl;
@@ -44,6 +43,24 @@ void ts_alloc(const int ts_size, const int param_dim, const char *model_name, Tr
 
     ts.m2 = m2_tmp;
     ts.m1 = m1_tmp;
+
+    // building parameter matrix //
+    /*double **params_tmp;
+    params_tmp = ((double **) malloc(ts_size*sizeof(double *)));
+    for(int j = 0; j < ts_size; j++)
+    {
+
+      params_tmp[j]=(double *)malloc(param_dim*sizeof(double));
+
+      if(params_tmp[j]==NULL)
+      {
+        std::cout << "Failed to allocate memory in BuildTS" << std::endl;
+        // TODO: free the parameter matrix here
+        exit(1);
+      }
+
+    }
+    ts.params = params_tmp;*/
 
     ts.distributed = false; // by default. set to true if SplitTrainingSet is called
     strcpy(ts.model,model_name);
@@ -90,6 +107,10 @@ void BuildTS_tensor_product(const int &m_size, const double &m_low, const double
             m_j = mass_list[j];
             ts.m1[counter] = m_i;
             ts.m2[counter] = m_j;
+
+            //ts.params[counter][0] = m_i;
+            //ts.params[counter][1] = m_j;
+
             counter = counter + 1;
         }
     }
@@ -114,6 +135,8 @@ void BuildTS_from_file(const char *ts_file, TrainSet &ts)
         counter = counter + 1;
     }
     fclose(data);
+
+    //ts.params[]
 
     std::cout << "ts size = " << counter << std::endl;
 
