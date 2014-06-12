@@ -244,6 +244,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     double *params;
     int start_ind, end_ind, global_i, matrix_size;
 
+
     params = new double[ts.param_dim]; // for TF2 model this is (m1,m2)
     wv     = gsl_vector_complex_alloc(xQuad->size);
 
@@ -937,10 +938,94 @@ static int fcount_pts(const char *infile) {
     return points;
 }
 
+void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,const int quad_type,const bool weighted_inner,const char *cfg_file)
+{
+    // wQuad and xQuad are pointers to pointers, which allows memory allocation here to be passed back to main //
+
+
+    double x_min;              // lower value x_min (physical domain)
+    double x_max;              // upper value x_max (physical domain)
+    int quad_points;
+    const char *fvec_file_name;
+    const char *weight_file_name;
+    int gsl_status;
+    bool cfg_status;
+
+    gsl_vector_complex *wQuad_tmp;
+    gsl_vector *xQuad_tmp;
+
+
+    libconfig::Config cfg; // TODO: opening a new file! better way?
+    try{
+      cfg.readFile(cfg_file);
+    }
+    catch(const libconfig::FileIOException &fioex){
+      std::cerr << "I/O error while reading file." << std::endl;
+      exit(1);
+    }
+    catch(const libconfig::ParseException &pex){
+      std::cerr << "Parse error " << std::endl;
+      exit(1);
+    }
+
+    if (quad_type == 2) // Dynamic, need to look up frequency vector
+    {
+        cfg_status = cfg.lookupValue("frequency_vector_file", fvec_file_name); // specify the frequency vector to use from a file
+        if (!cfg_status){
+            fprintf(stderr, "frequency_vector_file not found in config file\n");
+            exit(1);
+        }
+        quad_points = fcount_pts(fvec_file_name);
+    }
+    else
+    {
+        x_min = cfg.lookup("x_min");
+        x_max = cfg.lookup("x_max");
+        quad_points = cfg.lookup("quad_points");
+    }
+
+    if (weighted_inner){
+        cfg_status = cfg.lookupValue("weight_file", weight_file_name);
+        if (!cfg_status){
+            fprintf(stderr, "weight_file not found in config file\n");
+            exit(1);
+        }
+    }
+
+    // -- allocate memory --//
+    wQuad_tmp = gsl_vector_complex_alloc(quad_points);
+    xQuad_tmp = gsl_vector_alloc(quad_points);
+
+    // load frequency vector for dynamic frequency 
+    if(quad_type == 2)
+    {
+        FILE *fvecf = fopen(fvec_file_name, "r");
+        gsl_status = gsl_vector_fscanf(fvecf, xQuad_tmp);
+        fclose(fvecf);
+        if( gsl_status == GSL_EFAILED ){
+            fprintf(stderr, "Error reading frequency vector from %s\n", fvec_file_name);
+            exit(1);
+        }
+
+    }
+
+    /* -- all procs should have a copy of the quadrature rule -- */
+    // TODO: on nodes can this be shared? Whats the best way to impliment it? 
+    MakeQuadratureRule(wQuad_tmp,xQuad_tmp,x_min,x_max,quad_points,quad_type);
+
+    // Role inner product weight into wQuad //
+    if(weighted_inner){
+        FILE *weightf = fopen(weight_file_name, "r");
+        MakeWeightedInnerProduct(wQuad_tmp, weightf);
+        fclose(weightf);
+    }
+
+    *wQuad = wQuad_tmp;
+    *xQuad = xQuad_tmp;
+
+}
 
 int main (int argc, char **argv) {
-
-
 
     // --- setup MPI info ---//
     MPI::Init(argc, argv);
@@ -959,7 +1044,6 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
-
 
     //----- Checking the number of Variables passed to the Executable -----//
     if (argc != 2) {
@@ -984,67 +1068,59 @@ int main (int argc, char **argv) {
       return(EXIT_FAILURE);
     }
 
+
     // run settings - these MUST be set in the parameter file //
-    bool load_from_file      = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
-    const int quad_type      = cfg.lookup("quad_type");       // 0 = LGL, 1 = Reimman sum, 2 = Dynamic (frequency vector file required)
-    const int seed           = cfg.lookup("seed");            // greedy algorithm seed
-    const double tol            = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
-    std::string model_str    = cfg.lookup("model_str");      // type of gravitational waveform model
-    std::string out_fldr_str = cfg.lookup("out_fldr_str");   // folder to put all output files
-    std::string out_form_str = cfg.lookup("out_file_format"); // format of output files (text or gsl binary supported)
+    bool load_from_file          = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
+    const int quad_type          = cfg.lookup("quad_type");       // 0 = LGL, 1 = Reimman sum, 2 = Dynamic (frequency vector file required)
+    const int seed               = cfg.lookup("seed");            // greedy algorithm seed
+    const double tol             = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
+    std::string model_str        = cfg.lookup("model_str");      // type of gravitational waveform model
+    std::string out_fldr_str     = cfg.lookup("out_fldr_str");   // folder to put all output files
+    std::string out_form_str     = cfg.lookup("out_file_format"); // format of output files (text or gsl binary supported)
     const char * model_wv        = model_str.c_str();
     const char * out_fldr        = out_fldr_str.c_str();
     const char * out_file_format = out_form_str.c_str();
-    int max_RB                  = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
-    bool weighted_inner         = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
-    double p1_scale          = cfg.lookup("p1_scale");        // scale each m1[i] so that input to model is p1_scale * m1[i]
-    double p2_scale          = cfg.lookup("p2_scale");        // scale each m2[i] so that input to model is p2_scale * m2[i]
-    int param_dim       = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
+    int max_RB                   = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
+    bool weighted_inner          = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
+    double p1_scale              = cfg.lookup("p1_scale");        // scale each m1[i] so that input to model is p1_scale * m1[i]
+    double p2_scale              = cfg.lookup("p2_scale");        // scale each m2[i] so that input to model is p2_scale * m2[i]
+    int param_dim                = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
 
-    // run settings - these MAY need to be set in the parameter file, dpending on load_from_file, quad_type, and weighted_inner //
-    double x_min;              // lower value x_min (physical domain)
-    double x_max;              // upper value x_max (physical domain)
-    int quad_points;           // total number of frequency points
-    const char *fvec_file_name;
+    // run settings - MAY need to be set for SetupQuadratureRule //
+    // x_min;              // lower value x_min (physical domain) --> needed if quad_type != 2
+    // x_max;              // upper value x_max (physical domain) --> needed if quad_type != 2
+    // quad_points;        // total number of quadrature points   --> needed if quad_type != 2
+    // fvec_file_name;     // file name for vector of quadrature points  --> needed if quad_type = 2
+    // weight_file_name;   // file name of weights --> needed if weighted_inner = true
+
+    // run settings - MAY need to be set //
     const char *ts_file_name;
     int m_size;
     double m_low, m_high;
     int ts_size;
 
+    // other variables which need to be decarled, but not set in parameter file //
     gsl_matrix_complex *TS_gsl;
     gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
     TrainSet ts;
     char shell_command[100];
-    const char *weight_file_name;
     int gsl_status;
     bool cfg_status;
 
-    // set ts paramter scale factors //
-    ts.p1_scale = p1_scale;
-    ts.p2_scale = p2_scale;
+    // Creating Run Directory //
+    if(size == 1 || rank == 0){
 
+        strcpy(shell_command, "mkdir -p -m700 ");
+        strcat(shell_command, out_fldr);
+        system(shell_command);
 
-    // convert input c-string variables to char...because I like it better //
-
-
-    // populate the variables based on inputs from configuration file
-    if (quad_type == 2) // Dynamic, need to look up frequency vector
-    {
-        cfg_status = cfg.lookupValue("frequency_vector_file", fvec_file_name); // specify the frequency vector to use from a file
-        if (!cfg_status)
-        {
-            fprintf(stderr, "frequency_vector_file not found in config file\n");
-            exit(1);
-        }
-        quad_points = fcount_pts(fvec_file_name);
+        snprintf(shell_command,100,"cp %s %s",argv[1],out_fldr);
+        system(shell_command);
     }
-    else
-    {
-        x_min = cfg.lookup("x_min");
-        x_max = cfg.lookup("x_max");
-        quad_points = cfg.lookup("quad_points");
-    }
+
+    // return wQuad and xQuad based on inputs from configuration file //
+    SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]); //argv[1] is location of parameter file
 
     if (load_from_file) // need to get training set size from file
     {
@@ -1065,58 +1141,13 @@ int main (int argc, char **argv) {
         ts_size = pow(m_size, param_dim); 
     }
 
-    if (weighted_inner)
-    {
-        cfg_status = cfg.lookupValue("weight_file", weight_file_name);
-        if (!cfg_status)
-        {
-            fprintf(stderr, "weight_file not found in config file\n");
-            exit(1);
-        }
-    }
-
-    // -- allocate memory --//
-    wQuad = gsl_vector_complex_alloc(quad_points);
-    xQuad = gsl_vector_alloc(quad_points);
-
-    /**----- Creating Run Directory  -----**/
-    if(size == 1 || rank == 0){
-
-        strcpy(shell_command, "mkdir -p -m700 ");
-        strcat(shell_command, out_fldr);
-        system(shell_command);
-
-        snprintf(shell_command,100,"cp %s %s",argv[1],out_fldr);
-        system(shell_command);
-    }
-
-
-    // load frequency vector for dynamic frequency 
-    if(quad_type == 2)
-    {
-        FILE *fvecf = fopen(fvec_file_name, "r");
-        gsl_status = gsl_vector_fscanf(fvecf, xQuad);
-        fclose(fvecf);
-        if( gsl_status == GSL_EFAILED )
-        {
-            fprintf(stderr, "Error reading frequency vector from %s\n", fvec_file_name);
-            exit(1);
-        }
-
-    }
-
-    /* -- all procs should have a copy of the quadrature rule -- */
-    // TODO: on nodes can this be shared? Whats the best way to impliment it? 
-    MakeQuadratureRule(wQuad,xQuad,x_min,x_max,quad_points,quad_type);
-
-    // Role inner product weight into wQuad //
-    if(weighted_inner){
-        FILE *weightf = fopen(weight_file_name, "r");
-        MakeWeightedInnerProduct(wQuad, weightf);
-        fclose(weightf);
-    }
 
     // -- build training set (collection of points) -- //
+
+    // set ts paramter scale factors //
+    ts.p1_scale = p1_scale;
+    ts.p2_scale = p2_scale;
+
     ts_alloc(ts_size, param_dim, model_wv, ts);
     if(load_from_file){
         BuildTS_from_file(ts_file_name,ts);
@@ -1127,7 +1158,7 @@ int main (int argc, char **argv) {
 
     if(size == 1) // only 1 proc requested (serial mode)
     {
-        TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,quad_points); // GSL error handler will abort if too much requested
+        TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,xQuad->size); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
         Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr,out_file_format);
     }
@@ -1138,7 +1169,7 @@ int main (int argc, char **argv) {
         SplitTrainingSet(size,ts);
 
         if(rank != 0){
-            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],quad_points);
+            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],xQuad->size);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
         }
 
