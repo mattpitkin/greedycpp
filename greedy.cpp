@@ -874,26 +874,19 @@ int main (int argc, char **argv) {
     char shell_command[100];
     int gsl_status;
     bool cfg_status;
+    int ts_size;
 
     // run settings - these MUST be set in the parameter file //
     bool load_from_file = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
-    const int quad_type = cfg.lookup("quad_type");       // 0 = Gaussian quadrature, 1 = Riemann sum, 2 = user-defined (quadrature file required)
+    const int quad_type = cfg.lookup("quad_type");       // 0 = Gaussian quadrature, 1 = Riemann, 2 = user-defined (quadrature file required)
     const int seed      = cfg.lookup("seed");            // greedy algorithm seed
     const double tol    = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
     int max_RB          = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
     bool weighted_inner = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
     int param_dim       = cfg.lookup("param_dim");       // number of paramteric dimensions (currently supports 2)
-    const char * model_name;                               // mame of model -- used to select the appropriate model in FillTrainingSet
-    const char * output_dir;                               // folder to put all output files
-    const char * output_data_format;                        // format of output files (text or gsl binary supported)
-
-    if(cfg.lookupValue("model_name",model_name) && cfg.lookupValue("output_dir",output_dir) && cfg.lookupValue("output_data_format",output_data_format)){
-        fprintf(stdout,"Successfully loaded model name, output directory location and output data format type\n");
-    }
-    else{
-        fprintf(stderr,"Failed to load either model name, output directory location or output data format type\n");
-        exit(1);
-    }
+    const char * model_name;                             // mame of model -- used to select the appropriate model in FillTrainingSet
+    const char * output_dir;                             // folder to put all output files
+    const char * output_data_format;                     // format of output files (text or gsl binary supported)
 
     // TODO: should be function in TS routine for ND parameter spaces
     ts.param_scale    = (double *)malloc(param_dim*sizeof(double)); 
@@ -908,21 +901,20 @@ int main (int argc, char **argv) {
     // weight_file_name;   // file name of weights --> needed if weighted_inner = true
 
     // run settings - MAY need to be set //
-    const char *ts_file_name;
-    int m_size;
-    double m_low, m_high;
-    int ts_size;
+    // TODO: msize, mlow and mhigh need to be renamed
+    const char *ts_file_name;  // this is required if load_from_file = true
+    double m_low, m_high;      // this is required if load_from_file = false. lower/upper interval of each parameter 
+    int m_size;                // this is required if load_from_file = false. number of samplings in interval [param_low,param_high]
 
-
-    // Creating Run Directory //
-    if(size == 1 || rank == 0){
-
-        strcpy(shell_command, "mkdir -p -m700 ");
-        strcat(shell_command, output_dir);
-        system(shell_command);
-
-        snprintf(shell_command,100,"cp %s %s",argv[1],output_dir);
-        system(shell_command);
+    // lookup additional required run parameters from configuration file //
+    if(cfg.lookupValue("model_name",model_name) 
+       && cfg.lookupValue("output_dir",output_dir) 
+       && cfg.lookupValue("output_data_format",output_data_format)){
+        fprintf(stdout,"Successfully loaded model name, output directory location and output data format type\n");
+    }
+    else{
+        fprintf(stderr,"Failed to load either model name, output directory location or output data format type\n");
+        exit(1);
     }
 
 
@@ -931,7 +923,6 @@ int main (int argc, char **argv) {
     SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]);
 
     // -- build training set (builds list of paramter values in ts.params) -- //
-    // TODO: msize, mlow and mhigh need to be renamed
     if (load_from_file){
         cfg_status = cfg.lookupValue("ts_file", ts_file_name);
         if (!cfg_status){
@@ -950,6 +941,17 @@ int main (int argc, char **argv) {
     // -- Finished reading from configuration file. Start algorithm... //
 
 
+
+    // Creating Run Directory //
+    if(size == 1 || rank == 0){
+
+        strcpy(shell_command, "mkdir -p -m700 ");
+        strcat(shell_command, output_dir);
+        system(shell_command);
+
+        snprintf(shell_command,100,"cp %s %s",argv[1],output_dir);
+        system(shell_command);
+    }
 
     // this function sets members of ts structure and allocates memory for set of parameters //
     ts_alloc(ts_size, param_dim, model_name, ts);
