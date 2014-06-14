@@ -45,24 +45,22 @@ void ts_alloc(const int ts_size, const int param_dim, const char *model_name, Tr
     ts.m1 = m1_tmp;
 
     // building parameter matrix //
-    /*double **params_tmp;
+    double **params_tmp;
     params_tmp = ((double **) malloc(ts_size*sizeof(double *)));
     for(int j = 0; j < ts_size; j++)
     {
 
-      params_tmp[j]=(double *)malloc(param_dim*sizeof(double));
+      params_tmp[j] = (double *)malloc(param_dim*sizeof(double));
 
-      if(params_tmp[j]==NULL)
-      {
-        std::cout << "Failed to allocate memory in BuildTS" << std::endl;
-        // TODO: free the parameter matrix here
+      if(params_tmp[j]==NULL){
+        fprintf(stderr,"Failed to allocate memory in BuildTS\n");
         exit(1);
       }
 
     }
-    ts.params = params_tmp;*/
+    ts.params = params_tmp;
 
-    ts.distributed = false; // by default. set to true if SplitTrainingSet is called
+    ts.distributed = false; //default value is false. Sets to true if SplitTrainingSet called
     strcpy(ts.model,model_name);
 
     std::cout << "Using waveform model: " << ts.model << std::endl;
@@ -108,8 +106,8 @@ void BuildTS_tensor_product(const int &m_size, const double &m_low, const double
             ts.m1[counter] = m_i;
             ts.m2[counter] = m_j;
 
-            //ts.params[counter][0] = m_i;
-            //ts.params[counter][1] = m_j;
+            ts.params[counter][0] = m_i;
+            ts.params[counter][1] = m_j;
 
             counter = counter + 1;
         }
@@ -128,15 +126,18 @@ void BuildTS_from_file(const char *ts_file, TrainSet &ts)
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
     int counter = 0;
+    double p1, p2;
 
     FILE *data;
     data = fopen(ts_file,"r");
-    while(fscanf(data, "%lf %lf", &ts.m1[counter],&ts.m2[counter]) != EOF){
+    while(fscanf(data, "%lf %lf", &p1, &p2) != EOF){
+        ts.params[counter][0] = p1;
+        ts.params[counter][1] = p2;
+        ts.m1[counter] = p1;
+        ts.m2[counter] = p2;
         counter = counter + 1;
     }
     fclose(data);
-
-    //ts.params[]
 
     std::cout << "ts size = " << counter << std::endl;
 
@@ -197,7 +198,8 @@ void WriteTrainingSet(const TrainSet ts)
     char filename[] = "TS_Points.txt";
     data1 = fopen(filename,"w");
     for(int i = 0; i < ts.ts_size ; i++){   
-        fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
+        //fprintf(data1,"%.15le %.15le\n",ts.m1[i],ts.m2[i]);
+        fprintf(data1,"%.15le %.15le\n",ts.params[i][0],ts.params[i][1]);
     }
     fclose(data1);
 }

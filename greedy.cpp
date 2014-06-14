@@ -153,8 +153,10 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 
         for(int i = 0; i < matrix_size; i++){
             global_i = start_ind + i;
-            params[0] = ts.m1[global_i] * ts.param_scale[0];
-            params[1] = ts.m2[global_i] * ts.param_scale[1];
+            //params[0] = ts.m1[global_i] * ts.param_scale[0];
+            //params[1] = ts.m2[global_i] * ts.param_scale[1];
+            params[0] = ts.params[global_i][0] * ts.param_scale[0];
+            params[1] = ts.params[global_i][1] * ts.param_scale[1];
 
             TF2_FullWaveform(wv,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
             gsl_matrix_complex_set_row(TS_gsl,i,wv);
@@ -366,7 +368,8 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     for(int i = 0; i < dim_RB ; i++)
     {
         fprintf(err_data,"%1.14f\n",app_err[i]);
-        fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]],ts.m2[sel_rows[i]]);
+        //fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]],ts.m2[sel_rows[i]]);
+        fprintf(pts_data,"%1.14f %1.14f\n",ts.params[sel_rows[i]][0],ts.params[sel_rows[i]][1]);
     }
     fclose(err_data);
     fclose(pts_data);
@@ -1006,6 +1009,12 @@ int main (int argc, char **argv) {
     free(ts.m1);
     free(ts.m2);
     free(ts.param_scale);
+
+    // free params matrix. TODO: check with valgrind that this is correct by looking for memory leaks //
+    for(int j = 0; j < ts.ts_size; j++){ 
+      free(ts.params[j]);
+    }
+    free(ts.params);
 
     if(ts.distributed){
         free(ts.mystart);
