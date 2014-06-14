@@ -321,7 +321,7 @@ int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
 
 }
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * out_fldr,const char *datatype)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * output_dir,const char *datatype)
 {
     FILE *rb_real_data, *rb_imag_data, *r_real_data, *r_imag_data, *err_data, *pts_data;
     FILE *rb_data, *r_data;
@@ -335,19 +335,19 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     char r_filename[100];
 
     if(strcmp(datatype,"txt") == 0){
-        strcpy(rb_real_filename,out_fldr);
+        strcpy(rb_real_filename,output_dir);
         strcat(rb_real_filename,"/Basis_real.txt");
-        strcpy(rb_imag_filename,out_fldr);
+        strcpy(rb_imag_filename,output_dir);
         strcat(rb_imag_filename,"/Basis_imag.txt");
-        strcpy(r_real_filename,out_fldr);
+        strcpy(r_real_filename,output_dir);
         strcat(r_real_filename,"/R_real.txt");
-        strcpy(r_imag_filename,out_fldr);
+        strcpy(r_imag_filename,output_dir);
         strcat(r_imag_filename,"/R_imag.txt");
     } 
     else if(strcmp(datatype,"bin") == 0){
-        strcpy(rb_filename,out_fldr);
+        strcpy(rb_filename,output_dir);
         strcat(rb_filename,"/Basis.bin");
-        strcpy(r_filename,out_fldr);
+        strcpy(r_filename,output_dir);
         strcat(r_filename,"/R.bin");
     }
     else{
@@ -355,9 +355,9 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
         exit(1);
     }
 
-    strcpy(err_filename,out_fldr);
+    strcpy(err_filename,output_dir);
     strcat(err_filename,"/ApproxErrors.txt");
-    strcpy(pts_filename,out_fldr);
+    strcpy(pts_filename,output_dir);
     strcat(pts_filename,"/GreedyPoints.txt");
 
     //--- write errors and greedy points to text file ---//
@@ -521,7 +521,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     free(errors);
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * out_fldr, const char *out_file_format)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -653,7 +653,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,out_file_format);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
 
 
     gsl_vector_complex_free(ortho_basis);
@@ -669,7 +669,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
 }
 
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * out_fldr, const char *out_file_format)
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solution, cols are quadrature samples)
@@ -787,7 +787,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,out_fldr,out_file_format);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
 
 
     gsl_vector_complex_free(ts_el);
@@ -831,6 +831,7 @@ int main (int argc, char **argv) {
     int size = 1;  // needed for serial mode too
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
+    // Ex: if executed with "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
     rank = MPI::COMM_WORLD.Get_rank();
     size = MPI::COMM_WORLD.Get_size();
 
@@ -850,7 +851,7 @@ int main (int argc, char **argv) {
     std::cout << "parameter file is: " << argv[1] << std::endl;
 
 
-    //--- Read input (config) file. If there is an error, report it and exit ---//
+    //--- Read input (config) file. If there is an error, report and exit ---//
     // TODO: with MPI, multiple procs reading same paramter file... seems bad //
     libconfig::Config cfg;
     try{
@@ -875,23 +876,29 @@ int main (int argc, char **argv) {
     bool cfg_status;
 
     // run settings - these MUST be set in the parameter file //
-    bool load_from_file          = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
-    const int quad_type          = cfg.lookup("quad_type");       // 0 = LGL, 1 = Reimman sum, 2 = Dynamic (frequency vector file required)
-    const int seed               = cfg.lookup("seed");            // greedy algorithm seed
-    const double tol             = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
-    std::string model_str        = cfg.lookup("model_str");      // type of gravitational waveform model
-    std::string out_fldr_str     = cfg.lookup("out_fldr_str");   // folder to put all output files
-    std::string out_form_str     = cfg.lookup("out_file_format"); // format of output files (text or gsl binary supported)
-    const char * model_wv        = model_str.c_str();
-    const char * out_fldr        = out_fldr_str.c_str();
-    const char * out_file_format = out_form_str.c_str();
-    int max_RB                   = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
-    bool weighted_inner          = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
-    int param_dim                = cfg.lookup("param_dim");      // number of paramteric dimensions (currently supports 2)
+    bool load_from_file = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
+    const int quad_type = cfg.lookup("quad_type");       // 0 = Gaussian quadrature, 1 = Riemann sum, 2 = user-defined (quadrature file required)
+    const int seed      = cfg.lookup("seed");            // greedy algorithm seed
+    const double tol    = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
+    int max_RB          = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
+    bool weighted_inner = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
+    int param_dim       = cfg.lookup("param_dim");       // number of paramteric dimensions (currently supports 2)
+    const char * model_name;                               // mame of model -- used to select the appropriate model in FillTrainingSet
+    const char * output_dir;                               // folder to put all output files
+    const char * output_data_format;                        // format of output files (text or gsl binary supported)
+
+    if(cfg.lookupValue("model_name",model_name) && cfg.lookupValue("output_dir",output_dir) && cfg.lookupValue("output_data_format",output_data_format)){
+        fprintf(stdout,"Successfully loaded model name, output directory location and output data format type\n");
+    }
+    else{
+        fprintf(stderr,"Failed to load either model name, output directory location or output data format type\n");
+        exit(1);
+    }
+
     // TODO: should be function in TS routine for ND parameter spaces
     ts.param_scale               = (double *)malloc(param_dim*sizeof(double)); 
-    ts.param_scale[0]            =  cfg.lookup("p1_scale");        // scale each m1[i] so that input to model is param_scale[0] * m1[i]
-    ts.param_scale[1]            =  cfg.lookup("p2_scale");        // scale each m2[0] so that input to model is param_scale[1] * m2[i]
+    ts.param_scale[0]            =  cfg.lookup("p1_scale");       // scale each m1[i] so that input to model is param_scale[0] * m1[i]
+    ts.param_scale[1]            =  cfg.lookup("p2_scale");       // scale each m2[0] so that input to model is param_scale[1] * m2[i]
 
     // run settings - MAY need to be set for SetupQuadratureRule //
     // x_min;              // lower value x_min (physical domain) --> needed if quad_type != 2
@@ -911,20 +918,20 @@ int main (int argc, char **argv) {
     if(size == 1 || rank == 0){
 
         strcpy(shell_command, "mkdir -p -m700 ");
-        strcat(shell_command, out_fldr);
+        strcat(shell_command, output_dir);
         system(shell_command);
 
-        snprintf(shell_command,100,"cp %s %s",argv[1],out_fldr);
+        snprintf(shell_command,100,"cp %s %s",argv[1],output_dir);
         system(shell_command);
     }
 
 
-    // return wQuad and xQuad based on inputs from configuration file //
-    SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]); //argv[1] is location of parameter file
+    // returns wQuad and xQuad, configuration file = argv[1]  //
+    // note: this returns the full, not reduced, quadrature rule //
+    SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]);
 
- 
-   // -- build training set (collection of points) -- //
-   if (load_from_file)     {
+    // -- build training set (builds list of paramter values in ts.params) -- //
+    if (load_from_file){
         cfg_status = cfg.lookupValue("ts_file", ts_file_name);
         if (!cfg_status){
             fprintf(stderr, "ts_file not found in config file\n");
@@ -939,8 +946,14 @@ int main (int argc, char **argv) {
         ts_size         = pow(m_size, param_dim); 
     }
 
-    ts_alloc(ts_size, param_dim, model_wv, ts);
+    // -- Finished reading from configuration file. Start algorithm... //
 
+
+
+    // this function sets members of ts structure and allocates memory for set of parameters //
+    ts_alloc(ts_size, param_dim, model_name, ts);
+
+    // returns ts.params filled with values //
     if(load_from_file){
         BuildTS_from_file(ts_file_name,ts);
     }
@@ -948,17 +961,15 @@ int main (int argc, char **argv) {
         BuildTS_tensor_product(m_size,m_low,m_high,ts);
     }
 
-
-    // Build training space and run greedy algorithm //
+    // Build training space by evaluating model at ts.params. Then run the greedy algorithm //
     if(size == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,xQuad->size); // GSL error handler will abort if too much requested
-        FillTrainingSet(TS_gsl,xQuad,wQuad,ts,0);
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,out_fldr,out_file_format);
+        FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank);               // size=1  => rank=0. 5th argument is the rank
+        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,output_dir,output_data_format);
     }
     else
     {
-
         // -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- //
         SplitTrainingSet(size,ts);
 
@@ -970,7 +981,7 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,out_fldr,out_file_format);
+            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,output_dir,output_data_format);
         }
         else{
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
