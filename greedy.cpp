@@ -129,7 +129,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     int start_ind, end_ind, global_i, matrix_size;
 
 
-    params = new double[ts.param_dim]; // for TF2 model this is (m1,m2)
+    params = new double[ts.param_dim]; // for TF2 model this is (mass1, mass2)
     wv     = gsl_vector_complex_alloc(xQuad->size);
 
     // -- decide which chunk of TS to compute on this proc -- //
@@ -153,8 +153,6 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 
         for(int i = 0; i < matrix_size; i++){
             global_i = start_ind + i;
-            //params[0] = ts.m1[global_i] * ts.param_scale[0];
-            //params[1] = ts.m2[global_i] * ts.param_scale[1];
             params[0] = ts.params[global_i][0] * ts.param_scale[0];
             params[1] = ts.params[global_i][1] * ts.param_scale[1];
 
@@ -368,7 +366,6 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     for(int i = 0; i < dim_RB ; i++)
     {
         fprintf(err_data,"%1.14f\n",app_err[i]);
-        //fprintf(pts_data,"%1.14f %1.14f\n",ts.m1[sel_rows[i]],ts.m2[sel_rows[i]]);
         fprintf(pts_data,"%1.14f %1.14f\n",ts.params[sel_rows[i]][0],ts.params[sel_rows[i]][1]);
     }
     fclose(err_data);
@@ -899,9 +896,9 @@ int main (int argc, char **argv) {
     }
 
     // TODO: should be function in TS routine for ND parameter spaces
-    ts.param_scale               = (double *)malloc(param_dim*sizeof(double)); 
-    ts.param_scale[0]            =  cfg.lookup("p1_scale");       // scale each m1[i] so that input to model is param_scale[0] * m1[i]
-    ts.param_scale[1]            =  cfg.lookup("p2_scale");       // scale each m2[0] so that input to model is param_scale[1] * m2[i]
+    ts.param_scale    = (double *)malloc(param_dim*sizeof(double)); 
+    ts.param_scale[0] =  cfg.lookup("p1_scale");   // scale each params[j][0] so that model evaluated at param_scale[0] * params[j][0]
+    ts.param_scale[1] =  cfg.lookup("p2_scale");   // scale each params[j][1] so that model evaluated at param_scale[1] * params[j][1]
 
     // run settings - MAY need to be set for SetupQuadratureRule //
     // x_min;              // lower value x_min (physical domain) --> needed if quad_type != 2
@@ -934,6 +931,7 @@ int main (int argc, char **argv) {
     SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]);
 
     // -- build training set (builds list of paramter values in ts.params) -- //
+    // TODO: msize, mlow and mhigh need to be renamed
     if (load_from_file){
         cfg_status = cfg.lookupValue("ts_file", ts_file_name);
         if (!cfg_status){
@@ -1006,8 +1004,6 @@ int main (int argc, char **argv) {
 */
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
-    free(ts.m1);
-    free(ts.m2);
     free(ts.param_scale);
 
     // free params matrix. TODO: check with valgrind that this is correct by looking for memory leaks //
