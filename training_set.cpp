@@ -52,7 +52,6 @@ void ts_alloc(const int ts_size, const int param_dim, const char *model_name, Tr
 
 }
 
-
 void uniform(const int &n, const double &a, const double &b, double *SomeArray)
 {
     double factor = (b-a)/(double)(n-1);
@@ -62,43 +61,42 @@ void uniform(const int &n, const double &a, const double &b, double *SomeArray)
     }
 }
 
-void BuildTS_tensor_product(const int &m_size, const double &m_low, const double &m_high, TrainSet &ts)
+void BuildTS_tensor_product(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
 {
 
-    double *mass_list;
-    double m_i, m_j;
+    double *param_list;
+    double param_i, param_j;
     int counter = 0;
 
-    mass_list = (double *)malloc(m_size*sizeof(double));
+    param_list = (double *)malloc(params_num[0]*sizeof(double));
 
-    if(mass_list==NULL)
-    {
-        std::cout << "Failed to allocate memory in BuildTS" << std::endl;
-        free(mass_list);
+    if(param_list==NULL){
+        fprintf(stderr,"Failed to allocate memory in BuildTS\n");
+        free(param_list);
         exit(1);
     }
 
-    uniform(m_size, m_low, m_high, mass_list); // m_size equidistant points from m_low to m_high
+    // fills param_list with params_num[i] samples from params_low[i] to params_high[i] //
+    uniform(params_num[0], params_low[0], params_high[0], param_list);
 
-    // mass_list x mass_list tensor product -- (m1_temp[i],m2_temp[i]) ith training set element
-    for(int i = 0; i < m_size; i++)
+    // ex: 2D parameter space, param_list x param_list tensor product:
+    // (params[i][0],params[i][1]) is the ith training set element
+    for(int i = 0; i < params_num[0]; i++)
     {
-        m_i = mass_list[i];
+        param_i = param_list[i];
 
-        for(int j = 0; j < m_size; j++)
+        for(int j = 0; j < params_num[0]; j++)
         {
-            m_j = mass_list[j];
+            param_j = param_list[j];
 
-            ts.params[counter][0] = m_i;
-            ts.params[counter][1] = m_j;
+            ts.params[counter][0] = param_i;
+            ts.params[counter][1] = param_j;
 
             counter = counter + 1;
         }
     }
 
-
-    /* -- NOTE: Free m1_tmp, m2_tmp in main through ts -- */
-    free(mass_list);
+    free(param_list);
 
 }
 

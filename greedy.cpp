@@ -901,10 +901,9 @@ int main (int argc, char **argv) {
     // weight_file_name;   // file name of weights --> needed if weighted_inner = true
 
     // run settings - MAY need to be set //
-    // TODO: msize, mlow and mhigh need to be renamed
-    const char *ts_file_name;  // this is required if load_from_file = true
-    double m_low, m_high;      // this is required if load_from_file = false. lower/upper interval of each parameter 
-    int m_size;                // this is required if load_from_file = false. number of samplings in interval [param_low,param_high]
+    const char *ts_file_name;          // this is required if load_from_file = true
+    double *params_low, *params_high;  // this is required if load_from_file = false. lower/upper interval of each parameter 
+    int *params_num;                   // this is required if load_from_file = false. Number of samplings in the interval [param_low,param_high]
 
     // lookup additional required run parameters from configuration file //
     if(cfg.lookupValue("model_name",model_name) 
@@ -932,10 +931,20 @@ int main (int argc, char **argv) {
         ts_size = fcount_pts(ts_file_name); // need to get training set size from file
     }
     else{
-        m_size          = cfg.lookup("m_size");         // parameter points in each m1,m2 direction
-        m_low           = cfg.lookup("m_low");          // lower mass value (in solar masses)
-        m_high          = cfg.lookup("m_high");         // higher mass value (in solar masses)
-        ts_size         = pow(m_size, param_dim); 
+        params_num       = (int *)malloc(param_dim*sizeof(int));
+        params_low       = (double *)malloc(param_dim*sizeof(double));
+        params_high      = (double *)malloc(param_dim*sizeof(double));
+
+        params_num[0]   = cfg.lookup("params_num0");
+        params_num[1]   = cfg.lookup("params_num1");
+
+        params_low[0]   = cfg.lookup("params_low0");
+        params_low[1]   = cfg.lookup("params_low1");
+
+        params_high[0]   = cfg.lookup("params_high0");
+        params_high[1]   = cfg.lookup("params_high1");
+      
+        ts_size         = pow(params_num[0], param_dim); 
     }
 
     // -- Finished reading from configuration file. Start algorithm... //
@@ -961,7 +970,7 @@ int main (int argc, char **argv) {
         BuildTS_from_file(ts_file_name,ts);
     }
     else{
-        BuildTS_tensor_product(m_size,m_low,m_high,ts);
+        BuildTS_tensor_product(params_num,params_low,params_high,ts);
     }
 
     // Build training space by evaluating model at ts.params. Then run the greedy algorithm //
@@ -1018,6 +1027,12 @@ int main (int argc, char **argv) {
         free(ts.mystart);
         free(ts.myend);
         free(ts.matrix_sub_size);
+    }
+
+    if (load_from_file == false){
+        free(params_num);
+        free(params_low);
+        free(params_high);
     }
 
     // Tell the MPI library to release all resources it is using
