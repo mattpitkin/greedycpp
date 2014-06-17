@@ -61,50 +61,59 @@ void uniform(const int &n, const double &a, const double &b, double *SomeArray)
     }
 }
 
-void BuildTS_tensor_product(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
+void BuildTS_TensorProduct2D(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
 {
 
-    double *param_list;
-    double param_i, param_j;
+    double *param_list_0, *param_list_1;
+    double param_0, param_1;
     int counter = 0;
 
-    param_list = (double *)malloc(params_num[0]*sizeof(double));
+    param_list_0 = (double *)malloc(params_num[0]*sizeof(double));
+    param_list_1 = (double *)malloc(params_num[1]*sizeof(double));
 
-    if(param_list==NULL){
+    if(param_list_0==NULL || param_list_1==NULL){
         fprintf(stderr,"Failed to allocate memory in BuildTS\n");
-        free(param_list);
+        free(param_list_0);
+        free(param_list_1);
         exit(1);
     }
 
     // fills param_list with params_num[i] samples from params_low[i] to params_high[i] //
-    uniform(params_num[0], params_low[0], params_high[0], param_list);
+    uniform(params_num[0], params_low[0], params_high[0], param_list_0);
+    uniform(params_num[1], params_low[1], params_high[1], param_list_1);
 
     // ex: 2D parameter space, param_list x param_list tensor product:
     // (params[i][0],params[i][1]) is the ith training set element
     for(int i = 0; i < params_num[0]; i++)
     {
-        param_i = param_list[i];
+        param_0 = param_list_0[i];
 
-        for(int j = 0; j < params_num[0]; j++)
+        for(int j = 0; j < params_num[1]; j++)
         {
-            param_j = param_list[j];
+            param_1 = param_list_1[j];
 
-            ts.params[counter][0] = param_i;
-            ts.params[counter][1] = param_j;
+            ts.params[counter][0] = param_0;
+            ts.params[counter][1] = param_1;
 
             counter = counter + 1;
         }
     }
 
-    free(param_list);
-
+    free(param_list_0);
+    free(param_list_1);
 }
 
 
-void BuildTS_from_file(const char *ts_file, TrainSet &ts)
+void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
 {
 
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
+
+    // TODO: use fread to make extend this limitation
+    if(ts.param_dim !=1){
+        fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
+        exit(1);
+    }
 
     int counter = 0;
     double p1, p2;

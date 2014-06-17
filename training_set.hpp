@@ -30,8 +30,8 @@ void ts_alloc(const int ts_size, const int param_dim,
 void uniform(const int &, const double &, const double &, double *);
 
 // these routines will populate params in TrainSet //
-void BuildTS_tensor_product(const int *, const double *, const double *, TrainSet &);
-void BuildTS_from_file(const char *, TrainSet &);
+void BuildTS_TensorProduct2D(const int *, const double *, const double *, TrainSet &);
+void BuildTS_FromFile(const char *, TrainSet &);
 
 // this routine distributed the ts over procs //
 void SplitTrainingSet(const int, TrainSet &);
