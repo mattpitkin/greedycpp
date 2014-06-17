@@ -921,6 +921,8 @@ int main (int argc, char **argv) {
     // note: this returns the full, not reduced, quadrature rule //
     SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]);
 
+    const libconfig::Setting& root = cfg.getRoot();
+
     // -- build training set (builds list of paramter values in ts.params) -- //
     if (load_from_file){
         cfg_status = cfg.lookupValue("ts_file", ts_file_name);
@@ -935,16 +937,42 @@ int main (int argc, char **argv) {
         params_low       = (double *)malloc(param_dim*sizeof(double));
         params_high      = (double *)malloc(param_dim*sizeof(double));
 
-        params_num[0]   = cfg.lookup("params_num0");
-        params_num[1]   = cfg.lookup("params_num1");
+        // note about libconfig: if destination data type does not match expected on from configuration file an error is thrown //
 
-        params_low[0]   = cfg.lookup("params_low0");
-        params_low[1]   = cfg.lookup("params_low1");
+        // read in params_num and determine ts_size //
+        ts_size = 1;
+        libconfig::Setting& params_num_s = root["params_num"];
+        int count_array = params_num_s.getLength();
+        if(count_array != param_dim){
+            fprintf(stderr,"elements in params_num defined in configuration file does equal param_dim\n");
+            exit(1);
+        }
+        for(int i = 0; i < param_dim; i++){
+            params_num[i] = params_num_s[i];
+            ts_size       = params_num[i]*ts_size; // assumes tensor product structure on training set
+        }
 
-        params_high[0]   = cfg.lookup("params_high0");
-        params_high[1]   = cfg.lookup("params_high1");
-      
-        ts_size         = pow(params_num[0], param_dim); 
+        // read in params_low //
+        libconfig::Setting& params_low_s = root["params_low"];
+        count_array = params_low_s.getLength();
+        if(count_array != param_dim){
+            fprintf(stderr,"elements in params_low defined in configuration file does equal param_dim\n");
+            exit(1);
+        }
+        for(int i = 0; i < param_dim; i++){
+            params_low[i] = params_low_s[i];
+        }
+
+        // read in params_low //
+        libconfig::Setting& params_high_s = root["params_high"];
+        count_array = params_high_s.getLength();
+        if(count_array != param_dim){
+            fprintf(stderr,"elements in params_high defined in configuration file does equal param_dim\n");
+            exit(1);
+        }
+        for(int i = 0; i < param_dim; i++){
+            params_high[i] = params_high_s[i];
+        }
     }
 
     // -- Finished reading from configuration file. Start algorithm... //

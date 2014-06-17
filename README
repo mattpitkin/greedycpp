@@ -80,12 +80,14 @@ comment out the following code
 
 Troubleshooting
 ---------------
-if gsl not found run
+
+1) If gsl not found run
 
 gsl-config --cflags --libs-without-cblas
 
 and the output says what must be added to g++ for to compile and link. Standard spot is in /usr/libs or opt/local
 
+2) Install 'libconfig-hr' from macports instead of the package 'libconfig' which is just the c-version
 
 possible optimization
 ---------------------
