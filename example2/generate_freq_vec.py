@@ -219,14 +219,18 @@ def get_seglength(dur):
 #
 parser = OptionParser()
 parser.add_option('-b', '--bank-points', help='Required. Text file containing mass points')
+parser.add_option('-o', '--output-file', help='Required. Name of text file to write the frequency vector out to.')
 parser.add_option('-f', '--f-low', type=float, help='Required. Starting frequency to use')
 parser.add_option('-F', '--f-stop', type=float, default=None, help='Optional. Ending frequency to use. If None specified, the largest Schwarzschild ISCO in the bank will be used.')
+parser.add_option('-S', '--default-segment-length', type=float, default=None, help='Optional. The inverse of this gives the default frequency step to use. That is, the frequency vector will be constructed such that every point is a multiple of the default frequency step. If not specified, the longest duration in the bank rounded up to the nearest power of two will be used.')
 
 opts, _ = parser.parse_args()
 
 # check opts
 if opts.bank_points is None:
     raise ValueError("Must specify bank-points file")
+if opts.output_file is None:
+    raise ValueError("Must specify output-file")
 if opts.f_low is None:
     raise ValueError("Must specify f-low")
 
@@ -251,6 +255,12 @@ use_idx = durs.argmax()
 m1, m2 = bank[use_idx,:]
 ####
 
+if opts.default_segment_length is not None:
+    default_seg_len = opts.default_segment_length
+else:
+    default_seg_len = get_seglength(durs[use_idx])
+    print "Using %is as the default segment length." % default_seg_len
+default_df = 1./default_seg_len
 
 # now sweep through the frequency band, adjusting the step as needed
 print >> sys.stdout, "Calculating frequency vector..."
@@ -264,8 +274,8 @@ while freq < opts.f_stop:
     # in the bank
     #next_df = 1./get_seglength(max([estimate_duration(m1, m2, s1, s2, freq,
     #        opts.f_stop) for m1, m2 in bank]))
-    next_df = 1./get_seglength(estimate_duration(m1, m2, s1, s2, freq,
-        opts.f_stop))
+    next_df = numpy.floor(default_seg_len/estimate_duration(m1, m2, s1, s2, freq,
+        opts.f_stop)) * default_df
     freq += next_df
     print >> sys.stdout, "%f %e\r" %(freq, next_df),
     sys.stdout.flush()
@@ -275,10 +285,10 @@ freq_vec.append(opts.f_stop)
 
 # write the frequency vector out and exit
 print >> sys.stdout, "Saving..."
-numpy.savetxt('frequency_vector.txt', numpy.array(freq_vec))
+numpy.savetxt(opts.output_file, numpy.array(freq_vec))
 
 N = len(freq_vec)
-Norig = (opts.f_stop - opts.f_low)/(freq_vec[1] - freq_vec[0])
+Norig = (opts.f_stop - opts.f_low) / default_df
 print >> sys.stdout, "Number of frequency points: %i" % N
 print >> sys.stdout, "Number without dynamic adjustment: %i" % Norig
 print >> sys.stdout, "Savings factor: %f" %(Norig/N)
