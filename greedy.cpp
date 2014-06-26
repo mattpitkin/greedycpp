@@ -998,7 +998,7 @@ int main (int argc, char **argv) {
         BuildTS_FromFile(ts_file_name,ts);
     }
     else{
-        BuildTS_TensorProduct2D(params_num,params_low,params_high,ts);
+        BuildTS_TensorProduct(params_num,params_low,params_high,ts);
     }
 
     // Build training space by evaluating model at ts.params. Then run the greedy algorithm //

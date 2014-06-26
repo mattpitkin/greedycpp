@@ -61,6 +61,19 @@ void uniform(const int &n, const double &a, const double &b, double *SomeArray)
     }
 }
 
+void BuildTS_TensorProduct(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
+{
+
+    // KEEP 2D: its easier to understand and has been robustly tested. ND agrees exactly with 2d via unix diff 
+    if(ts.param_dim == 2){
+        BuildTS_TensorProduct2D(params_num,params_low,params_high,ts);
+    }
+    else{
+        BuildTS_TensorProductND(params_num,params_low,params_high,ts);
+    }
+
+}
+
 void BuildTS_TensorProduct2D(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
 {
 
@@ -110,7 +123,7 @@ void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
     // TODO: use fread to make extend this limitation
-    if(ts.param_dim !=1){
+    if(ts.param_dim != 2){
         fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
         exit(1);
     }
@@ -137,6 +150,49 @@ void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
     }
 
 }
+
+void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_step_size, const int *params_num, const int level, double *param_vector, int &counter, TrainSet &ts)
+{
+
+    if(level == ts.param_dim)
+    {
+
+        std::cout << counter << std::endl;
+
+        for(int j=0; j < ts.param_dim; j++){
+            ts.params[counter][j] = param_vector[j];
+        }
+        counter = counter + 1;
+    }
+    else
+    {
+        for(int i=0; i < params_num[level]; i++){
+            param_vector[level] = params_low[level]+((double)i)*params_step_size[level];
+            BuildTS_RecursiveSetBuild(params_low,params_step_size,params_num,level+1,param_vector,counter,ts);
+        }
+    }
+}
+
+void BuildTS_TensorProductND(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts)
+{
+    double *params_step_size, *param_vector;
+
+    param_vector     = (double *)malloc(ts.param_dim*sizeof(double));
+    params_step_size = (double *)malloc(ts.param_dim*sizeof(double));
+
+    int counter = 0; // used to fill ts as ts.params[counter][j] where j  = 1 to ts.param_dim-1
+
+    // compute step sizes for equal spaced parameter samples //
+    for (int i=0; i < ts.param_dim; i++){
+        params_step_size[i] = ( params_high[i] - params_low[i] )/((double)(params_num[i]-1));
+    }
+
+    BuildTS_RecursiveSetBuild(params_low,params_step_size,params_num,0,param_vector,counter,ts);
+
+    free(param_vector);
+    free(params_step_size);
+}
+
 
 
 void SplitTrainingSet(const int size, TrainSet &ts)

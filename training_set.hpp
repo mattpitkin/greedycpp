@@ -29,9 +29,16 @@ void ts_alloc(const int ts_size, const int param_dim,
 // generates uniform spacing //
 void uniform(const int &, const double &, const double &, double *);
 
-// these routines will populate params in TrainSet //
+// wrapper for 2D and ND tensor product builds //
+void BuildTS_TensorProduct(const int *, const double *, const double *, TrainSet &);
+
+// these routines will populate params in TrainSet -- 2-D //
 void BuildTS_TensorProduct2D(const int *, const double *, const double *, TrainSet &);
 void BuildTS_FromFile(const char *, TrainSet &);
+
+// these routines will populate params in TrainSet -- N-D //
+void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_step_size, const int *params_num, const int level, double *param_vector, int &counter);
+void BuildTS_TensorProductND(const int *params_num, const double *params_low, const double *params_high, TrainSet &ts);
 
 // this routine distributed the ts over procs //
 void SplitTrainingSet(const int, TrainSet &);
