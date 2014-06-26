@@ -156,9 +156,6 @@ void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_st
 
     if(level == ts.param_dim)
     {
-
-        std::cout << counter << std::endl;
-
         for(int j=0; j < ts.param_dim; j++){
             ts.params[counter][j] = param_vector[j];
         }
