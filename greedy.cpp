@@ -152,9 +152,13 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
         for(int i = 0; i < matrix_size; i++){
+
             global_i = start_ind + i;
-            params[0] = ts.params[global_i][0] * ts.param_scale[0];
-            params[1] = ts.params[global_i][1] * ts.param_scale[1];
+
+            // TODO: this should be handled in ts class whenever thats implimented
+            for(int j = 0; j < ts.param_dim; j++){
+                params[j] = ts.params[global_i][j] * ts.param_scale[j];
+            }
 
             TF2_FullWaveform(wv,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
             gsl_matrix_complex_set_row(TS_gsl,i,wv);
@@ -889,9 +893,13 @@ int main (int argc, char **argv) {
     const char * output_data_format;                     // format of output files (text or gsl binary supported)
 
     // TODO: should be function in TS routine for ND parameter spaces
-    ts.param_scale    = (double *)malloc(param_dim*sizeof(double)); 
-    ts.param_scale[0] =  cfg.lookup("p1_scale");   // scale each params[j][0] so that model evaluated at param_scale[0] * params[j][0]
-    ts.param_scale[1] =  cfg.lookup("p2_scale");   // scale each params[j][1] so that model evaluated at param_scale[1] * params[j][1]
+    ts.param_scale = (double *)malloc(param_dim*sizeof(double)); 
+    char scale_str[20];
+    for(int i = 0; i < param_dim; i++){
+        snprintf(scale_str, 20, "p%d_scale", i+1);
+        ts.param_scale[i] =  cfg.lookup(scale_str);   // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]      
+    }
+
 
     // run settings - MAY need to be set for SetupQuadratureRule //
     // x_min;              // lower value x_min (physical domain) --> needed if quad_type != 2

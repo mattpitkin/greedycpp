@@ -1,6 +1,3 @@
-WARNING: while making changes to code, make sure one can reproduce the
-example test!!!
-
 Overview
 --------
 Given a parameterized model h(x;p), whose physical variable is x and
@@ -89,8 +86,14 @@ and the output says what must be added to g++ for to compile and link. Standard 
 
 2) Install 'libconfig-hr' from macports instead of the package 'libconfig' which is just the c-version
 
+
 possible optimization
 ---------------------
 1) multiply all vectors by square root of weights so Euclidean inner product can be used.
 
+
+Acknowledgements
+----------------
+Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for careful error reporting, 
+code improvements and testing of early versions of the code. 
 
