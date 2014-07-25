@@ -1,1 +1,1 @@
-tar -cf greedy.tar greedy.cpp gauss_wgts.h Makefile nr3.h README spa_waveforms.h TrainingSet.cpp TrainingSet.h example1/*
+tar -cf greedy.tar greedy.cpp gauss_wgts.h Makefile nr3.h README spa_waveforms.h training_set.cpp training_set.hpp example1/*
