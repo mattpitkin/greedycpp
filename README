@@ -1,43 +1,55 @@
 Overview
 --------
 Given a parameterized model h(x;p), whose physical variable is x and
-parameterization p. From a collection of model evaluations at known at
-training set points p_i, we have a training space
+parameterization p. 
+
+From a collection of model evaluations at known at a discrete training set
+of parameter p_i and physical x_j points, we have a training space
 
    { h(x_j;p_i) }
 
-This training space fills up a matrix A. This routine finds a low-rank
-approximation of A by a pivoted QR (aka greedy) decomposition. The output
-are a collection of p_i (greedy parameter values), the orthonormal basis,
-and an R matrix such that A = R * Q where the rows of Q are precisely the 
-basis.
+This training space fills up a matrix A such that the i-th row is the model
+evaluation h(\vec{x};p_i). 
+
+The routine greedy.cpp finds a low-rank approximation of A by a 
+pivoted QR (aka greedy) decomposition. The output are a collection 
+of p_i (greedy parameter values), the orthonormal basis, and an 
+R-matrix such that 
+
+   A = R * Q 
+
+where the rows of Q are precisely the basis.
+
+Requirements: mpi, libconfig, hdf5 
 
 
-Requirements
-------------
-mpi
-libconfig
-hdf5 
-
-
-Usage
------
+Quick start
+-----------
 
          -- serial mode --
 1) edit greedy.cpp (see below)
 2) run 'make Greedy'
-3) run './greedy'
+3) run './greedy PARAM_FILE.cfg'
 
 
          -- mpi --
 1) run 'make'
 2) mpirun -np NUM_PROCS ./greedympi PARAM_FILE.cfg
 
-run a simple test case with
 
-mpirun -np 1 ./ greedympi example1/test1.cfg
+Running example 1
+-----------------
+Lets run an example problem using the configuration file provided in example1/
 
+>>> mpirun -np 4 ./ greedympi example1/test1.cfg
 
+A directory called 'example1_output' should contain the output. Check that 
+the output matches whats insides example1 by doing
+
+>>> python regression_test.py example1/ example1_output/
+
+This should report on the differences as well as generating a summary 
+html file.
 
 
 Running on SuperMike2 with MPI
@@ -86,10 +98,6 @@ and the output says what must be added to g++ for to compile and link. Standard 
 
 2) Install 'libconfig-hr' from macports instead of the package 'libconfig' which is just the c-version
 
-
-possible optimization
----------------------
-1) multiply all vectors by square root of weights so Euclidean inner product can be used.
 
 
 Acknowledgements
