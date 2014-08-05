@@ -49,7 +49,38 @@ the output matches whats insides example1 by doing
 >>> python regression_test.py example1/ example1_output/
 
 This should report on the differences as well as generating a summary 
-html file.
+html file. Differences, if there any, should be machine precision. 
+
+Next, lets modify test1.cfg. The relevant variables should be changed to 
+
+load_from_file = false;
+params_num  = [30,30];
+params_low  = [1.0,1.0];
+params_high = [3.0,3.0];
+
+
+These settings will, to the first 10 decimal places or so, reproduce the same
+training set samplings as that give from file "example1/TS_Points.txt". Now
+do 
+
+>>> mpirun -np 4 ./ greedympi example1/test1.cfg
+
+You should find minor differences similar to:
+
+>>> python regression_test.py example1/ example1_output/
+
+Mismatches in the following files: 
+==>      ApproxErrors.txt : Maximum difference =   9.00391e-14 on line 261
+==>      GreedyPoints.txt : Maximum difference =   1.02141e-14 on line 264
+==>        Basis_real.txt : Maximum difference =   1.53470e-07 on line 270
+==>        Basis_imag.txt : Maximum difference =   1.27563e-07 on line 270
+==>            R_real.txt : Maximum difference =   3.39999e-13 on line 270
+==>            R_imag.txt : Maximum difference =   4.36700e-13 on line 270
+
+
+While differences of 1e-07 might seem large, notice that the 270th 
+basis is the last one, and its contribution to the approximation 
+is on the order of tol = 1e-12
 
 
 Running on SuperMike2 with MPI
