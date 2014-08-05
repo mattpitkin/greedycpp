@@ -8,3 +8,9 @@ Greedy: greedy.cpp
 
 GreedyMPI: greedy.cpp
 	mpicxx -o greedympi greedy.cpp training_set.cpp $(LDLIBS)
+
+.PHONY: clean
+clean:
+	rm -f greedy greedympi
+
+

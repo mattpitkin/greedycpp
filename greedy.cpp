@@ -45,80 +45,7 @@
 #include "quadratures.h"
 
 
-void OutputArray(const int n, double *list)
-{
-    for(int i=0;i<n;i++){
-        std::cout << list[i] << std::endl;
-    }
-}
-
-gsl_complex WeightedInner(const gsl_vector_complex *weights, const gsl_vector_complex *u, const gsl_vector_complex *v)
-{
-    // compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w //
-
-    gsl_complex ans;
-
-    gsl_vector_complex *vc_tmp;
-    vc_tmp = gsl_vector_complex_alloc(v->size);
-
-    gsl_vector_complex_memcpy(vc_tmp,v);
-    gsl_vector_complex_mul(vc_tmp,weights); // pointwise multiplcation, vc_tmp is updated
-    gsl_blas_zdotc(u,vc_tmp,&ans); 
-
-    //gsl_blas_zdotc(u,v,&ans);      // without weights this is MUCH faster
-   
-    gsl_vector_complex_free(vc_tmp);
-
-    return ans;
-}
-
-double GetNorm_double(const gsl_vector_complex *u, const gsl_vector_complex *wQuad)
-{
-    gsl_complex nrmc = WeightedInner(wQuad,u,u);
-    double nrm = gsl_complex_abs(nrmc);
-    nrm = sqrt(nrm);
-    //GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
-    return nrm;
-}
-
-void NormalizeVector(gsl_vector_complex *u, const gsl_vector_complex *wQuad)
-{
-    gsl_complex nrmc;// = GetNorm_complex(u,wQuad);
-    double nrm = GetNorm_double(u,wQuad);
-    GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
-    gsl_vector_complex_scale(u,nrmc);
-}
-
-// normalize row vectors using weight w //
-void NormalizeTS(gsl_matrix_complex *A, const gsl_vector_complex *w)
-{
-
-    const int rows = A->size1;
-    const int cols = A->size2;
-
-    std::cout << "rows (NTS) = " << rows << std::endl;
-    std::cout << "freq points (NTS) = " << cols << std::endl;
-
-    gsl_complex sum_c, inv_norm_c;
-    gsl_vector_complex *ts_el;
-    double norm;
-
-    ts_el = gsl_vector_complex_alloc(cols);
-
-    for(int i=0; i < rows; i++)
-    {
-
-        gsl_matrix_complex_get_row(ts_el,A,i);
-        NormalizeVector(ts_el,w);
-        gsl_matrix_complex_set_row(A,i,ts_el);
-
-    }
-
-    gsl_vector_complex_free(ts_el);
-
-}
-
-// *** THIS SHOULD BE ONLY MODEL SPECIFIC PART OF THE CODE *** //
+// *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts, const int rank)
 {
 
@@ -129,7 +56,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     int start_ind, end_ind, global_i, matrix_size;
 
 
-    params = new double[ts.param_dim]; // for TF2 model this is (mass1, mass2)
+    params = new double[ts.param_dim]; // for TF2 gravitational wave model this is (mass 1, mass 2)
     wv     = gsl_vector_complex_alloc(xQuad->size);
 
     // -- decide which chunk of TS to compute on this proc -- //
@@ -175,7 +102,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 
     // -- Normalize training space here -- //
     fprintf(stdout,"Normalizing training set...\n");
-    NormalizeTS(TS_gsl,wQuad);
+    NormalizeMatrixRows(TS_gsl,wQuad);
 
     delete[] params;
     gsl_vector_complex_free(wv);

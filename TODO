@@ -12,3 +12,4 @@ Some items to do
 
 6) binary or hdf5 output? ignore basis.txt output?
 
+7) role weights into ts components and use Euclidean inner product. Will be faster
