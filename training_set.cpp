@@ -122,7 +122,6 @@ void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
 
     std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
-    // TODO: use fread to make extend this limitation
     if(ts.param_dim != 2){
         fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
         exit(1);
@@ -133,6 +132,12 @@ void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
 
     FILE *data;
     data = fopen(ts_file,"r");
+
+    if(data == NULL) {
+        std::cout << "failed to open training set file" << std::endl;
+        exit(1);
+    }
+
     while(fscanf(data, "%lf %lf", &p1, &p2) != EOF)
     {
         ts.params[counter][0] = p1;
@@ -149,6 +154,51 @@ void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
         exit(1);
     }
 
+}
+
+void BuildTS_FromFile_ND(const char *ts_file, TrainSet &ts)
+{
+// could try using fread
+// cin a good solution for this? whats benefits of fscanf or other functions?
+// if training set values are in strange format, will cin still work?
+
+    std::cout << "Reading TS points from file: " << ts_file << std::endl;
+
+    double parameter_tmp;
+    int counter = 0;
+
+    std::ifstream data(ts_file);
+
+    if(!data.is_open()) {
+        std::cout << "failed to open training set file" << std::endl;
+        exit(1);
+    }
+
+    for(int i = 0; i < ts.ts_size;++i) { // loop over rows
+        for(int j  = 0; j < ts.param_dim;++j) { // loop over columns
+
+            if(data >> parameter_tmp){ 
+                ts.params[i][j] = parameter_tmp;
+                //fprintf(stdout,"%1.14e ",p1);
+            }
+            else{
+                std::cout << "failed reading training set from file" << std::endl;
+                exit(1);
+            }
+
+        }
+        counter = counter + 1;
+        //std::cout << std::endl;
+    }
+
+    data.close();
+
+    if( counter != ts.ts_size){
+        std::cout << "TS file size does not match expected size" << std::endl;
+        exit(1);
+    }
+
+    std::cout << "ts size = " << counter << std::endl;
 }
 
 void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_step_size, const int *params_num, const int level, double *param_vector, int &counter, TrainSet &ts)
@@ -238,10 +288,12 @@ void WriteTrainingSet(const TrainSet ts)
 
     FILE *data1;
 
-    char filename[] = "TS_Points.txt";
+    // TODO: should be N-Dimensional
+    char filename[] = "TS_Points_New.txt";
     data1 = fopen(filename,"w");
     for(int i = 0; i < ts.ts_size ; i++){   
-        fprintf(data1,"%.15le %.15le\n",ts.params[i][0],ts.params[i][1]);
+        //fprintf(data1,"%.15le %.15le\n",ts.params[i][0],ts.params[i][1]);
+        fprintf(data1,"%.15le %.15le %.15le %.15le\n",ts.params[i][0],ts.params[i][1],ts.params[i][2],ts.params[i][3]);
     }
     fclose(data1);
 }

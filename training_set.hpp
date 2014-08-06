@@ -35,6 +35,7 @@ void BuildTS_TensorProduct(const int *, const double *, const double *, TrainSet
 // these routines will populate params in TrainSet -- 2-D //
 void BuildTS_TensorProduct2D(const int *, const double *, const double *, TrainSet &);
 void BuildTS_FromFile(const char *, TrainSet &);
+void BuildTS_FromFile_ND(const char *, TrainSet &);
 
 // these routines will populate params in TrainSet -- N-D //
 void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_step_size, const int *params_num, const int level, double *param_vector, int &counter);

@@ -931,6 +931,7 @@ int main (int argc, char **argv) {
     // returns ts.params filled with values //
     if(load_from_file){
         BuildTS_FromFile(ts_file_name,ts);
+        //BuildTS_FromFile_ND(ts_file_name,ts); // N-dimensional routine in testing... should work
     }
     else{
         BuildTS_TensorProduct(params_num,params_low,params_high,ts);
@@ -976,6 +977,7 @@ int main (int argc, char **argv) {
         WriteTrainingSet(ts);
     }
 */
+
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
     free(ts.param_scale);
