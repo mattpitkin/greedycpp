@@ -865,7 +865,8 @@ int main (int argc, char **argv) {
             fprintf(stderr, "ts_file not found in config file\n");
             exit(1);
         }
-        ts_size = fcount_pts(ts_file_name); // need to get training set size from file
+        ts_size = fcount_pts(ts_file_name); // need to get training set size from file (number of rows)
+        std::cout << "training set file found to " << ts_size << " parameter samples" << std::endl;
     }
     else{
         params_num       = (int *)malloc(param_dim*sizeof(int));
@@ -966,17 +967,31 @@ int main (int argc, char **argv) {
 
     }
 
-/*
+
     if(rank == 0)
     {
-        if(size == 1){
-            WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
-            gsl_matrix_complex_free(TS_gsl);
-        }
 
-        WriteTrainingSet(ts);
+        // -- output quadrature weights -- //
+        FILE *outfile;
+
+        strcpy(shell_command, output_dir);
+        strcat(shell_command,"/quad_weights.txt");
+
+        outfile = fopen(shell_command,"w");
+
+        for(int i = 0; i < wQuad->size ; i++) {
+            fprintf(outfile,"%1.14f\n",GSL_REAL(gsl_vector_complex_get(wQuad,i)));
+        }
+        fclose(outfile);
+
+        // -- output some waveform for diagnostics -- //
+        //if(size == 1){
+        //    WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
+        //    gsl_matrix_complex_free(TS_gsl);
+        //}
+        //WriteTrainingSet(ts);
     }
-*/
+
 
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
