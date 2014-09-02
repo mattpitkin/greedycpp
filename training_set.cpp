@@ -22,35 +22,229 @@
 #include "training_set.hpp"
 
 
-void ts_alloc(const int ts_size, const int param_dim, const char *model_name, TrainSet &ts)
-{
 
-    // set parameter space dimension and size //
-    ts.param_dim = param_dim;
-    ts.ts_size   = ts_size;
+// constructor 
+TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char * model_name){
+
+    strcpy(model_,model_name);
+    param_scale_ = scale;
+    param_dim_   = dim;
+    ts_size_     = size;
+    distributed_ = false; //default value is false. Sets to true if SplitTrainingSet called
 
     // allocate memory for parameter matrix //
-    double **params_tmp;
-    params_tmp = ((double **) malloc(ts_size*sizeof(double *)));
-    for(int j = 0; j < ts_size; j++)
+    params_ = ((double **) malloc(size*sizeof(double *)));
+    for(int j = 0; j < size; j++)
     {
 
-      params_tmp[j] = (double *)malloc(param_dim*sizeof(double));
+      params_[j] = (double *)malloc(dim*sizeof(double));
 
-      if(params_tmp[j]==NULL){
+      if(params_[j]==NULL){
         fprintf(stderr,"Failed to allocate memory in BuildTS\n");
         exit(1);
       }
 
     }
-    ts.params = params_tmp;
 
-    ts.distributed = false; //default value is false. Sets to true if SplitTrainingSet called
-    strcpy(ts.model,model_name);
+    std::cout << "Using waveform model: " << model_name << ". Training set class initialized!" << std::endl;
+}
 
-    std::cout << "Using waveform model: " << ts.model << std::endl;
+
+
+void TrainingSetClass::BuildTS(int *, double *, double *){
+
+    std::cout << "Building from tensor product grid" << std::endl;
 
 }
+ 
+void TrainingSetClass::BuildTS(const char *ts_file){
+
+    std::cout << "Building from file input" << std::endl;
+
+    //BuildTS_FromFile2D(ts_file);
+    BuildTS_FromFileND(ts_file);
+
+}
+
+void TrainingSetClass::BuildTS_FromFile2D(const char *ts_file)
+{
+
+    std::cout << "Reading TS points from file: " << ts_file << std::endl;
+
+    if(param_dim_ != 2){
+        fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
+        exit(1);
+    }
+
+    int counter = 0;
+    double p1, p2;
+
+    FILE *data;
+    data = fopen(ts_file,"r");
+
+    if(data == NULL) {
+        std::cout << "failed to open training set file" << std::endl;
+        exit(1);
+    }
+
+    while(fscanf(data, "%lf %lf", &p1, &p2) != EOF)
+    {
+        params_[counter][0] = p1;
+        params_[counter][1] = p2;
+
+        counter = counter + 1;
+    }
+    fclose(data);
+
+    std::cout << "ts size = " << counter << std::endl;
+
+    if( counter != ts_size_){
+        std::cout << "TS file size does not match expected size" << std::endl;
+        exit(1);
+    }
+
+}
+
+void TrainingSetClass::BuildTS_FromFileND(const char *ts_file)
+{
+// could try using fread
+// cin a good solution for this? whats benefits of fscanf or other functions?
+// if training set values are in strange format, will cin still work?
+
+    std::cout << "Reading TS points from file: " << ts_file << std::endl;
+
+    double parameter_tmp;
+    int counter = 0;
+
+    std::ifstream data(ts_file);
+
+    if(!data.is_open()) {
+        std::cout << "failed to open training set file" << std::endl;
+        exit(1);
+    }
+
+    for(int i = 0; i < ts_size_;++i) { // loop over rows
+        for(int j  = 0; j < param_dim_;++j) { // loop over columns
+
+            if(data >> parameter_tmp){ 
+                params_[i][j] = parameter_tmp;
+                //fprintf(stdout,"%1.14e ",p1);
+            }
+            else{
+                std::cout << "failed reading training set from file" << std::endl;
+                exit(1);
+            }
+
+        }
+        counter = counter + 1;
+    }
+
+    data.close();
+
+    if( counter != ts_size_){
+        std::cout << "TS file size does not match expected size" << std::endl;
+        exit(1);
+    }
+
+    std::cout << "ts size = " << counter << std::endl;
+}
+
+void TrainingSetClass::SplitTrainingSet(const int size)
+{
+
+    int numprocs_worker = size - 1; // master (proc 0) will do no work
+    int rows = ts_size_;
+    int proc_id;
+
+    mystart_         = (int *)malloc(numprocs_worker*sizeof(int));
+    myend_           = (int *)malloc(numprocs_worker*sizeof(int));
+    matrix_sub_size_ = (int *)malloc(numprocs_worker*sizeof(int));
+
+    for(int i = 2; i <= size; i++)
+    {  
+        proc_id = i-2;
+        mystart_[i-2] = (rows / numprocs_worker) * proc_id;
+        if (rows % numprocs_worker > proc_id)
+        {  
+            mystart_[i-2] += proc_id;
+            myend_[i-2] = mystart_[i-2] + (rows / numprocs_worker) + 1;
+        }
+        else
+        {  
+            mystart_[i-2] += rows % numprocs_worker;
+            myend_[i-2]    = mystart_[i-2] + (rows / numprocs_worker);
+        }
+    }
+
+    distributed_ = true;
+
+    for(int i = 0; i < size - 1; i++){
+        matrix_sub_size_[i] = myend_[i] - mystart_[i];
+    }
+
+}
+
+int TrainingSetClass::FindRowIndxRank(const int global_row_indx)
+{
+    int row_rank = 0;
+    bool found_rank = false;
+
+    if(distributed_){
+
+        while(found_rank == false)
+        {  
+            if( global_row_indx >= mystart_[row_rank] && global_row_indx <= myend_[row_rank] ){
+                found_rank = true;
+            }
+            else{
+                row_rank = row_rank + 1;
+            }
+        }
+    }
+
+    return row_rank;
+}
+
+
+
+int TrainingSetClass::ts_size(){ return ts_size_; }
+
+int TrainingSetClass::param_dim(){ return param_dim_; }
+
+bool TrainingSetClass::distributed(){ return distributed_; }
+
+const char * TrainingSetClass::model(){ return model_; }
+
+const int * TrainingSetClass::mystart(){return mystart_; }
+
+const int * TrainingSetClass::myend(){ return myend_; }
+
+const int * TrainingSetClass::matrix_sub_size(){ return matrix_sub_size_; }
+
+double ** TrainingSetClass::params(){ return params_; }
+
+const double * TrainingSetClass::param_scale(){ return param_scale_; }
+
+/*
+TrainingSetClass::~TrainingSetClass(){
+
+
+    free(param_scale);
+
+    // free params matrix. TODO: check with valgrind that this is correct by looking for memory leaks //
+    for(int j = 0; j < ts_size; j++){
+      free(params[j]);
+    }
+    free(params);
+
+    if(distributed){
+        free(mystart);
+        free(myend);
+        free(matrix_sub_size);
+    }
+}*/
+
+
 
 void uniform(const int &n, const double &a, const double &b, double *SomeArray)
 {
@@ -116,91 +310,6 @@ void BuildTS_TensorProduct2D(const int *params_num, const double *params_low, co
     free(param_list_1);
 }
 
-
-void BuildTS_FromFile(const char *ts_file, TrainSet &ts)
-{
-
-    std::cout << "Reading TS points from file: " << ts_file << std::endl;
-
-    if(ts.param_dim != 2){
-        fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
-        exit(1);
-    }
-
-    int counter = 0;
-    double p1, p2;
-
-    FILE *data;
-    data = fopen(ts_file,"r");
-
-    if(data == NULL) {
-        std::cout << "failed to open training set file" << std::endl;
-        exit(1);
-    }
-
-    while(fscanf(data, "%lf %lf", &p1, &p2) != EOF)
-    {
-        ts.params[counter][0] = p1;
-        ts.params[counter][1] = p2;
-
-        counter = counter + 1;
-    }
-    fclose(data);
-
-    std::cout << "ts size = " << counter << std::endl;
-
-    if( counter != ts.ts_size){
-        std::cout << "TS file size does not match expected size" << std::endl;
-        exit(1);
-    }
-
-}
-
-void BuildTS_FromFile_ND(const char *ts_file, TrainSet &ts)
-{
-// could try using fread
-// cin a good solution for this? whats benefits of fscanf or other functions?
-// if training set values are in strange format, will cin still work?
-
-    std::cout << "Reading TS points from file: " << ts_file << std::endl;
-
-    double parameter_tmp;
-    int counter = 0;
-
-    std::ifstream data(ts_file);
-
-    if(!data.is_open()) {
-        std::cout << "failed to open training set file" << std::endl;
-        exit(1);
-    }
-
-    for(int i = 0; i < ts.ts_size;++i) { // loop over rows
-        for(int j  = 0; j < ts.param_dim;++j) { // loop over columns
-
-            if(data >> parameter_tmp){ 
-                ts.params[i][j] = parameter_tmp;
-                //fprintf(stdout,"%1.14e ",p1);
-            }
-            else{
-                std::cout << "failed reading training set from file" << std::endl;
-                exit(1);
-            }
-
-        }
-        counter = counter + 1;
-        //std::cout << std::endl;
-    }
-
-    data.close();
-
-    if( counter != ts.ts_size){
-        std::cout << "TS file size does not match expected size" << std::endl;
-        exit(1);
-    }
-
-    std::cout << "ts size = " << counter << std::endl;
-}
-
 void BuildTS_RecursiveSetBuild(const double *params_low, const double *params_step_size, const int *params_num, const int level, double *param_vector, int &counter, TrainSet &ts)
 {
 
@@ -240,48 +349,6 @@ void BuildTS_TensorProductND(const int *params_num, const double *params_low, co
     free(params_step_size);
 }
 
-
-
-void SplitTrainingSet(const int size, TrainSet &ts)
-{
-    int *mystart_tmp, *myend_tmp, *matrix_sub_size_tmp;
-
-    int numprocs_worker = size - 1; // master (proc 0) will do no work
-    int rows = ts.ts_size;
-    int proc_id;
-
-    mystart_tmp         = (int *)malloc(numprocs_worker*sizeof(int));
-    myend_tmp           = (int *)malloc(numprocs_worker*sizeof(int));
-    matrix_sub_size_tmp = (int *)malloc(numprocs_worker*sizeof(int));
-
-    for(int i = 2; i <= size; i++)
-    {  
-        proc_id = i-2;
-        mystart_tmp[i-2] = (rows / numprocs_worker) * proc_id;
-        if (rows % numprocs_worker > proc_id)
-        {  
-            mystart_tmp[i-2] += proc_id;
-            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker) + 1;
-        }
-        else
-        {  
-            mystart_tmp[i-2] += rows % numprocs_worker;
-            myend_tmp[i-2] = mystart_tmp[i-2] + (rows / numprocs_worker);
-        }
-    }
-
-    ts.distributed = true;
-
-    for(int i = 0; i < size - 1; i++){
-        matrix_sub_size_tmp[i] = myend_tmp[i] - mystart_tmp[i];
-    }
-
-    // -- NOTE: Free mystart and myend in main -- //
-    ts.mystart         = mystart_tmp;
-    ts.myend           = myend_tmp;
-    ts.matrix_sub_size = matrix_sub_size_tmp;
-
-}
 
 void WriteTrainingSet(const TrainSet ts)
 {

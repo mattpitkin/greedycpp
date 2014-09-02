@@ -46,7 +46,7 @@
 
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
-void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, const TrainSet ts, const int rank)
+void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSetClass ts, const int rank)
 {
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
@@ -56,26 +56,26 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     int start_ind, end_ind, global_i, matrix_size;
 
 
-    params = new double[ts.param_dim]; // for TF2 gravitational wave model this is (mass 1, mass 2)
+    params = new double[ts.param_dim()]; // for TF2 gravitational wave model this is (mass 1, mass 2)
     wv     = gsl_vector_complex_alloc(xQuad->size);
 
     // -- decide which chunk of TS to compute on this proc -- //
-    if(ts.distributed){
-        start_ind   = ts.mystart[rank];
-        end_ind     = ts.myend[rank];
-        matrix_size = ts.matrix_sub_size[rank];
+    if(ts.distributed()){
+        start_ind   = ts.mystart()[rank];
+        end_ind     = ts.myend()[rank];
+        matrix_size = ts.matrix_sub_size()[rank];
         fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
     }
     else{
         start_ind   = 0;
-        matrix_size = ts.ts_size;
-        end_ind     = ts.ts_size;
+        matrix_size = ts.ts_size();
+        end_ind     = ts.ts_size();
     }
 
 
     // *** BEGIN MODEL SPECIFIC SECTION *** //
     // This is where a new model should go...add to the list and loop over paramters //
-    if(strcmp(ts.model,"TaylorF2_PN3pt5") == 0){
+    if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
         for(int i = 0; i < matrix_size; i++){
@@ -83,8 +83,8 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
             global_i = start_ind + i;
 
             // TODO: this should be handled in ts class whenever thats implimented
-            for(int j = 0; j < ts.param_dim; j++){
-                params[j] = ts.params[global_i][j] * ts.param_scale[j];
+            for(int j = 0; j < ts.param_dim(); j++){
+                params[j] = ts.params()[global_i][j] * ts.param_scale()[j];
             }
 
             TF2_FullWaveform(wv,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
@@ -230,29 +230,7 @@ void IMGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matr
 
 }
 
-int FindRowIndxRank(const int global_row_indx,const TrainSet ts)
-{
-    int row_rank = 0;
-    bool found_rank = false;
-
-    if(ts.distributed){
-
-        while(found_rank == false)
-        {
-            if( global_row_indx >= ts.mystart[row_rank] && global_row_indx <= ts.myend[row_rank] ){
-                found_rank = true;
-            }
-            else{
-                row_rank = row_rank + 1;
-            }
-        }
-    }
-
-    return row_rank;
-
-}
-
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, const TrainSet ts, const char * output_dir,const char *datatype)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, TrainingSetClass ts, const char * output_dir,const char *datatype)
 {
     FILE *rb_real_data, *rb_imag_data, *r_real_data, *r_imag_data, *err_data, *pts_data;
     FILE *rb_data, *r_data;
@@ -297,7 +275,7 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     for(int i = 0; i < dim_RB ; i++)
     {
         fprintf(err_data,"%1.14f\n",app_err[i]);
-        fprintf(pts_data,"%1.14f %1.14f\n",ts.params[sel_rows[i]][0],ts.params[sel_rows[i]][1]);
+        fprintf(pts_data,"%1.14f %1.14f\n",ts.params()[sel_rows[i]][0],ts.params()[sel_rows[i]][1]);
     }
     fclose(err_data);
     fclose(pts_data);
@@ -342,8 +320,7 @@ void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const in
 
 }
 
-
-void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, const TrainSet ts)
+void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSetClass ts)
 {
 
 // worker routine for computing computationally intensive part of greedy //
@@ -360,22 +337,22 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
     last_rb       = gsl_vector_complex_alloc(cols);
     row_vec        = gsl_vector_complex_alloc(cols);
-    project_coeff = gsl_matrix_complex_alloc(max_RB,ts.matrix_sub_size[rank]);
-    errors        = (double *)malloc(ts.matrix_sub_size[rank]*sizeof(double));
+    project_coeff = gsl_matrix_complex_alloc(max_RB,ts.matrix_sub_size()[rank]);
+    errors        = (double *)malloc(ts.matrix_sub_size()[rank]*sizeof(double));
     vec_real      = (double *)malloc(cols*sizeof(double));
     vec_imag      = (double *)malloc(cols*sizeof(double));
 
     int *worst_workers_mpi = NULL;
     double *worst_errs_mpi = NULL;
 
-    fprintf(stdout,"I'm worker %i and I was given %i matrix elements from %i to %i\n",rank,ts.matrix_sub_size[rank],ts.mystart[rank],ts.myend[rank]-1);
+    fprintf(stdout,"I'm worker %i and I was given %i matrix elements from %i to %i\n",rank,ts.matrix_sub_size()[rank],ts.mystart()[rank],ts.myend()[rank]-1);
 
     // -- pass seed back to master -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
     // -- return seed to master -- //
     if( (worst_rank-1) == rank){
-        worst_local = seed_global - ts.mystart[rank];
+        worst_local = seed_global - ts.mystart()[rank];
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
         gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
         MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
@@ -393,7 +370,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
         make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
         // Compute overlaps of pieces of A with rb_new //
-        for(int i = 0; i < ts.matrix_sub_size[rank]; i++)
+        for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
             tmpc = WeightedInner(wQuad,last_rb,row_vec);
@@ -410,13 +387,13 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
         // -- find worst error here -- //
         tmp = 0.0;
-        for(int i = 0; i < ts.matrix_sub_size[rank]; i++)
+        for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             if(tmp < errors[i])
             {
                 tmp = errors[i];
                 worst_local = i;                // this will retun matrix local (worker's) row index
-                worst_global = ts.mystart[rank] + i; // this will return matrix's global row index 
+                worst_global = ts.mystart()[rank] + i; // this will return matrix's global row index 
             }
         }
 
@@ -452,7 +429,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     free(errors);
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, const TrainSet ts, const char * output_dir, const char *output_data_format)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, TrainingSetClass ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -467,7 +444,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
     fprintf(stdout,"Starting greedy algorithm...\n");
 
-    const int rows = ts.ts_size;  // number of rows to approximate
+    const int rows = ts.ts_size();  // number of rows to approximate
     const int cols = wQuad->size; // samples (for quadrature)
     int *greedy_points;           // selectted greedy points (row selection)
     double *greedy_err;           // approximate error
@@ -501,7 +478,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     ru                = gsl_vector_complex_alloc(max_RB);
 
     // --- initialize algorithm with seed --- //
-    int seed_rank = FindRowIndxRank(seed,ts);
+    int seed_rank = ts.FindRowIndxRank(seed);
     fprintf(stdout,"seed index %i on proc rank %i\n",seed,seed_rank);
 
     // -- request seed from worker -- //
@@ -586,7 +563,6 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     // -- output relevant information -- //
     WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
 
-
     gsl_vector_complex_free(ortho_basis);
     free(vec_real);
     free(vec_imag);
@@ -600,7 +576,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
 }
 
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,const TrainSet ts, const char * output_dir, const char *output_data_format)
+// TODO: would like to pass ts as const
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,TrainingSetClass ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solution, cols are quadrature samples)
@@ -692,7 +669,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
         greedy_err[dim_RB] = worst_err;
 
         // -- decide if another greedy sweep is needed -- //
-        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts.ts_size == dim_RB) ){
+        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts.ts_size() == dim_RB) ){
             continue_work = false;
         }
 
@@ -719,7 +696,6 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
     // -- output relevant information -- //
     WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
-
 
     gsl_vector_complex_free(ts_el);
     gsl_vector_complex_free(last_rb);
@@ -801,7 +777,6 @@ int main (int argc, char **argv) {
     gsl_matrix_complex *TS_gsl;
     gsl_vector_complex *wQuad;
     gsl_vector *xQuad;
-    TrainSet ts;
     char shell_command[100];
     int gsl_status;
     bool cfg_status;
@@ -818,13 +793,12 @@ int main (int argc, char **argv) {
     const char * model_name;                             // mame of model -- used to select the appropriate model in FillTrainingSet
     const char * output_dir;                             // folder to put all output files
     const char * output_data_format;                     // format of output files (text or gsl binary supported)
-
-    // TODO: should be function in TS routine for ND parameter spaces
-    ts.param_scale = (double *)malloc(param_dim*sizeof(double)); 
+    double* param_scale;                                 // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]
+    param_scale = (double *)malloc(param_dim*sizeof(double)); 
     char scale_str[20];
     for(int i = 0; i < param_dim; i++){
         snprintf(scale_str, 20, "p%d_scale", i+1);
-        ts.param_scale[i] =  cfg.lookup(scale_str);   // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]      
+        param_scale[i] =  cfg.lookup(scale_str);
     }
 
 
@@ -899,7 +873,7 @@ int main (int argc, char **argv) {
             params_low[i] = params_low_s[i];
         }
 
-        // read in params_low //
+        // read in params_high //
         libconfig::Setting& params_high_s = root["params_high"];
         count_array = params_high_s.getLength();
         if(count_array != param_dim){
@@ -926,42 +900,41 @@ int main (int argc, char **argv) {
         system(shell_command);
     }
 
-    // this function sets members of ts structure and allocates memory for set of parameters //
-    ts_alloc(ts_size, param_dim, model_name, ts);
+    // memory for params_ allocated here via malloc //
+    TrainingSetClass ts_class(param_dim,param_scale,ts_size,model_name);
 
-    // returns ts.params filled with values //
+    // fills params_ with values //
     if(load_from_file){
-        BuildTS_FromFile(ts_file_name,ts);
-        //BuildTS_FromFile_ND(ts_file_name,ts); // N-dimensional routine in testing... should work
+        ts_class.BuildTS(ts_file_name);
     }
     else{
-        BuildTS_TensorProduct(params_num,params_low,params_high,ts);
+        ts_class.BuildTS(params_num,params_low,params_high);
     }
 
     // Build training space by evaluating model at ts.params. Then run the greedy algorithm //
     if(size == 1) // only 1 proc requested (serial mode)
     {
-        TS_gsl = gsl_matrix_complex_alloc(ts.ts_size,xQuad->size); // GSL error handler will abort if too much requested
-        FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank);               // size=1  => rank=0. 5th argument is the rank
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts,output_dir,output_data_format);
+        TS_gsl = gsl_matrix_complex_alloc(ts_class.ts_size(),xQuad->size); // GSL error handler will abort if too much requested
+        FillTrainingSet(TS_gsl,xQuad,wQuad,ts_class,rank);               // size=1  => rank=0. 5th argument is the rank
+        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ts_class,output_dir,output_data_format);
     }
     else
     {
         // -- split matrix TS_gsl among worker nodes. Assumes for-loop is "<" for this choice of myend -- //
-        SplitTrainingSet(size,ts);
+        ts_class.SplitTrainingSet(size);
 
         if(rank != 0){
-            TS_gsl = gsl_matrix_complex_alloc(ts.matrix_sub_size[rank-1],xQuad->size);
-            FillTrainingSet(TS_gsl,xQuad,wQuad,ts,rank-1);
+            TS_gsl = gsl_matrix_complex_alloc(ts_class.matrix_sub_size()[rank-1],xQuad->size);
+            FillTrainingSet(TS_gsl,xQuad,wQuad,ts_class,rank-1);
         }
 
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ts,output_dir,output_data_format);
+            GreedyMaster(size,max_RB,seed,wQuad,tol,ts_class,output_dir,output_data_format);
         }
         else{
-            GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts);
+            GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ts_class);
             gsl_matrix_complex_free(TS_gsl);
         }
 
@@ -995,19 +968,7 @@ int main (int argc, char **argv) {
 
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
-    free(ts.param_scale);
-
-    // free params matrix. TODO: check with valgrind that this is correct by looking for memory leaks //
-    for(int j = 0; j < ts.ts_size; j++){ 
-      free(ts.params[j]);
-    }
-    free(ts.params);
-
-    if(ts.distributed){
-        free(ts.mystart);
-        free(ts.myend);
-        free(ts.matrix_sub_size);
-    }
+    free(param_scale);
 
     if (load_from_file == false){
         free(params_num);
