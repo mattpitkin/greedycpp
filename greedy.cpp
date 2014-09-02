@@ -962,7 +962,7 @@ int main (int argc, char **argv) {
         //    WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
         //    gsl_matrix_complex_free(TS_gsl);
         //}
-        //WriteTrainingSet(ts);
+        //ts_class.WriteTrainingSet();
     }
 
 
