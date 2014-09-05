@@ -14,7 +14,7 @@ class TrainingSetClass {
         TrainingSetClass();
 
         // overload constructor
-        TrainingSetClass(int, double *, int, const char *);
+        TrainingSetClass(int, double *, int, const char *,int);
 
         // destructor -- TODO: is default one ok if malloc called? what about new?
         //~TrainingSetClass();

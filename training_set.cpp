@@ -24,7 +24,7 @@
 
 // using implicit destructor... check valgrid for memory leaks
 
-TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char * model_name){
+TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char * model_name, int procs_size){
 
     strcpy(model_,model_name);
     param_scale_ = scale;
@@ -46,8 +46,54 @@ TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char
 
     }
 
+    // distribute training set over processors //
+    // TODO: Split needs num_procs and ts_size only. Should be made private function and check that these have been initialized (or call with both parameters)
+    if(procs_size > 1){
+        SplitTrainingSet(procs_size); // mystart_, myend_, matrix_sub_size_ allocated here
+    }
+    else if (procs_size < 0){
+        fprintf(stderr,"the number of processors cannot be negative\n");
+        exit(1);
+    }
+
     std::cout << "Using waveform model: " << model_name << ". Training set class initialized!" << std::endl;
 }
+
+void TrainingSetClass::SplitTrainingSet(const int size)
+{
+
+    int numprocs_worker = size - 1; // master (proc 0) will do no work
+    int rows = ts_size_;
+    int proc_id;
+
+    mystart_         = (int *)malloc(numprocs_worker*sizeof(int));
+    myend_           = (int *)malloc(numprocs_worker*sizeof(int));
+    matrix_sub_size_ = (int *)malloc(numprocs_worker*sizeof(int));
+
+    for(int i = 2; i <= size; i++)
+    {  
+        proc_id = i-2;
+        mystart_[i-2] = (rows / numprocs_worker) * proc_id;
+        if (rows % numprocs_worker > proc_id)
+        {  
+            mystart_[i-2] += proc_id;
+            myend_[i-2] = mystart_[i-2] + (rows / numprocs_worker) + 1;
+        }
+        else
+        {  
+            mystart_[i-2] += rows % numprocs_worker;
+            myend_[i-2]    = mystart_[i-2] + (rows / numprocs_worker);
+        }
+    }
+
+    distributed_ = true;
+
+    for(int i = 0; i < size - 1; i++){
+        matrix_sub_size_[i] = myend_[i] - mystart_[i];
+    }
+
+}
+
 
 void TrainingSetClass::BuildTS(int *params_num, double *params_low, double *params_high){
 
@@ -154,41 +200,6 @@ void TrainingSetClass::BuildTS_FromFileND(const char *ts_file)
     }
 
     std::cout << "ts size = " << counter << std::endl;
-}
-
-void TrainingSetClass::SplitTrainingSet(const int size)
-{
-
-    int numprocs_worker = size - 1; // master (proc 0) will do no work
-    int rows = ts_size_;
-    int proc_id;
-
-    mystart_         = (int *)malloc(numprocs_worker*sizeof(int));
-    myend_           = (int *)malloc(numprocs_worker*sizeof(int));
-    matrix_sub_size_ = (int *)malloc(numprocs_worker*sizeof(int));
-
-    for(int i = 2; i <= size; i++)
-    {  
-        proc_id = i-2;
-        mystart_[i-2] = (rows / numprocs_worker) * proc_id;
-        if (rows % numprocs_worker > proc_id)
-        {  
-            mystart_[i-2] += proc_id;
-            myend_[i-2] = mystart_[i-2] + (rows / numprocs_worker) + 1;
-        }
-        else
-        {  
-            mystart_[i-2] += rows % numprocs_worker;
-            myend_[i-2]    = mystart_[i-2] + (rows / numprocs_worker);
-        }
-    }
-
-    distributed_ = true;
-
-    for(int i = 0; i < size - 1; i++){
-        matrix_sub_size_[i] = myend_[i] - mystart_[i];
-    }
-
 }
 
 int TrainingSetClass::FindRowIndxRank(const int global_row_indx)
