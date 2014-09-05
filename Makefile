@@ -7,7 +7,7 @@ Greedy: greedy.cpp
 	g++ -o greedy greedy.cpp training_set.cpp $(LDLIBS)
 
 GreedyMPI: greedy.cpp
-	mpicxx -o greedympi greedy.cpp training_set.cpp $(LDLIBS)
+	mpicxx -o greedympi greedy.cpp training_set.cpp training_space.cpp $(LDLIBS)
 
 .PHONY: clean
 clean:
