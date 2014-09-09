@@ -2,7 +2,7 @@
 Module to do sanity tests of output directory...
 
 1) basis orthogonality test
-2) 
+2) basis accuracy test (training space file needs to be present)
 
 
 Can run at command line from an application directory, e.g.:
@@ -12,13 +12,14 @@ Can run at command line from an application directory, e.g.:
 import os, re, sys
 import numpy as np
 
-
-def ortho_test(outdir):
+def load_info(outdir):
 
     ### load the basis and quadrature weights ###
     basis_real = np.loadtxt(outdir+'/Basis_real.txt')
     basis_imag = np.loadtxt(outdir+'/Basis_imag.txt')
-    weights    = np.loadtxt(outdir+'/quad_weights.txt')
+    quad_rule  = np.loadtxt(outdir+'/quad_rule.txt')
+    weights    = quad_rule[:,1]
+    nodes      = quad_rule[:,0]
 
     ### remove the zeros --- final XXX rows are identically zero ###
     basis_real = basis_real[np.where(np.any(basis_real != 0, axis=1))]
@@ -30,10 +31,47 @@ def ortho_test(outdir):
     B[:,:].real = basis_real.transpose()
     B[:,:].imag = basis_imag.transpose()
 
+    return B, weights, nodes
+
+def ortho_test(outdir):
+
+    B, weights, nodes = load_info(outdir)
+
     result = weights[0] * np.dot(B.T.conj(),B) # NOTE: ASSUMES ALL WEIGHTS ARE THE SAME (TODO)
 
     err = result - np.eye(result.shape[1])
     print "othogonality error %1.15e" % np.max(np.abs(err))
+
+def basis_accuracy_test(outdir):
+
+    B, weights, nodes = load_info(outdir)
+
+    TS_real = np.loadtxt(outdir+'/Waveforms_real.txt')
+    TS_imag = np.loadtxt(outdir+'/Waveforms_imag.txt')
+    evaluations, quad_points = TS_real.shape
+    TS = np.zeros((quad_points,evaluations), dtype=np.complex)
+    TS[:,:].real = TS_real.transpose()
+    TS[:,:].imag = TS_imag.transpose()
+
+    err_app = np.zeros(evaluations)
+
+    # TODO: shouldn't use for-loop here
+    for ii in range(evaluations):
+        proj_coeff = weights[0] * np.dot(B.T.conj(),TS[:,ii]) # NOTE: ASSUMES ALL WEIGHTS ARE THE SAME (TODO)
+        err_h = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum
+        err_app[ii] = np.sqrt( weights[0] * np.dot(err_h,err_h.conj()) ).real
+
+    import matplotlib.pyplot as plt
+    plt.semilogy(range(evaluations),err_app)
+    plt.show()
+
+    ## to show its working ##
+    #import matplotlib.pyplot as plt
+    #plt.plot(nodes,TS[:,1])
+    #plt.show()
+    #plt.plot(nodes,err_h)
+    #plt.show()
+
 
 if __name__=="__main__":
 
@@ -43,4 +81,5 @@ if __name__=="__main__":
         raise Exception("Must specify an output directory")
 
     ortho_test(outdir)
+    basis_accuracy_test(outdir)
 
