@@ -23,11 +23,15 @@ class TrainingSetClass {
         void BuildTS(int *, double *, double *);
         void BuildTS(const char *);
 
-        // this routine distributed the ts over procs //
-        void SplitTrainingSet(const int);
-
         // Description here TODO //
         int FindRowIndxRank(const int);
+
+        // Return local (on this proc) training set indexes //
+        void GetLocalTrainingSet(int &, int &, int const);
+        void LocalTrainingSetSize(int &,const int);
+
+        // Return training set value (an array of size param_dim) //
+        void GetParameterValue(double *,const int,const int);
 
         // accessor functions
         int ts_size();
@@ -54,6 +58,9 @@ class TrainingSetClass {
         bool distributed_;      // set to true if TS distributed over procs/nodes
         int *mystart_, *myend_; // maps global row index of A onto local worker index 
         int *matrix_sub_size_;  // = ts.myend[rank]-ts.mystart[rank] = TS on each proc
+
+        // this routine distributed the ts over procs //
+        void SplitTrainingSet(const int);
 
         // generates uniform spacing //
         void uniform(const int &, const double &, const double &, double *);

@@ -47,50 +47,30 @@
 
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
-//void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass ts, const int rank)
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass * ts, const int rank)
 {
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
 
-    gsl_vector_complex *wv;
+    gsl_vector_complex *model_eval;
     double *params;
-    int start_ind, end_ind, global_i, matrix_size;
+    int proc_ts_size;
 
+    params     = new double[ts->param_dim()]; // for TF2 gravitational wave model this is (mass 1, mass 2)
+    model_eval = gsl_vector_complex_alloc(xQuad->size);
 
-    params = new double[ts->param_dim()]; // for TF2 gravitational wave model this is (mass 1, mass 2)
-    wv     = gsl_vector_complex_alloc(xQuad->size);
-
-    // -- decide which chunk of TS to compute on this proc -- //
-    if(ts->distributed()){
-        start_ind   = ts->mystart()[rank];
-        end_ind     = ts->myend()[rank];
-        matrix_size = ts->matrix_sub_size()[rank];
-        fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
-    }
-    else{
-        start_ind   = 0;
-        matrix_size = ts->ts_size();
-        end_ind     = ts->ts_size();
-    }
-
+    ts->LocalTrainingSetSize(proc_ts_size, rank);
 
     // *** BEGIN MODEL SPECIFIC SECTION *** //
     // This is where a new model should go...add to the list and loop over paramters //
     if(strcmp(ts->model(),"TaylorF2_PN3pt5") == 0){
+
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
-        for(int i = 0; i < matrix_size; i++){
-
-            global_i = start_ind + i;
-
-            // TODO: this should be handled in ts class whenever thats implimented
-            for(int j = 0; j < ts->param_dim(); j++){
-                params[j] = ts->params()[global_i][j] * ts->param_scale()[j];
-            }
-
-            TF2_FullWaveform(wv,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
-            gsl_matrix_complex_set_row(TS_gsl,i,wv);
+        for(int i = 0; i < proc_ts_size; i++){
+            ts->GetParameterValue(params,rank,i); // returns params filled at training set point [global_i][j] * (param_scale[j])
+            TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
+            gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
         }
 
     }
@@ -101,13 +81,12 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     // *** END MODEL SPECIFIC SECTION *** //
 
 
-
     // -- Normalize training space here -- //
     fprintf(stdout,"Normalizing training set...\n");
     NormalizeMatrixRows(TS_gsl,wQuad);
 
     delete[] params;
-    gsl_vector_complex_free(wv);
+    gsl_vector_complex_free(model_eval);
 }
 
 void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
@@ -308,18 +287,40 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
 
 }
 
-void WriteWaveform(const double *xQuad,const gsl_matrix_complex *TS_gsl,const int indx)
+void WriteWaveforms(const gsl_matrix_complex *TS_gsl,const char *output_dir,const int indx)
 {
+// if indx < 0, all waveforms (training space) is written to file //
 
-    FILE *data;
-    char filename[] = "MockWaveform.txt";
-    data = fopen(filename,"w");
-    for(int cols = 0; cols < TS_gsl->size2 ; cols++)
-    {
-        fprintf(data,"%1.12e %1.12e %1.12e\n",xQuad[cols], GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)),GSL_IMAG( gsl_matrix_complex_get(TS_gsl,indx,cols) ));
+    FILE *data_real, *data_imag;
+    char filename_real[100];
+    char filename_imag[100];
+
+    strcpy(filename_real,output_dir);
+    strcat(filename_real,"/Waveforms_real.txt");
+    strcpy(filename_imag,output_dir);
+    strcat(filename_imag,"/Waveforms_imag.txt");
+
+    data_real = fopen(filename_real,"w");
+    if(indx < 0){
+        gsl_matrix_complex_fprintf_part(data_real,TS_gsl,"real");
     }
-    fclose(data);
+    else{
+        for(int cols = 0; cols < TS_gsl->size2 ; cols++){
+            fprintf(data_real,"%1.12e\n",GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)));
+        }
+    }
+    fclose(data_real);
 
+    data_imag = fopen(filename_imag,"w");
+    if(indx < 0){
+        gsl_matrix_complex_fprintf_part(data_imag,TS_gsl,"imag");
+    }
+    else{
+        for(int cols = 0; cols < TS_gsl->size2 ; cols++){
+            fprintf(data_imag,"%1.12e\n",GSL_IMAG(gsl_matrix_complex_get(TS_gsl,indx,cols)));
+        }
+    }
+    fclose(data_imag);
 }
 
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSpaceClass * ts)
@@ -329,7 +330,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
     int continue_work = 1;
     int dim_RB = 1;
-    double cols = wQuad->size;
+    int cols = wQuad->size;
     int worst_global, worst_local, worst_rank;
     double rb_inc_r, rb_inc_i, tmp;
     double *errors, *vec_real, *vec_imag;
@@ -340,9 +341,9 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     last_rb       = gsl_vector_complex_alloc(cols);
     row_vec        = gsl_vector_complex_alloc(cols);
     project_coeff = gsl_matrix_complex_alloc(max_RB,ts->matrix_sub_size()[rank]);
-    errors        = (double *)malloc(ts->matrix_sub_size()[rank]*sizeof(double));
-    vec_real      = (double *)malloc(cols*sizeof(double));
-    vec_imag      = (double *)malloc(cols*sizeof(double));
+    errors        = new double[ts->matrix_sub_size()[rank]];
+    vec_real      = new double[cols];
+    vec_imag      = new double[cols];
 
     int *worst_workers_mpi = NULL;
     double *worst_errs_mpi = NULL;
@@ -426,9 +427,9 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     gsl_vector_complex_free(last_rb);
     gsl_vector_complex_free(row_vec);
     gsl_matrix_complex_free(project_coeff);
-    free(vec_real);
-    free(vec_imag);
-    free(errors);
+    delete [] vec_real;
+    delete [] vec_imag;
+    delete [] errors;
 }
 
 void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, TrainingSpaceClass * ts, const char * output_dir, const char *output_data_format)
@@ -469,14 +470,14 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
     // --- this memory should be freed here --- //
     ortho_basis       = gsl_vector_complex_alloc(cols);
-    vec_real          = (double *)malloc(cols*sizeof(double));
-    vec_imag          = (double *)malloc(cols*sizeof(double));
-    worst_workers_mpi = (int *)malloc(size*sizeof(int));
-    worst_errs_mpi    = (double *)malloc(size*sizeof(double));
+    vec_real          = new double [cols];
+    vec_imag          = new double [cols];
+    worst_workers_mpi = new int[size];
+    worst_errs_mpi    = new double[size];
     RB_space          = gsl_matrix_complex_alloc(max_RB,cols); 
     R_matrix          = gsl_matrix_complex_alloc(max_RB,max_RB);
-    greedy_points     = (int *)malloc(max_RB*sizeof(int));
-    greedy_err        = (double *)malloc(max_RB*sizeof(double));
+    greedy_points     = new int[max_RB];
+    greedy_err        = new double[max_RB];
     ru                = gsl_vector_complex_alloc(max_RB);
 
     // --- initialize algorithm with seed --- //
@@ -566,14 +567,14 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
 
     gsl_vector_complex_free(ortho_basis);
-    free(vec_real);
-    free(vec_imag);
-    free(worst_workers_mpi);
-    free(worst_errs_mpi);
+    delete [] vec_real;
+    delete [] vec_imag;
+    delete [] worst_workers_mpi;
+    delete [] worst_errs_mpi;
     gsl_matrix_complex_free(RB_space); 
     gsl_matrix_complex_free(R_matrix);
-    free(greedy_points);
-    free(greedy_err);
+    delete [] greedy_points;
+    delete [] greedy_err;
     gsl_vector_complex_free(ru);
 
 }
@@ -616,10 +617,10 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     last_rb       = gsl_vector_complex_alloc(cols);
     ortho_basis   = gsl_vector_complex_alloc(cols);
     ru = gsl_vector_complex_alloc(max_RB);
-    errors        = (double *)malloc(rows*sizeof(double));
+    errors        = new double[rows];
     project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
-    greedy_points = (int *)malloc(max_RB*sizeof(int));
-    greedy_err    = (double *)malloc(max_RB*sizeof(double));
+    greedy_points = new int[max_RB];
+    greedy_err    = new double[max_RB];
     RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
     R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
 
@@ -703,10 +704,10 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_vector_complex_free(last_rb);
     gsl_vector_complex_free(ortho_basis);
     gsl_vector_complex_free(ru);
-    free(errors);
+    delete [] errors;
     gsl_matrix_complex_free(project_coeff);
-    free(greedy_points);
-    free(greedy_err);
+    delete [] greedy_points;
+    delete [] greedy_err;
     gsl_matrix_complex_free(RB_space); // this and R_matrix should be written to file
     gsl_matrix_complex_free(R_matrix);
 
@@ -736,13 +737,13 @@ int main (int argc, char **argv) {
     // --- setup MPI info ---//
     MPI::Init(argc, argv);
 
-    int rank = 0;  // needed for serial mode too
-    int size = 1;  // needed for serial mode too
+    int rank     = 0;  // needed for serial mode too
+    int size_mpi = 1;  // needed for serial mode too
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     // Ex: if executed with "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
-    rank = MPI::COMM_WORLD.Get_rank();
-    size = MPI::COMM_WORLD.Get_size();
+    rank     = MPI::COMM_WORLD.Get_rank();
+    size_mpi = MPI::COMM_WORLD.Get_size();
 
     char name[MPI_MAX_PROCESSOR_NAME];
     int len;
@@ -750,7 +751,7 @@ int main (int argc, char **argv) {
     MPI::Get_processor_name(name,len);
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
-    std::cout << "Number of tasks = " << size << " My rank = " << rank << " My name = " << name << "." << std::endl;
+    std::cout << "Number of tasks = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
 
     //----- Checking the number of Variables passed to the Executable -----//
     if (argc != 2) {
@@ -796,7 +797,7 @@ int main (int argc, char **argv) {
     const char * output_dir;                             // folder to put all output files
     const char * output_data_format;                     // format of output files (text or gsl binary supported)
     double* param_scale;                                 // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]
-    param_scale = (double *)malloc(param_dim*sizeof(double)); 
+    param_scale = new double[param_dim]; 
     char scale_str[20];
     for(int i = 0; i < param_dim; i++){
         snprintf(scale_str, 20, "p%d_scale", i+1);
@@ -845,9 +846,9 @@ int main (int argc, char **argv) {
         std::cout << "training set file found to " << ts_size << " parameter samples" << std::endl;
     }
     else{
-        params_num       = (int *)malloc(param_dim*sizeof(int));
-        params_low       = (double *)malloc(param_dim*sizeof(double));
-        params_high      = (double *)malloc(param_dim*sizeof(double));
+        params_num       = new int[param_dim];
+        params_low       = new double[param_dim];
+        params_high      = new double[param_dim];
 
         // note about libconfig: if destination data type does not match expected on from configuration file an error is thrown //
 
@@ -892,7 +893,7 @@ int main (int argc, char **argv) {
 
 
     // Creating Run Directory //
-    if(size == 1 || rank == 0){
+    if(size_mpi == 1 || rank == 0){
 
         strcpy(shell_command, "mkdir -p -m700 ");
         strcat(shell_command, output_dir);
@@ -902,8 +903,8 @@ int main (int argc, char **argv) {
         system(shell_command);
     }
 
-    // memory for params_ and distrubtion matricies allocated here via malloc //
-    TrainingSpaceClass *ptspace_class = new TrainingSpaceClass(param_dim,param_scale,ts_size,model_name,size);
+    // memory for params_ and distrubtion matricies allocated here //
+    TrainingSpaceClass *ptspace_class = new TrainingSpaceClass(param_dim,param_scale,ts_size,model_name,size_mpi);
 
     // fills params_ with values //
     if(load_from_file){
@@ -914,7 +915,7 @@ int main (int argc, char **argv) {
     }
 
     // Build training space by evaluating model at ts.params. Then run the greedy algorithm //
-    if(size == 1) // only 1 proc requested (serial mode)
+    if(size_mpi == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ptspace_class,rank);               // size=1  => rank=0. 5th argument is the rank
@@ -930,7 +931,7 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size,max_RB,seed,wQuad,tol,ptspace_class,output_dir,output_data_format);
+            GreedyMaster(size_mpi,max_RB,seed,wQuad,tol,ptspace_class,output_dir,output_data_format);
         }
         else{
             GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ptspace_class);
@@ -940,42 +941,41 @@ int main (int argc, char **argv) {
     }
 
 
+    // -- output a variety of extra information if requested -- //
     if(rank == 0)
     {
-
         // -- output quadrature weights -- //
         FILE *outfile;
 
         strcpy(shell_command, output_dir);
-        strcat(shell_command,"/quad_weights.txt");
+        strcat(shell_command,"/quad_rule.txt");
 
         outfile = fopen(shell_command,"w");
-
         for(int i = 0; i < wQuad->size ; i++) {
-            fprintf(outfile,"%1.14f\n",GSL_REAL(gsl_vector_complex_get(wQuad,i)));
+            fprintf(outfile,"%1.14f %1.14f\n",gsl_vector_get(xQuad,i),GSL_REAL(gsl_vector_complex_get(wQuad,i)));
         }
         fclose(outfile);
 
-        // -- output some waveform for diagnostics -- //
-        //if(size == 1){
-        //    WriteWaveform(xQuad->data,TS_gsl,0); // for comparison with other codes
-        //    gsl_matrix_complex_free(TS_gsl);
-        //}
+        // -- output some waveform(s) for diagnostics -- //
+        if(size_mpi == 1){
+            WriteWaveforms(TS_gsl,output_dir,-1); // -1 for training set. TODO: specifcy from input file
+            gsl_matrix_complex_free(TS_gsl);
+        }
         //tspace_class.WriteTrainingSet();
     }
 
 
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
-    free(param_scale);
+    delete [] param_scale;
 
     delete ptspace_class;
     ptspace_class = NULL;
 
     if (load_from_file == false){
-        free(params_num);
-        free(params_low);
-        free(params_high);
+        delete [] params_num;
+        delete [] params_low;
+        delete [] params_high;
     }
 
     // Tell the MPI library to release all resources it is using

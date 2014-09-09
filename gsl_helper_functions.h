@@ -4,7 +4,9 @@
 
 
 // --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
-gsl_complex WeightedInner(const gsl_vector_complex *weights, const gsl_vector_complex *u, const gsl_vector_complex *v)
+// TODO: test in inline is actually faster
+// TODO: this routine can be made faster by fixing code!!
+inline gsl_complex WeightedInner(const gsl_vector_complex *weights, const gsl_vector_complex *u, const gsl_vector_complex *v)
 {
     gsl_complex ans;
 

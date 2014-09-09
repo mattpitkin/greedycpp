@@ -33,21 +33,20 @@ TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char
     distributed_ = false; //default value is false. Sets to true if SplitTrainingSet called
 
     // allocate memory for parameter matrix //
-    params_ = ((double **) malloc(size*sizeof(double *)));
+    params_ = new double*[size];
     for(int j = 0; j < size; j++)
     {
 
-      params_[j] = (double *)malloc(dim*sizeof(double));
+      params_[j] = new double[dim];
 
-      if(params_[j]==NULL){
+      if(params_[j] == NULL){
         fprintf(stderr,"Failed to allocate memory in BuildTS\n");
         exit(1);
       }
 
     }
 
-    // distribute training set over processors //
-    // TODO: Split needs num_procs and ts_size only. Should be made private function and check that these have been initialized (or call with both parameters)
+    // distribute training set over processors if requested //
     if(procs_size > 1){
         SplitTrainingSet(procs_size); // mystart_, myend_, matrix_sub_size_ allocated here
     }
@@ -66,9 +65,9 @@ void TrainingSetClass::SplitTrainingSet(const int size)
     int rows = ts_size_;
     int proc_id;
 
-    mystart_         = (int *)malloc(numprocs_worker*sizeof(int));
-    myend_           = (int *)malloc(numprocs_worker*sizeof(int));
-    matrix_sub_size_ = (int *)malloc(numprocs_worker*sizeof(int));
+    mystart_         = new int[numprocs_worker];
+    myend_           = new int[numprocs_worker];
+    matrix_sub_size_ = new int[numprocs_worker];
 
     for(int i = 2; i <= size; i++)
     {  
@@ -94,6 +93,50 @@ void TrainingSetClass::SplitTrainingSet(const int size)
 
 }
 
+void TrainingSetClass::GetLocalTrainingSet(int &start_ind, int &matrix_size, const int rank)
+{
+
+    int end_ind;
+
+    if(distributed_){
+        start_ind   = mystart_[rank];
+        end_ind     = myend_[rank]; // not needed to loop over parameters - not returned
+        matrix_size = matrix_sub_size_[rank];
+    }
+    else{
+        start_ind   = 0;
+        matrix_size = ts_size_;
+        end_ind     = ts_size_;
+    }
+    fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
+}
+
+void TrainingSetClass::LocalTrainingSetSize(int &matrix_size, const int rank)
+{
+
+    if(distributed_){
+        matrix_size = matrix_sub_size_[rank];
+    }
+    else{
+        matrix_size = ts_size_;
+    }
+    fprintf(stdout,"proc %i has %i training set elements \n",rank,matrix_size);
+}
+
+void TrainingSetClass::GetParameterValue(double *params_point, const int rank, const int i)
+{
+    // TODO: should be written withough if's... mystart_ should work for serial too
+    if(distributed_){
+        for(int j = 0; j < param_dim_; j++){
+            params_point[j] = params_[mystart_[rank]+i][j] * param_scale_[j];
+        }
+    }
+    else{
+        for(int j = 0; j < param_dim_; j++){
+            params_point[j] = params_[i][j] * param_scale_[j];
+        }
+    }
+}
 
 void TrainingSetClass::BuildTS(int *params_num, double *params_low, double *params_high){
 
@@ -247,13 +290,13 @@ void TrainingSetClass::BuildTS_TensorProduct2D(const int *params_num, const doub
     double param_0, param_1;
     int counter = 0;
 
-    param_list_0 = (double *)malloc(params_num[0]*sizeof(double));
-    param_list_1 = (double *)malloc(params_num[1]*sizeof(double));
+    param_list_0 = new double[params_num[0]];
+    param_list_1 = new double[params_num[1]];
 
     if(param_list_0==NULL || param_list_1==NULL){
         fprintf(stderr,"Failed to allocate memory in BuildTS\n");
-        free(param_list_0);
-        free(param_list_1);
+        delete [] param_list_0;
+        delete [] param_list_1;
         exit(1);
     }
 
@@ -278,8 +321,8 @@ void TrainingSetClass::BuildTS_TensorProduct2D(const int *params_num, const doub
         }
     }
 
-    free(param_list_0);
-    free(param_list_1);
+    delete [] param_list_0;
+    delete [] param_list_1;
 }
 
 
@@ -306,8 +349,8 @@ void TrainingSetClass::BuildTS_TensorProductND(const int *params_num, const doub
 {
     double *params_step_size, *param_vector;
 
-    param_vector     = (double *)malloc(param_dim_*sizeof(double));
-    params_step_size = (double *)malloc(param_dim_*sizeof(double));
+    param_vector     = new double[param_dim_];
+    params_step_size = new double[param_dim_];
 
     int counter = 0; // used to fill ts as ts.params[counter][j] where j  = 1 to ts.param_dim-1
 
@@ -318,8 +361,8 @@ void TrainingSetClass::BuildTS_TensorProductND(const int *params_num, const doub
 
     BuildTS_RecursiveSetBuild(params_low,params_step_size,params_num,0,param_vector,counter);
 
-    free(param_vector);
-    free(params_step_size);
+    delete [] param_vector;
+    delete [] params_step_size;
 }
 
 
