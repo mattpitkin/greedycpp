@@ -37,7 +37,8 @@ def ortho_test(outdir):
 
     B, weights, nodes = load_info(outdir)
 
-    result = weights[0] * np.dot(B.T.conj(),B) # NOTE: ASSUMES ALL WEIGHTS ARE THE SAME (TODO)
+    #result = weights[0] * np.dot(B.T.conj(),B) 
+    result = np.dot(weights * B.T.conj(),B) 
 
     err = result - np.eye(result.shape[1])
     print "othogonality error %1.15e" % np.max(np.abs(err))
@@ -46,8 +47,8 @@ def basis_accuracy_test(outdir):
 
     B, weights, nodes = load_info(outdir)
 
-    TS_real = np.loadtxt(outdir+'/Waveforms_real.txt')
-    TS_imag = np.loadtxt(outdir+'/Waveforms_imag.txt')
+    TS_real = np.loadtxt(outdir+'/TSpace_real.txt')
+    TS_imag = np.loadtxt(outdir+'/TSpace_imag.txt')
     evaluations, quad_points = TS_real.shape
     TS = np.zeros((quad_points,evaluations), dtype=np.complex)
     TS[:,:].real = TS_real.transpose()
@@ -57,7 +58,8 @@ def basis_accuracy_test(outdir):
 
     # TODO: shouldn't use for-loop here
     for ii in range(evaluations):
-        proj_coeff = weights[0] * np.dot(B.T.conj(),TS[:,ii]) # NOTE: ASSUMES ALL WEIGHTS ARE THE SAME (TODO)
+        #proj_coeff = weights[0] * np.dot(B.T.conj(),TS[:,ii])
+        proj_coeff = np.dot(weights * B.T.conj(),TS[:,ii])
         err_h = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum
         err_app[ii] = np.sqrt( weights[0] * np.dot(err_h,err_h.conj()) ).real
 
@@ -65,7 +67,7 @@ def basis_accuracy_test(outdir):
     plt.semilogy(range(evaluations),err_app)
     plt.show()
 
-    ## to show its working ##
+    ## to show other info ##
     #import matplotlib.pyplot as plt
     #plt.plot(nodes,TS[:,1])
     #plt.show()

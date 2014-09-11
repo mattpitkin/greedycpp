@@ -287,7 +287,7 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
 
 }
 
-void WriteWaveforms(const gsl_matrix_complex *TS_gsl,const char *output_dir,const int indx)
+void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,const int indx)
 {
 // if indx < 0, all waveforms (training space) is written to file //
 
@@ -296,9 +296,9 @@ void WriteWaveforms(const gsl_matrix_complex *TS_gsl,const char *output_dir,cons
     char filename_imag[100];
 
     strcpy(filename_real,output_dir);
-    strcat(filename_real,"/Waveforms_real.txt");
+    strcat(filename_real,"/TSpace_real.txt");
     strcpy(filename_imag,output_dir);
-    strcat(filename_imag,"/Waveforms_imag.txt");
+    strcat(filename_imag,"/TSpace_imag.txt");
 
     data_real = fopen(filename_real,"w");
     if(indx < 0){
@@ -792,7 +792,8 @@ int main (int argc, char **argv) {
     const double tol    = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
     int max_RB          = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
     bool weighted_inner = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
-    int param_dim       = cfg.lookup("param_dim");       // number of paramteric dimensions (currently supports 2)
+    int param_dim       = cfg.lookup("param_dim");       // number of paramteric dimensions
+    bool export_tspace  = cfg.lookup("export_tspace");   // if true, mpi_size must equal 1
     const char * model_name;                             // mame of model -- used to select the appropriate model in FillTrainingSet
     const char * output_dir;                             // folder to put all output files
     const char * output_data_format;                     // format of output files (text or gsl binary supported)
@@ -816,6 +817,10 @@ int main (int argc, char **argv) {
     const char *ts_file_name;          // this is required if load_from_file = true
     double *params_low, *params_high;  // this is required if load_from_file = false. lower/upper interval of each parameter 
     int *params_num;                   // this is required if load_from_file = false. Number of samplings in the interval [param_low,param_high]
+
+    if(export_tspace && size_mpi > 1){
+        fprintf(stderr,"Training space exporting only works with 1 processor! Your training space will not be exported. \n");
+    }
 
     // lookup additional required run parameters from configuration file //
     if(cfg.lookupValue("model_name",model_name) 
@@ -958,7 +963,9 @@ int main (int argc, char **argv) {
 
         // -- output some waveform(s) for diagnostics -- //
         if(size_mpi == 1){
-            WriteWaveforms(TS_gsl,output_dir,-1); // -1 for training set. TODO: specifcy from input file
+            if(export_tspace){
+                WriteTrainingSpace(TS_gsl,output_dir,-1); // -1 for training set. Manually input number if specific waveform needed
+            }
             gsl_matrix_complex_free(TS_gsl);
         }
         //tspace_class.WriteTrainingSet();
