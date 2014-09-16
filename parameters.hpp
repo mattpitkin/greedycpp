@@ -32,8 +32,8 @@ class Parameters {
         inline std::string model_name() const { return model_name_; }
         inline std::string ts_file_name() const { return ts_file_name_; }
         inline std::string output_data_format() const { return output_data_format_; }
-        inline std::string fvec_file_name() const { return fvec_file_name_; }
-        inline std::string weight_file_name() const { return weight_file_name_; }
+        inline std::string quad_nodes_file() const { return quad_nodes_file_; }
+        inline std::string quad_weight_file() const { return quad_weight_file_; }
 
 
     private:
@@ -56,8 +56,8 @@ class Parameters {
         double x_min_;                 // lower value x_min (physical domain) --> needed if quad_type != 2
         double x_max_;                 // upper value x_max (physical domain) --> needed if quad_type != 2
         int quad_points_;              // total number of quadrature points   --> needed if quad_type != 2
-        std::string fvec_file_name_;   // file name for vector of quadrature points  --> needed if quad_type = 2
-        std::string weight_file_name_; // file name of weights --> needed if weighted_inner = true
+        std::string quad_nodes_file_;  // file name for vector of quadrature points  --> needed if quad_type = 2
+        std::string quad_weight_file_; // file name of weights --> needed if weighted_inner = true
 
         // run settings - MAY need to be set //
         double *params_low_, *params_high_; // this is required if load_from_file = false. lower/upper interval of each parameter 

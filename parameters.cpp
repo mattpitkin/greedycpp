@@ -36,7 +36,6 @@ Parameters::Parameters(char ** argv){
     // run settings - these MUST be set in the parameter file //
     load_from_file_ = cfg.lookup("load_from_file");
     quad_type_      = cfg.lookup("quad_type");
-    quad_type_      = cfg.lookup("quad_type");
     seed_           = cfg.lookup("seed");
     tol_            = cfg.lookup("tol");
     max_RB_         = cfg.lookup("max_RB");
@@ -117,12 +116,12 @@ Parameters::Parameters(char ** argv){
 
     if (quad_type_ == 2) // user specified quadrature points, load these from file
     {
-        cfg_status = cfg.lookupValue("frequency_vector_file", fvec_file_name_);
+        cfg_status = cfg.lookupValue("quad_nodes_file", quad_nodes_file_);
         if (!cfg_status){
             fprintf(stderr, "frequency_vector_file not found in config file\n");
             exit(1);
         }
-        quad_points_ = fcount_pts(fvec_file_name_.c_str());
+        quad_points_ = fcount_pts(quad_nodes_file_.c_str());
     }
     else
     {
@@ -132,7 +131,7 @@ Parameters::Parameters(char ** argv){
     }
 
     if (weighted_inner_){
-        cfg_status = cfg.lookupValue("weight_file", weight_file_name_);
+        cfg_status = cfg.lookupValue("quad_weight_file", quad_weight_file_);
         if (!cfg_status){
             fprintf(stderr, "weight_file not found in config file\n");
             exit(1);
