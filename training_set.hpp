@@ -22,7 +22,7 @@ class TrainingSetClass {
         //~TrainingSetClass();
 
         // BuildTS will decide how to populte the collection of points depending on input
-        void BuildTS(int *, double *, double *);
+        void BuildTS(const int *, const double *, const double *);
         void BuildTS(const char *);
 
         // Description here TODO //
@@ -36,15 +36,15 @@ class TrainingSetClass {
         void GetParameterValue(double *,const int,const int);
 
         // accessor functions
-        int ts_size();
-        int param_dim();
-        const char * model();
-        bool distributed();
-        const int* mystart();
-        const int* myend();
-        const int* matrix_sub_size();
-        double** params(); // TODO: const
-        const double* param_scale();
+        inline int ts_size(){ return ts_size_; }
+        inline int param_dim(){ return param_dim_; }
+        inline bool distributed(){ return distributed_; }
+        inline const char * model(){ return model_; }
+        inline const int * mystart(){return mystart_; }
+        inline const int * myend(){ return myend_; }
+        inline const int * matrix_sub_size(){ return matrix_sub_size_; }
+        inline const double * const* params(){ return params_; } // pointer to pointer also needs to be const
+        inline const double * param_scale(){ return param_scale_; }
 
         // this routine writes ts to file //
         void WriteTrainingSet();
@@ -52,14 +52,14 @@ class TrainingSetClass {
     private:
 
         // member variables
-        double **params_;       // matrix where the columns are the parameters (param_dim columns) and the rows their indexing (ts_size rows)
-        double *param_scale_;   // param_scale[i] scales ith paramter so that input to model is param_scale[i] * param_i (all scale's default is 1)
-        int param_dim_;         // number of paramteric dimensions
-        int ts_size_;           // number of training set elements
-        char model_[100];       // name of model (ex: TaylorF2_PN3pt5)
-        bool distributed_;      // set to true if TS distributed over procs/nodes
-        int *mystart_, *myend_; // maps global row index of A onto local worker index 
-        int *matrix_sub_size_;  // = ts.myend[rank]-ts.mystart[rank] = TS on each proc
+        double **params_;            // matrix where the columns are the parameters (param_dim columns) and the rows their indexing (ts_size rows)
+        const double *param_scale_;  // see parameters.hpp (note: param_scale_ is actually a pointer to param_scale_ defined in Parameters class)
+        int param_dim_;              // see parameters.hpp
+        int ts_size_;                // see parameters.hpp
+        char model_[100];            // see parameters.hpp
+        bool distributed_;           // set to true if training space distributed over procs/nodes
+        int *mystart_, *myend_;      // maps global row index of A onto local worker index 
+        int *matrix_sub_size_;       // = ts.myend[rank]-ts.mystart[rank] = TS on each proc
 
         // this routine distributed the ts over procs //
         void SplitTrainingSet(const int);

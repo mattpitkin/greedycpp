@@ -138,7 +138,7 @@ void TrainingSetClass::GetParameterValue(double *params_point, const int rank, c
     }
 }
 
-void TrainingSetClass::BuildTS(int *params_num, double *params_low, double *params_high){
+void TrainingSetClass::BuildTS(const int *params_num, const double *params_low, const double *params_high){
 
     std::cout << "Building from tensor product grid" << std::endl;
 
@@ -382,21 +382,4 @@ void TrainingSetClass::WriteTrainingSet()
 }
 
 
-int TrainingSetClass::ts_size(){ return ts_size_; }
-
-int TrainingSetClass::param_dim(){ return param_dim_; }
-
-bool TrainingSetClass::distributed(){ return distributed_; }
-
-const char * TrainingSetClass::model(){ return model_; }
-
-const int * TrainingSetClass::mystart(){return mystart_; }
-
-const int * TrainingSetClass::myend(){ return myend_; }
-
-const int * TrainingSetClass::matrix_sub_size(){ return matrix_sub_size_; }
-
-double ** TrainingSetClass::params(){ return params_; }
-
-const double * TrainingSetClass::param_scale(){ return param_scale_; }
-
+// NOTE: inlined accessor functions defined in hpp //
