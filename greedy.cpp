@@ -46,7 +46,7 @@
 #include "quadratures.h"
 #include "parameters.hpp"
 #include "utils.h"
-#include "gsl_orthogonalization.h"
+//#include "gsl_orthogonalization.h"
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass * ts, const int rank)
@@ -85,7 +85,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 
     // -- Normalize training space here -- //
     fprintf(stdout,"Normalizing training set...\n");
-    NormalizeMatrixRows(TS_gsl,wQuad);
+    mygsl::NormalizeMatrixRows(TS_gsl,wQuad);
 
     delete[] params;
     gsl_vector_complex_free(model_eval);
@@ -145,16 +145,16 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     //--- write R and RB to file ---//
     if(strcmp(datatype,"txt") == 0){
         rb_real_data = fopen(rb_real_filename,"w");
-        gsl_matrix_complex_fprintf_part(rb_real_data,RB_space,"real");
+        mygsl::gsl_matrix_complex_fprintf_part(rb_real_data,RB_space,"real");
         fclose(rb_real_data);
         rb_imag_data = fopen(rb_imag_filename,"w");
-        gsl_matrix_complex_fprintf_part(rb_imag_data,RB_space,"imag");
+        mygsl::gsl_matrix_complex_fprintf_part(rb_imag_data,RB_space,"imag");
         fclose(rb_imag_data);
         r_real_data = fopen(r_real_filename,"w");
-        gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
+        mygsl::gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
         fclose(r_real_data);
         r_imag_data = fopen(r_imag_filename,"w");
-        gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
+        mygsl::gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
         fclose(r_imag_data);
     }
     else{
@@ -183,7 +183,7 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
 
     data_real = fopen(filename_real,"w");
     if(indx < 0){
-        gsl_matrix_complex_fprintf_part(data_real,TS_gsl,"real");
+        mygsl::gsl_matrix_complex_fprintf_part(data_real,TS_gsl,"real");
     }
     else{
         for(int cols = 0; cols < TS_gsl->size2 ; cols++){
@@ -194,7 +194,7 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
 
     data_imag = fopen(filename_imag,"w");
     if(indx < 0){
-        gsl_matrix_complex_fprintf_part(data_imag,TS_gsl,"imag");
+        mygsl::gsl_matrix_complex_fprintf_part(data_imag,TS_gsl,"imag");
     }
     else{
         for(int cols = 0; cols < TS_gsl->size2 ; cols++){
@@ -238,7 +238,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     if( (worst_rank-1) == rank){
         worst_local = seed_global - ts->mystart()[rank];
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
-        gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
+        mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
         MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
@@ -251,13 +251,13 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
         // -- receive new rb -- //
         MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-        make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
+        mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
         // Compute overlaps of pieces of A with rb_new //
         for(int i = 0; i < ts->matrix_sub_size()[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
-            tmpc = WeightedInner(wQuad,last_rb,row_vec);
+            tmpc = mygsl::WeightedInner(wQuad,last_rb,row_vec);
             gsl_matrix_complex_set(project_coeff,dim_RB-1,i,tmpc);
 
             tmp = 0;
@@ -292,7 +292,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
         // -- return basis to master -- //
         if( (worst_rank-1) == rank){
             gsl_matrix_complex_get_row(row_vec,A,worst_local);
-            gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
+            mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
             MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         }
@@ -371,7 +371,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     MPI_Bcast(&seed_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
     MPI_Recv(vec_real, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     MPI_Recv(vec_imag, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+    mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
     gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
 
 
@@ -385,7 +385,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     start = clock();
     while(continue_work == 1)
     {
-        gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+        mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
         // -- send last orthonormal rb to work procs -- //
         MPI_Barrier(MPI_COMM_WORLD);
@@ -415,7 +415,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         // -- receive row basis from worker proc worst_rank -- //
         MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         MPI_Recv(vec_imag, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+        mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
         // -- decide if another greedy sweep is needed, alert workers -- //
         if( (dim_RB+1 == max_RB) || worst_err < tol){
@@ -429,8 +429,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
-        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
@@ -528,7 +528,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
         {
 
             gsl_matrix_complex_get_row(ts_el,A,i);
-            tmpc = WeightedInner(wQuad,last_rb,ts_el);
+            tmpc = mygsl::WeightedInner(wQuad,last_rb,ts_el);
             gsl_matrix_complex_set(project_coeff,dim_RB-1,i,tmpc);
 
             tmp = 0;
@@ -560,10 +560,8 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
         // --- add worst approximated solution to basis set --- //
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-
-        IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
-
-        //MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
