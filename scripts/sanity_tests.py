@@ -37,7 +37,6 @@ def ortho_test(outdir):
 
     B, weights, nodes = load_info(outdir)
 
-    #result = weights[0] * np.dot(B.T.conj(),B) 
     result = np.dot(weights * B.T.conj(),B) 
 
     err = result - np.eye(result.shape[1])
@@ -58,10 +57,9 @@ def basis_accuracy_test(outdir):
 
     # TODO: shouldn't use for-loop here
     for ii in range(evaluations):
-        #proj_coeff = weights[0] * np.dot(B.T.conj(),TS[:,ii])
         proj_coeff = np.dot(weights * B.T.conj(),TS[:,ii])
-        err_h = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum
-        err_app[ii] = np.sqrt( weights[0] * np.dot(err_h,err_h.conj()) ).real
+        err_h = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum (no weights either)
+        err_app[ii] = np.sqrt( np.dot( weights * err_h,err_h.conj()) ).real
 
     import matplotlib.pyplot as plt
     plt.semilogy(range(evaluations),err_app)
