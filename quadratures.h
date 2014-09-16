@@ -130,8 +130,8 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
     const int quad_points = pParams->quad_points();
     const double x_min = pParams->x_min();
     const double x_max = pParams->x_max();
-    const char *fvec_file_name = pParams->fvec_file_name().c_str();
-    const char *weight_file_name = pParams->weight_file_name().c_str();
+    const char *quad_nodes_file = pParams->quad_nodes_file().c_str();
+    const char *weight_file_name = pParams->quad_weight_file().c_str();
 
     int gsl_status;
 
@@ -142,14 +142,14 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
     wQuad_tmp = gsl_vector_complex_alloc(quad_points);
     xQuad_tmp = gsl_vector_alloc(quad_points);
 
-    // load frequency vector for dynamic frequency 
+    // -- load quadrature nodes from file -- //
     if(quad_type == 2)
     {
-        FILE *fvecf = fopen(fvec_file_name, "r");
+        FILE *fvecf = fopen(quad_nodes_file, "r");
         gsl_status = gsl_vector_fscanf(fvecf, xQuad_tmp);
         fclose(fvecf);
         if( gsl_status == GSL_EFAILED ){
-            fprintf(stderr, "Error reading frequency vector from %s\n", fvec_file_name);
+            fprintf(stderr, "Error reading frequency vector from %s\n", quad_nodes_file);
             exit(1);
         }
 

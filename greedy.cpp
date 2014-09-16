@@ -46,7 +46,6 @@
 #include "quadratures.h"
 #include "parameters.hpp"
 #include "utils.h"
-//#include "gsl_orthogonalization.h"
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass * ts, const int rank)
