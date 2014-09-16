@@ -1,26 +1,7 @@
 #ifndef quadratures_h
 #define quadratures_h
 
-
-// TODO: there is an fcount in main -- should fix this //
-static int fcount_pts_1(const char *infile) {
-    //const char *c_str = infile.c_str();
-    //FILE *fvec = fopen(c_str, "r");
-    std::ifstream fvec(infile);
-    // counts the number of lines in the given file not beginning with "#"
-    // to get the number of points
-    std::string line;
-    int points = 0;
-    while (std::getline(fvec, line))
-    {
-        if (line.compare(0, 1, "#") != 0)
-            ++points;
-
-    }
-    //fclose(fvec);
-
-    return points;
-}
+#include "parameters.hpp"
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
@@ -140,60 +121,22 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *weightf)
 
 }
 
-void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,const int quad_type,const bool weighted_inner,const char *cfg_file)
+void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameters * pParams)
 {
     // wQuad and xQuad are pointers to pointers, which allows memory allocation here to be passed back to main //
 
+    const int quad_type = pParams->quad_type();
+    const bool weighted_inner = pParams->weighted_inner();
+    const int quad_points = pParams->quad_points();
+    const double x_min = pParams->x_min();
+    const double x_max = pParams->x_max();
+    const char *fvec_file_name = pParams->fvec_file_name().c_str();
+    const char *weight_file_name = pParams->weight_file_name().c_str();
 
-    double x_min;              // lower value x_min (physical domain)
-    double x_max;              // upper value x_max (physical domain)
-    int quad_points;
-    const char *fvec_file_name;
-    const char *weight_file_name;
     int gsl_status;
-    bool cfg_status;
 
     gsl_vector_complex *wQuad_tmp;
     gsl_vector *xQuad_tmp;
-
-
-    libconfig::Config cfg; // TODO: opening a new file! better way?
-    try{
-      cfg.readFile(cfg_file);
-    }
-    catch(const libconfig::FileIOException &fioex){
-      std::cerr << "I/O error while reading file." << std::endl;
-      exit(1);
-    }
-    catch(const libconfig::ParseException &pex){
-      std::cerr << "Parse error " << std::endl;
-      exit(1);
-    }
-
-
-    if (quad_type == 2) // Dynamic, need to look up frequency vector
-    {
-        cfg_status = cfg.lookupValue("frequency_vector_file", fvec_file_name); // specify the frequency vector to use from a file
-        if (!cfg_status){
-            fprintf(stderr, "frequency_vector_file not found in config file\n");
-            exit(1);
-        }
-        quad_points = fcount_pts_1(fvec_file_name);
-    }
-    else
-    {
-        x_min = cfg.lookup("x_min");
-        x_max = cfg.lookup("x_max");
-        quad_points = cfg.lookup("quad_points");
-    }
-
-    if (weighted_inner){
-        cfg_status = cfg.lookupValue("weight_file", weight_file_name);
-        if (!cfg_status){
-            fprintf(stderr, "weight_file not found in config file\n");
-            exit(1);
-        }
-    }
 
     // -- allocate memory --//
     wQuad_tmp = gsl_vector_complex_alloc(quad_points);
