@@ -44,7 +44,8 @@
 #include "training_set.hpp"
 #include "gsl_helper_functions.h"
 #include "quadratures.h"
-
+#include "parameters.hpp"
+#include "utils.h"
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
 void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass * ts, const int rank)
@@ -713,25 +714,6 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
 }
 
-static int fcount_pts(const char *infile) {
-    //const char *c_str = infile.c_str();
-    //FILE *fvec = fopen(c_str, "r");
-    std::ifstream fvec(infile);
-    // counts the number of lines in the given file not beginning with "#"
-    // to get the number of points
-    std::string line;
-    int points = 0;
-    while (std::getline(fvec, line))
-    {
-        if (line.compare(0, 1, "#") != 0)
-            ++points;
-
-    }
-    //fclose(fvec);
-
-    return points;
-}
-
 int main (int argc, char **argv) {
 
     // --- setup MPI info ---//
@@ -760,21 +742,10 @@ int main (int argc, char **argv) {
     }
     std::cout << "parameter file is: " << argv[1] << std::endl;
 
-
-    //--- Read input (config) file. If there is an error, report and exit ---//
-    // TODO: with MPI, multiple procs reading same paramter file... seems bad //
-    libconfig::Config cfg;
-    try{
-      cfg.readFile(argv[1]);
-    }
-    catch(const libconfig::FileIOException &fioex){
-      std::cerr << "I/O error while reading file." << std::endl;
-      return(EXIT_FAILURE);
-    }
-    catch(const libconfig::ParseException &pex){
-      std::cerr << "Parse error " << std::endl;
-      return(EXIT_FAILURE);
-    }
+    //--- Read input (config) file argv[1]. If there is an error, report and exit.
+    //--- Parameters class definition contains relevant information about parameters 
+    Parameters *params_from_file = new Parameters(argv);
+    std::cout << *params_from_file;
 
     // Variables which need to be decarled, but not set in parameter file //
     gsl_matrix_complex *TS_gsl;
@@ -782,149 +753,35 @@ int main (int argc, char **argv) {
     gsl_vector *xQuad;
     char shell_command[100];
     int gsl_status;
-    bool cfg_status;
     int ts_size;
 
-    // run settings - these MUST be set in the parameter file //
-    bool load_from_file = cfg.lookup("load_from_file");  // load training points from file instead (file name used is below)
-    const int quad_type = cfg.lookup("quad_type");       // 0 = Gaussian quadrature, 1 = Riemann, 2 = user-defined (quadrature file required)
-    const int seed      = cfg.lookup("seed");            // greedy algorithm seed
-    const double tol    = cfg.lookup("tol");             // greedy algorithm tolerance ( \| app \|^2)
-    int max_RB          = cfg.lookup("max_RB");          // estimated number of RB (reasonable upper bound)
-    bool weighted_inner = cfg.lookup("weighted_inner");  // whether or not the inner product to use includes a weight W(x): \int W(x) f(x) g(x)
-    int param_dim       = cfg.lookup("param_dim");       // number of paramteric dimensions
-    bool export_tspace  = cfg.lookup("export_tspace");   // if true, mpi_size must equal 1
-    const char * model_name;                             // mame of model -- used to select the appropriate model in FillTrainingSet
-    const char * output_dir;                             // folder to put all output files
-    const char * output_data_format;                     // format of output files (text or gsl binary supported)
-    double* param_scale;                                 // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]
-    param_scale = new double[param_dim]; 
-    char scale_str[20];
-    for(int i = 0; i < param_dim; i++){
-        snprintf(scale_str, 20, "p%d_scale", i+1);
-        param_scale[i] =  cfg.lookup(scale_str);
-    }
-
-
-    // run settings - MAY need to be set for SetupQuadratureRule //
-    // x_min;              // lower value x_min (physical domain) --> needed if quad_type != 2
-    // x_max;              // upper value x_max (physical domain) --> needed if quad_type != 2
-    // quad_points;        // total number of quadrature points   --> needed if quad_type != 2
-    // fvec_file_name;     // file name for vector of quadrature points  --> needed if quad_type = 2
-    // weight_file_name;   // file name of weights --> needed if weighted_inner = true
-
-    // run settings - MAY need to be set //
-    const char *ts_file_name;          // this is required if load_from_file = true
-    double *params_low, *params_high;  // this is required if load_from_file = false. lower/upper interval of each parameter 
-    int *params_num;                   // this is required if load_from_file = false. Number of samplings in the interval [param_low,param_high]
-
-    if(export_tspace && size_mpi > 1){
+    if(params_from_file->export_tspace() && size_mpi > 1){
         fprintf(stderr,"Training space exporting only works with 1 processor! Your training space will not be exported. \n");
     }
 
-    // lookup additional required run parameters from configuration file //
-    if(cfg.lookupValue("model_name",model_name) 
-       && cfg.lookupValue("output_dir",output_dir) 
-       && cfg.lookupValue("output_data_format",output_data_format)){
-        fprintf(stdout,"Successfully loaded model name, output directory location and output data format type\n");
-    }
-    else{
-        fprintf(stderr,"Failed to load either model name, output directory location or output data format type\n");
-        exit(1);
-    }
-
-
-    // returns wQuad and xQuad, configuration file = argv[1]  //
-    // note: this returns the full, not reduced, quadrature rule //
-    SetupQuadratureRule(&wQuad,&xQuad,quad_type,weighted_inner,argv[1]);
-
-    const libconfig::Setting& root = cfg.getRoot();
-
-    // -- build training set (builds list of paramter values in ts.params) -- //
-    if (load_from_file){
-        cfg_status = cfg.lookupValue("ts_file", ts_file_name);
-        if (!cfg_status){
-            fprintf(stderr, "ts_file not found in config file\n");
-            exit(1);
-        }
-        ts_size = fcount_pts(ts_file_name); // need to get training set size from file (number of rows)
-        std::cout << "training set file found to " << ts_size << " parameter samples" << std::endl;
-    }
-    else{
-        params_num       = new int[param_dim];
-        params_low       = new double[param_dim];
-        params_high      = new double[param_dim];
-
-        // note about libconfig: if destination data type does not match expected on from configuration file an error is thrown //
-
-        // read in params_num and determine ts_size //
-        ts_size = 1;
-        libconfig::Setting& params_num_s = root["params_num"];
-        int count_array = params_num_s.getLength();
-        if(count_array != param_dim){
-            fprintf(stderr,"elements in params_num defined in configuration file does equal param_dim\n");
-            exit(1);
-        }
-        for(int i = 0; i < param_dim; i++){
-            params_num[i] = params_num_s[i];
-            ts_size       = params_num[i]*ts_size; // assumes tensor product structure on training set
-        }
-
-        // read in params_low //
-        libconfig::Setting& params_low_s = root["params_low"];
-        count_array = params_low_s.getLength();
-        if(count_array != param_dim){
-            fprintf(stderr,"elements in params_low defined in configuration file does equal param_dim\n");
-            exit(1);
-        }
-        for(int i = 0; i < param_dim; i++){
-            params_low[i] = params_low_s[i];
-        }
-
-        // read in params_high //
-        libconfig::Setting& params_high_s = root["params_high"];
-        count_array = params_high_s.getLength();
-        if(count_array != param_dim){
-            fprintf(stderr,"elements in params_high defined in configuration file does equal param_dim\n");
-            exit(1);
-        }
-        for(int i = 0; i < param_dim; i++){
-            params_high[i] = params_high_s[i];
-        }
-    }
-
-    // -- Finished reading from configuration file. Start algorithm... //
-
-
+    // returns wQuad and xQuad for the full, not reduced, quadrature rule //
+    SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
 
     // Creating Run Directory //
     if(size_mpi == 1 || rank == 0){
 
         strcpy(shell_command, "mkdir -p -m700 ");
-        strcat(shell_command, output_dir);
+        strcat(shell_command, params_from_file->output_dir().c_str());
         system(shell_command);
 
-        snprintf(shell_command,100,"cp %s %s",argv[1],output_dir);
+        snprintf(shell_command,100,"cp %s %s",argv[1],params_from_file->output_dir().c_str());
         system(shell_command);
     }
 
-    // memory for params_ and distrubtion matricies allocated here //
-    TrainingSpaceClass *ptspace_class = new TrainingSpaceClass(param_dim,param_scale,ts_size,model_name,size_mpi);
+    // allocates dynamic memory, fills up training set with values //
+    TrainingSpaceClass *ptspace_class = new TrainingSpaceClass(params_from_file,size_mpi);
 
-    // fills params_ with values //
-    if(load_from_file){
-        ptspace_class->BuildTS(ts_file_name);
-    }
-    else{
-        ptspace_class->BuildTS(params_num,params_low,params_high);
-    }
-
-    // Build training space by evaluating model at ts.params. Then run the greedy algorithm //
+    // Build training space by evaluating model at ptspace_class->params_. Then run the greedy algorithm //
     if(size_mpi == 1) // only 1 proc requested (serial mode)
     {
         TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size); // GSL error handler will abort if too much requested
         FillTrainingSet(TS_gsl,xQuad,wQuad,ptspace_class,rank);               // size=1  => rank=0. 5th argument is the rank
-        Greedy(seed,max_RB,TS_gsl,wQuad,tol,ptspace_class,output_dir,output_data_format);
+        Greedy(params_from_file->seed(),params_from_file->max_RB(),TS_gsl,wQuad,params_from_file->tol(),ptspace_class,params_from_file->output_dir().c_str(),params_from_file->output_data_format().c_str());
     }
     else
     {
@@ -936,10 +793,10 @@ int main (int argc, char **argv) {
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size_mpi,max_RB,seed,wQuad,tol,ptspace_class,output_dir,output_data_format);
+            GreedyMaster(size_mpi,params_from_file->max_RB(),params_from_file->seed(),wQuad,params_from_file->tol(),ptspace_class,params_from_file->output_dir().c_str(),params_from_file->output_data_format().c_str());
         }
         else{
-            GreedyWorker(rank-1,max_RB,seed,wQuad,tol,TS_gsl,ptspace_class);
+            GreedyWorker(rank-1,params_from_file->max_RB(),params_from_file->seed(),wQuad,params_from_file->tol(),TS_gsl,ptspace_class);
             gsl_matrix_complex_free(TS_gsl);
         }
 
@@ -952,7 +809,7 @@ int main (int argc, char **argv) {
         // -- output quadrature weights -- //
         FILE *outfile;
 
-        strcpy(shell_command, output_dir);
+        strcpy(shell_command, params_from_file->output_dir().c_str());
         strcat(shell_command,"/quad_rule.txt");
 
         outfile = fopen(shell_command,"w");
@@ -963,8 +820,8 @@ int main (int argc, char **argv) {
 
         // -- output some waveform(s) for diagnostics -- //
         if(size_mpi == 1){
-            if(export_tspace){
-                WriteTrainingSpace(TS_gsl,output_dir,-1); // -1 for training set. Manually input number if specific waveform needed
+            if(params_from_file->export_tspace()){
+                WriteTrainingSpace(TS_gsl,params_from_file->output_dir().c_str(),-1); // -1 for training set. Manually input number if specific waveform needed
             }
             gsl_matrix_complex_free(TS_gsl);
         }
@@ -974,16 +831,12 @@ int main (int argc, char **argv) {
 
     gsl_vector_complex_free(wQuad);
     gsl_vector_free(xQuad);
-    delete [] param_scale;
 
     delete ptspace_class;
     ptspace_class = NULL;
 
-    if (load_from_file == false){
-        delete [] params_num;
-        delete [] params_low;
-        delete [] params_high;
-    }
+    delete params_from_file;
+    params_from_file = NULL;
 
     // Tell the MPI library to release all resources it is using
     MPI::Finalize();

@@ -1,6 +1,8 @@
 #ifndef training_set_hpp
 #define training_set_hpp
 
+#include "parameters.hpp"
+
 /*
   Class contains all information about the training set and, if 
   MPI enabled, how its distributed over procs. 
@@ -14,7 +16,7 @@ class TrainingSetClass {
         TrainingSetClass();
 
         // overload constructor
-        TrainingSetClass(int, double *, int, const char *,int);
+        TrainingSetClass(Parameters *, int);
 
         // destructor -- TODO: is default one ok if malloc called? what about new?
         //~TrainingSetClass();

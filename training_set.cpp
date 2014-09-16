@@ -20,24 +20,24 @@
 #include <gsl/gsl_block_complex_float.h>
 
 #include "training_set.hpp"
-
+#include "parameters.hpp"
 
 // using implicit destructor... check valgrid for memory leaks
 
-TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char * model_name, int procs_size){
+TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
-    strcpy(model_,model_name);
-    param_scale_ = scale;
-    param_dim_   = dim;
-    ts_size_     = size;
+    strcpy(model_,p->model_name().c_str());
+    param_scale_ = p->param_scale();
+    param_dim_   = p->param_dim();
+    ts_size_     = p->ts_size();
     distributed_ = false; //default value is false. Sets to true if SplitTrainingSet called
 
     // allocate memory for parameter matrix //
-    params_ = new double*[size];
-    for(int j = 0; j < size; j++)
+    params_ = new double*[ts_size_];
+    for(int j = 0; j < ts_size_; j++)
     {
 
-      params_[j] = new double[dim];
+      params_[j] = new double[param_dim_];
 
       if(params_[j] == NULL){
         fprintf(stderr,"Failed to allocate memory in BuildTS\n");
@@ -55,7 +55,7 @@ TrainingSetClass::TrainingSetClass(int dim, double * scale, int size, const char
         exit(1);
     }
 
-    std::cout << "Using waveform model: " << model_name << ". Training set class initialized!" << std::endl;
+    std::cout << "Using waveform model: " << model_ << ". Training set class initialized!" << std::endl;
 }
 
 void TrainingSetClass::SplitTrainingSet(const int size)

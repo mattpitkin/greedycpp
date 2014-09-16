@@ -2,6 +2,7 @@
 #define training_space_hpp
 
 #include "training_set.hpp"
+#include "parameters.hpp"
 
 /*
   Class contains all information about the training space.
@@ -11,7 +12,7 @@
 class TrainingSpaceClass : public TrainingSetClass {
 public:
 
-    TrainingSpaceClass(int, double *, int, const char *,int);
+    TrainingSpaceClass(Parameters *,int);
 
     //~TrainingSpaceClass();
 

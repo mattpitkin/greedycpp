@@ -21,10 +21,20 @@
 
 #include "training_set.hpp"
 #include "training_space.hpp"
+#include "parameters.hpp"
 
-TrainingSpaceClass::TrainingSpaceClass(int dim, double * scale, int size, const char * model_name,int procs_size)
-    : TrainingSetClass(dim,scale,size,model_name,procs_size)
-{ 
-    std::cout << "looks OK" << std::endl;
+TrainingSpaceClass::TrainingSpaceClass(Parameters *p, int procs_size)
+    : TrainingSetClass(p,procs_size)
+{
+    // this could make more sense in training set. keep here for now
+    // fills params_ with values //
+    if(p->load_from_file()){
+        BuildTS(p->ts_file_name().c_str());
+    }
+    else{
+        BuildTS(p->params_num(),p->params_low(),p->params_high());
+    }
+
+ 
 }
 
