@@ -13,7 +13,6 @@ class TrainingSpaceClass : public TrainingSetClass {
 public:
 
     TrainingSpaceClass(Parameters *,int);
-
     //~TrainingSpaceClass();
 
 };

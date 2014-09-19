@@ -23,6 +23,23 @@
 #include "training_space.hpp"
 #include "parameters.hpp"
 
+
+/*
+TrainingSpaceClass::~TrainingSpaceClass() {
+
+    for(int j = 0; j < ts_size_; j++) {
+      delete [] params_[j];
+    }
+    delete [] params_;
+
+    delete [] param_scale_;
+    delete [] mystart_;
+    delete [] myend_;
+    delete [] matrix_sub_size_;
+
+}
+*/
+
 TrainingSpaceClass::TrainingSpaceClass(Parameters *p, int procs_size)
     : TrainingSetClass(p,procs_size)
 {
