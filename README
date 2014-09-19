@@ -27,8 +27,8 @@ Quick start
 -----------
 
          -- serial mode --
-1) edit greedy.cpp (see below)
-2) run 'make Greedy'
+1) edit greedy.cpp by commenting out the line "#define COMPILE_WITH_MPI"
+2) run 'make greedy'
 3) run './greedy PARAM_FILE.cfg'
 
 
@@ -105,17 +105,6 @@ mpicxx -o greedympi greedy.cpp TrainingSet.cpp -I/usr/local/packages/gsl/1.15/In
 3) open mpiGreedyQsub and set number of nodes.
 4) run 'qsub mpiGreedyQsub' (this will print a jobID to screen)
 5) monitor job with qstat jobID
-
-
-Running without mpi
--------------------
-
-comment out the following code 
-1) include of mpi.h
-2) GreedyWorker and GreedyMaster routines
-3) MPI::Init and few lines which follow
-4) MPI::Finalize()
-5) GreedyWorker and GreedyMaster function calls within main() 
 
 
 Troubleshooting

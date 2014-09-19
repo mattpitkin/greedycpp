@@ -6,10 +6,16 @@
 // PURPOSE: mpi version of greedy (pivoted MGS) algorithm 
 
 
+// --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
+#define COMPILE_WITH_MPI
+
 //#include "nr3.h"
 #include "gauss_wgts.h"
 #include <libconfig.h++>
+
+#ifdef COMPILE_WITH_MPI
 #include <mpi.h>
+#endif
 
 #include "hdf5.h"
 #define FILE_H5 "file.h5"
@@ -203,6 +209,8 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
     fclose(data_imag);
 }
 
+// --- GreedyWorker and GreedyMaster are removed from code by precompiler if serial --- //
+#ifdef COMPILE_WITH_MPI
 void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSpaceClass * ts)
 {
 
@@ -458,6 +466,8 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     gsl_vector_complex_free(ru);
 
 }
+#endif // end mpi disabled code (starts with GreedyWorker)
+
 
 // TODO: would like to pass ts as const
 void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,TrainingSpaceClass * ts, const char * output_dir, const char *output_data_format)
@@ -593,11 +603,13 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
 int main (int argc, char **argv) {
 
-    // --- setup MPI info ---//
-    MPI::Init(argc, argv);
-
     int rank     = 0;  // needed for serial mode too
     int size_mpi = 1;  // needed for serial mode too
+
+
+    #ifdef COMPILE_WITH_MPI
+    // --- setup MPI info ---//
+    MPI::Init(argc, argv);
 
     // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
     // Ex: if executed with "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
@@ -611,6 +623,8 @@ int main (int argc, char **argv) {
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
     std::cout << "Number of tasks = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
+    #endif
+
 
     //----- Checking the number of Variables passed to the Executable -----//
     if (argc != 2) {
@@ -662,6 +676,8 @@ int main (int argc, char **argv) {
     }
     else
     {
+
+        #ifdef COMPILE_WITH_MPI
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
             FillTrainingSet(TS_gsl,xQuad,wQuad,ptspace_class,rank-1);
@@ -676,6 +692,10 @@ int main (int argc, char **argv) {
             GreedyWorker(rank-1,params_from_file->max_RB(),params_from_file->seed(),wQuad,params_from_file->tol(),TS_gsl,ptspace_class);
             gsl_matrix_complex_free(TS_gsl);
         }
+        #else
+        fprintf(stderr,"Code compiled with mpi yet size_mpi > 1...\n");
+        exit(1);
+        #endif
 
     }
 
@@ -715,8 +735,10 @@ int main (int argc, char **argv) {
     delete params_from_file;
     params_from_file = NULL;
 
+    #ifdef COMPILE_WITH_MPI
     // Tell the MPI library to release all resources it is using
     MPI::Finalize();
+    #endif
 
 }
 

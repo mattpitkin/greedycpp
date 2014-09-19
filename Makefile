@@ -1,12 +1,12 @@
-all: GreedyMPI
+all: greedy_mpi
 
 LDLIBS = -lgsl -lgslcblas -lconfig++ -lhdf5
 
-### this will not work unless you edit the code -- see README ###
-Greedy: greedy.cpp
-	g++ -o greedy greedy.cpp training_set.cpp $(LDLIBS)
+### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
+greedy: greedy.cpp
+	g++ -o greedy greedy.cpp training_set.cpp parameters.cpp training_space.cpp $(LDLIBS)
 
-GreedyMPI: greedy.cpp
+greedy_mpi: greedy.cpp
 	mpicxx -o greedympi greedy.cpp training_set.cpp parameters.cpp training_space.cpp $(LDLIBS)
 
 .PHONY: clean
