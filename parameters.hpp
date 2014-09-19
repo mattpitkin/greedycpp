@@ -11,6 +11,7 @@ class Parameters {
     public:
         Parameters();
         Parameters(char **);
+        ~Parameters();
 
         inline bool load_from_file() const { return load_from_file_; }
         inline bool export_tspace() const { return export_tspace_; }

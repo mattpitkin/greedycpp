@@ -11,6 +11,20 @@
 #include "parameters.hpp"
 #include "utils.h"
 
+
+Parameters::~Parameters(){
+
+    // TODO: this gets deleted inside trainingset class. should copy pointer to ts class instead
+    //delete[] param_scale_;
+
+    if(!load_from_file_) {
+        delete[] params_num_;
+        delete[] params_low_;
+        delete[] params_high_;
+    }
+
+}
+
 Parameters::Parameters(char ** argv){
 
     //--- Read input (config) file. If there is an error, report and exit ---//
