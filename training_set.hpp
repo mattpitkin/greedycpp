@@ -18,8 +18,8 @@ class TrainingSetClass {
         // overload constructor
         TrainingSetClass(Parameters *, int);
 
-        // destructor -- TODO: is default one ok if malloc called? what about new?
-        //~TrainingSetClass();
+        // explicit destructor - constructor allocates memory on the heap
+        ~TrainingSetClass();
 
         // BuildTS will decide how to populte the collection of points depending on input
         void BuildTS(const int *, const double *, const double *);

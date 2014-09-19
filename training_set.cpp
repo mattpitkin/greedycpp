@@ -22,7 +22,21 @@
 #include "training_set.hpp"
 #include "parameters.hpp"
 
-// using implicit destructor... check valgrid for memory leaks
+TrainingSetClass::~TrainingSetClass() {
+
+    for(int j = 0; j < ts_size_; j++) {
+      delete [] params_[j];
+    }
+    delete [] params_;
+
+    if(distributed_) {
+        delete [] mystart_;
+        delete [] myend_;
+        delete [] matrix_sub_size_;
+    }
+
+    delete [] param_scale_;
+}
 
 TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
@@ -54,6 +68,15 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
         fprintf(stderr,"the number of processors cannot be negative\n");
         exit(1);
     }
+
+    // fills params_ with values //
+    if(p->load_from_file()){
+        BuildTS(p->ts_file_name().c_str());
+    }
+    else{
+        BuildTS(p->params_num(),p->params_low(),p->params_high());
+    }
+
 
     std::cout << "Using waveform model: " << model_ << ". Training set class initialized!" << std::endl;
 }
