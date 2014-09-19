@@ -7,7 +7,7 @@
 
 
 // --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
-//#define COMPILE_WITH_MPI
+#define COMPILE_WITH_MPI
 
 //#include "nr3.h"
 #include "gauss_wgts.h"
