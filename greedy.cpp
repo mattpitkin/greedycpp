@@ -7,7 +7,7 @@
 
 
 // --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
-#define COMPILE_WITH_MPI
+//#define COMPILE_WITH_MPI
 
 //#include "nr3.h"
 #include "gauss_wgts.h"
@@ -54,7 +54,7 @@
 #include "utils.h"
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
-void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSpaceClass * ts, const int rank)
+void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSetClass * ts, const int rank)
 {
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
@@ -97,7 +97,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 }
 
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, TrainingSpaceClass *ts, const char * output_dir,const char *datatype)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, TrainingSetClass *ts, const char * output_dir,const char *datatype)
 {
     FILE *rb_real_data, *rb_imag_data, *r_real_data, *r_imag_data, *err_data, *pts_data;
     FILE *rb_data, *r_data;
@@ -155,12 +155,13 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
         rb_imag_data = fopen(rb_imag_filename,"w");
         mygsl::gsl_matrix_complex_fprintf_part(rb_imag_data,RB_space,"imag");
         fclose(rb_imag_data);
-        r_real_data = fopen(r_real_filename,"w");
-        mygsl::gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
-        fclose(r_real_data);
-        r_imag_data = fopen(r_imag_filename,"w");
-        mygsl::gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
-        fclose(r_imag_data);
+        // TODO: valgrind reports memory errors here
+        //r_real_data = fopen(r_real_filename,"w");
+        //mygsl::gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
+        //fclose(r_real_data);
+        //r_imag_data = fopen(r_imag_filename,"w");
+        //mygsl::gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
+        //fclose(r_imag_data);
     }
     else{
         rb_data = fopen(rb_filename,"w");
@@ -211,7 +212,7 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
 
 // --- GreedyWorker and GreedyMaster are removed from code by precompiler if serial --- //
 #ifdef COMPILE_WITH_MPI
-void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSpaceClass * ts)
+void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSetClass * ts)
 {
 
 // worker routine for computing computationally intensive part of greedy //
@@ -320,7 +321,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     delete [] errors;
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, TrainingSpaceClass * ts, const char * output_dir, const char *output_data_format)
+void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, TrainingSetClass * ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
@@ -470,7 +471,7 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 
 
 // TODO: would like to pass ts as const
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,TrainingSpaceClass * ts, const char * output_dir, const char *output_data_format)
+void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,TrainingSetClass * ts, const char * output_dir, const char *output_data_format)
 {
 // Input: 
 //          A: gsl matrix of solutions (each row is a solution, cols are quadrature samples)
@@ -665,7 +666,7 @@ int main (int argc, char **argv) {
     }
 
     // allocates dynamic memory, fills up training set with values //
-    TrainingSpaceClass *ptspace_class = new TrainingSpaceClass(params_from_file,size_mpi);
+    TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,size_mpi);
 
     // Build training space by evaluating model at ptspace_class->params_. Then run the greedy algorithm //
     if(size_mpi == 1) // only 1 proc requested (serial mode)
