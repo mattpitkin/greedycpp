@@ -8,4 +8,5 @@ Some items to do
 
 4) role weights into ts components and use Euclidean inner product. Will be faster
 
-5) finish checking ND TS from file routine
+5) params_, mystart, myend, matrix_sub_size contain global proc information while
+they only need local information. Better memory usage 
