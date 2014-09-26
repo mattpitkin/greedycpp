@@ -12,11 +12,12 @@ def estimate_memory(ts_size,param_dim,max_rb,num_workers,quad_size):
 
     memory_worker = sizeof_double*( ts_size*param_dim + num_workers + 2*max_rb*ts_size/num_workers + 2*quad_size*ts_size/num_workers )
 
-    memory_master = 2*sizeof_double*( num_workers + quad_size*max_rb + max_rb*max_rb)
+    memory_master = 2*sizeof_double*( num_workers + quad_size*max_rb + max_rb*max_rb) + sizeof_double*ts_size*param_dim
 
     print 'Each worker processor requires at least %1.2f GB' % memory_worker
+    print 'All worker processor require at least %1.2f GB' % (memory_worker*num_workers)
     print 'Master processor requires at least %1.2f GB' % memory_master
-
+    print 'worker memory estimate very accurate. Master about factor of 5 too small. Why?'
 
 
 if __name__=="__main__":

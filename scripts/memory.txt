@@ -3,7 +3,8 @@ Listed are those that scale like number of processors, max_rb, and ts_size*param
 
 Format... (setting) file: allocation
 
-Allocated on each worker proc:
+Allocated on each worker proc
+-----------------------------
 
 GreedyCpp/training_set.cpp:   params_    = new double*[ts_size_];
 GreedyCpp/training_set.cpp:   params_[j] = new double[param_dim_];
@@ -32,7 +33,8 @@ and whenever ts_size >> numprocs_worker we have
 Total on worker proc = sizeof(double)*ts_size[param_dim + 2*max_RB/numprocs_worker + 2*xQuad_size/numprocs_worker ]
 
 
-Allocated on master proc:
+Allocated on master proc
+------------------------
 
 GreedyCpp/greedy.cpp:    worst_workers_mpi = new int[size];
 GreedyCpp/greedy.cpp:    worst_errs_mpi    = new double[size];
@@ -44,5 +46,9 @@ Size(RB_space) = 2*sizeof(double)*xQuad_size*max_RB
 GreedyCpp/greedy.cpp:    R_matrix          = gsl_matrix_complex_alloc(max_RB,max_RB);
 Size(R_matrix) = 2*sizeof(double)*max_RB^2
 
-Total on master proc = 2*sizeof(double)*[numprocs_worker + xQuad_size*max_RB + max_RB^2]
+AND ts class from worker proc section is also built on head node
+
+Total on master proc = 2*sizeof(double)*[numprocs_worker + xQuad_size*max_RB + max_RB^2] + sizeof(double)*ts_size*param_dim
+
+
 
