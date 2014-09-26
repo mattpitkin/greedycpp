@@ -118,7 +118,11 @@ and the output says what must be added to g++ for to compile and link. Standard 
 
 2) Install 'libconfig-hr' from macports instead of the package 'libconfig' which is just the c-version
 
+3) If ld cannot link to libconfig++ (problem on Supermike2), build locally after getting libconfig
 
+>>> wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
+
+Then update LD_LIBRARY_PATH to reflect the location of the newly crated libconfig++ shared library
 
 Acknowledgements
 ----------------
