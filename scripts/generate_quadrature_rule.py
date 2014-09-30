@@ -5,14 +5,19 @@ from scipy.special.orthogonal import p_roots
 
 
 ### setup quadrature rule ###
-pts = 6
-dom_ints = [10.0,30.0,1024.0]
-#dom_ints = [10.0,1024.0]
+pts = 10000
+#dom_ints = [10.0,30.0,1024.0]
+dom_ints = [40,65,100,250,400,700,1099]
+
+### make these global to avoid recomputing roots ###
+p_roots_x, p_roots_w = p_roots(pts)
 
 def SingleDomGaussLeg(quad_points,a,b):
     '''a,b domain endpoints. quad_points is number of quadrature points'''
 
-    [x,w] = p_roots(quad_points)
+    #x,w = p_roots(quad_points)
+    x = p_roots_x
+    w = p_roots_w
     x = x.real
     y = (b-a)*(x+1.0)/2.0 + a
     w = (b-a)/2.0*w
