@@ -25,9 +25,12 @@ void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,cons
 
 }
 
+
+/* weights should be read in by file. Functionality of this routine 
+  has been copied with python script in examples folder (9/30/2014)
 void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int quad_points)
 {
-/* compute quadrature weights as Reimann sum-like rule with nonuniform xQuad */
+// compute quadrature weights as Reimann sum-like rule with nonuniform xQuad //
     double this_f, next_f;
 
     this_f = gsl_vector_get(xQuad, 0);
@@ -39,7 +42,7 @@ void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int quad_points)
     }
     // set weight of last point to 0
     wQuad[quad_points-1] = 0.;
-}
+}*/
 
 void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int quad_points,const int quad_type)
 {
@@ -54,9 +57,9 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
     else if(quad_type == 1){
         ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,quad_points);
     }
-    else if(quad_type == 2){
-        DynamicQuad(wQuad_tmp, xQuad_c,quad_points);
-    }
+    //else if(quad_type == 2){ -- removed. see Dynamic quad routine
+    //    DynamicQuad(wQuad_tmp, xQuad_c,quad_points);
+    //}
     else{
         fprintf(stderr,"quadrature rule not coded\n");
         delete[] wQuad_tmp;
@@ -132,15 +135,19 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
     const double x_max = pParams->x_max();
     const char *quad_nodes_file = pParams->quad_nodes_file().c_str();
     const char *weight_file_name = pParams->quad_weight_file().c_str();
+    const char *num_weight_file = pParams->num_weight_file().c_str();
+
 
     int gsl_status;
 
     gsl_vector_complex *wQuad_tmp;
-    gsl_vector *xQuad_tmp;
+    gsl_vector *xQuad_tmp, *wQuad_tmp1;
 
     // -- allocate memory --//
-    wQuad_tmp = gsl_vector_complex_alloc(quad_points);
-    xQuad_tmp = gsl_vector_alloc(quad_points);
+    wQuad_tmp  = gsl_vector_complex_alloc(quad_points);
+    xQuad_tmp  = gsl_vector_alloc(quad_points);
+    wQuad_tmp1 = gsl_vector_alloc(quad_points);
+    gsl_complex zM1;
 
     // -- load quadrature nodes from file -- //
     if(quad_type == 2)
@@ -153,11 +160,26 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
             exit(1);
         }
 
-    }
+        FILE *fweightf = fopen(num_weight_file, "r");
+        gsl_status = gsl_vector_fscanf(fweightf, wQuad_tmp1);
+        fclose(fweightf);
+        if( gsl_status == GSL_EFAILED ){
+            fprintf(stderr, "Error reading numerical quadrature weights from %s\n", num_weight_file);
+            exit(1);
+        }
 
-    /* -- all procs should have a copy of the quadrature rule -- */
-    // TODO: on nodes can this be shared? Whats the best way to impliment it? 
-    MakeQuadratureRule(wQuad_tmp,xQuad_tmp,x_min,x_max,quad_points,quad_type);
+        for (int i = 0; i < quad_points; i++)
+        {
+            GSL_SET_COMPLEX(&zM1,gsl_vector_get(wQuad_tmp1,i),0.0);
+            gsl_vector_complex_set(wQuad_tmp,i,zM1);
+        }
+
+    }
+    else{
+        /* -- all procs should have a copy of the quadrature rule -- */
+        // TODO: on nodes can this be shared? Whats the best way to impliment it? 
+        MakeQuadratureRule(wQuad_tmp,xQuad_tmp,x_min,x_max,quad_points,quad_type);
+    }
 
     // Role inner product weight into wQuad //
     if(weighted_inner){
@@ -168,6 +190,8 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
 
     *wQuad = wQuad_tmp;
     *xQuad = xQuad_tmp;
+
+    gsl_vector_free(wQuad_tmp1);
 
 }
 
