@@ -1,7 +1,7 @@
 // AUTHOR :  Scott Field 
-//           sfield@umd.edu
+//           sfield@astro.cornell.edu
 //
-// DATE: Jan 20, 2013
+// DATE: Oct 1, 2014
 //
 // PURPOSE: mpi version of greedy (pivoted MGS) algorithm 
 
@@ -54,7 +54,11 @@
 #include "utils.h"
 
 // *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
-void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const gsl_vector_complex *wQuad, TrainingSetClass * ts, const int rank)
+void FillTrainingSet(gsl_matrix_complex *TS_gsl,\
+                     const gsl_vector *xQuad,\
+                     const gsl_vector_complex *wQuad,\
+                     const TrainingSetClass &ts,\
+                     const int rank)
 {
 
     fprintf(stdout,"Populating training set on proc %i...\n",rank);
@@ -63,20 +67,21 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
     double *params;
     int proc_ts_size;
 
-    params     = new double[ts->param_dim()]; // for TF2 gravitational wave model this is (mass 1, mass 2)
+    params     = new double[ts.param_dim()]; // TF2 model param (mass 1, mass 2)
     model_eval = gsl_vector_complex_alloc(xQuad->size);
 
-    ts->LocalTrainingSetSize(proc_ts_size, rank);
+    ts.LocalTrainingSetSize(proc_ts_size,rank);
 
     // *** BEGIN MODEL SPECIFIC SECTION *** //
-    // This is where a new model should go...add to the list and loop over paramters //
-    if(strcmp(ts->model(),"TaylorF2_PN3pt5") == 0){
+    // New models go here...add to the list and loop over paramters //
+    if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
 
         fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
         for(int i = 0; i < proc_ts_size; i++){
-            ts->GetParameterValue(params,rank,i); // returns params filled at training set point [global_i][j] * (param_scale[j])
-            TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); // amp = 1.0 and PN order 3.5
+            // fills params at [global_i][j] * (param_scale[j]) //
+            ts.GetParameterValue(params,rank,i);
+            TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
             gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
         }
 
@@ -97,9 +102,18 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl, const gsl_vector *xQuad, const 
 }
 
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const gsl_matrix_complex *R_matrix, const double *app_err, const int *sel_rows, TrainingSetClass *ts, const char * output_dir,const char *datatype)
+void WriteGreedyInfo(const int dim_RB,\
+                     const gsl_matrix_complex *RB_space,\
+                     const gsl_matrix_complex *R_matrix,\
+                     const double *app_err,\
+                     const int *sel_rows,\
+                     const TrainingSetClass &ts,\
+                     const char * output_dir,\
+                     const char *datatype)
 {
-    FILE *rb_real_data, *rb_imag_data, *r_real_data, *r_imag_data, *err_data, *pts_data;
+    FILE *rb_real_data, *rb_imag_data;
+    FILE *r_real_data, *r_imag_data;
+    FILE *err_data, *pts_data;
     FILE *rb_data, *r_data;
     char rb_real_filename[100];
     char rb_imag_filename[100];
@@ -142,7 +156,9 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
     for(int i = 0; i < dim_RB ; i++)
     {
         fprintf(err_data,"%1.14f\n",app_err[i]);
-        fprintf(pts_data,"%1.14f %1.14f\n",ts->params()[sel_rows[i]][0],ts->params()[sel_rows[i]][1]);
+        fprintf(pts_data,"%1.14f %1.14f\n",\
+                ts.params()[sel_rows[i]][0],\
+                ts.params()[sel_rows[i]][1]);
     }
     fclose(err_data);
     fclose(pts_data);
@@ -174,7 +190,9 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space, const
 
 }
 
-void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,const int indx)
+void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,\
+                        const char *output_dir,\
+                        const int indx)
 {
 // if indx < 0, all waveforms (training space) is written to file //
 
@@ -193,7 +211,8 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
     }
     else{
         for(int cols = 0; cols < TS_gsl->size2 ; cols++){
-            fprintf(data_real,"%1.12e\n",GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)));
+            fprintf(data_real,"%1.12e\n",\
+                    GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)));
         }
     }
     fclose(data_real);
@@ -204,18 +223,28 @@ void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,const char *output_dir,
     }
     else{
         for(int cols = 0; cols < TS_gsl->size2 ; cols++){
-            fprintf(data_imag,"%1.12e\n",GSL_IMAG(gsl_matrix_complex_get(TS_gsl,indx,cols)));
+            fprintf(data_imag,"%1.12e\n",\
+                    GSL_IMAG(gsl_matrix_complex_get(TS_gsl,indx,cols)));
         }
     }
     fclose(data_imag);
 }
 
-// --- GreedyWorker and GreedyMaster are removed from code by precompiler if serial --- //
+// --- GreedyWorker and Master are removed for serial builds --- //
 #ifdef COMPILE_WITH_MPI
-void GreedyWorker(const int rank, const int max_RB,const int seed_global, const gsl_vector_complex *wQuad,const double tol, const gsl_matrix_complex *A, TrainingSetClass * ts)
+void GreedyWorker(const int rank,\
+                  const Parameters &params,\
+                  const gsl_vector_complex *wQuad,\
+                  const gsl_matrix_complex *A,\
+                  const TrainingSetClass &ts)
 {
 
 // worker routine for computing computationally intensive part of greedy //
+
+    // -- unpack params class --//
+    const int max_RB = params.max_RB();
+    const int seed_global = params.seed();
+    const double tol = params.tol();
 
     int continue_work = 1;
     int dim_RB = 1;
@@ -228,23 +257,27 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     gsl_matrix_complex *project_coeff;
 
     last_rb       = gsl_vector_complex_alloc(cols);
-    row_vec        = gsl_vector_complex_alloc(cols);
-    project_coeff = gsl_matrix_complex_alloc(max_RB,ts->matrix_sub_size()[rank]);
-    errors        = new double[ts->matrix_sub_size()[rank]];
+    row_vec       = gsl_vector_complex_alloc(cols);
+    project_coeff = gsl_matrix_complex_alloc(max_RB,ts.matrix_sub_size()[rank]);
+    errors        = new double[ts.matrix_sub_size()[rank]];
     vec_real      = new double[cols];
     vec_imag      = new double[cols];
 
     int *worst_workers_mpi = NULL;
     double *worst_errs_mpi = NULL;
 
-    fprintf(stdout,"I'm worker %i and I was given %i matrix elements from %i to %i\n",rank,ts->matrix_sub_size()[rank],ts->mystart()[rank],ts->myend()[rank]-1);
+    fprintf(stdout,"Worker %i was given %i matrix elements from %i to %i\n",\
+            rank,\
+            ts.matrix_sub_size()[rank],\
+            ts.mystart()[rank],\
+            ts.myend()[rank]-1);
 
     // -- pass seed back to master -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
     // -- return seed to master -- //
     if( (worst_rank-1) == rank){
-        worst_local = seed_global - ts->mystart()[rank];
+        worst_local = seed_global - ts.mystart()[rank];
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
         mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
         MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
@@ -262,7 +295,7 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
         mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
         // Compute overlaps of pieces of A with rb_new //
-        for(int i = 0; i < ts->matrix_sub_size()[rank]; i++)
+        for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
             tmpc = mygsl::WeightedInner(wQuad,last_rb,row_vec);
@@ -279,19 +312,21 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
 
         // -- find worst error here -- //
         tmp = 0.0;
-        for(int i = 0; i < ts->matrix_sub_size()[rank]; i++)
+        for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             if(tmp < errors[i])
             {
                 tmp = errors[i];
-                worst_local = i;                // this will retun matrix local (worker's) row index
-                worst_global = ts->mystart()[rank] + i; // this will return matrix's global row index 
+                worst_local = i;  // local (worker's) row index
+                worst_global = ts.mystart()[rank] + i; // global row index 
             }
         }
 
         // -- pass worst error and index to master --//
-        MPI_Gather(&worst_global,1,MPI_INT,worst_workers_mpi,1,MPI_INT,0,MPI_COMM_WORLD);
-        MPI_Gather(&tmp,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Gather(&worst_global,1,MPI_INT,worst_workers_mpi,\
+                   1,MPI_INT,0,MPI_COMM_WORLD);
+        MPI_Gather(&tmp,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,\
+                   0,MPI_COMM_WORLD);
 
         // -- recieve info about which worker proc has next basis -- //
         MPI_Barrier(MPI_COMM_WORLD);
@@ -321,26 +356,33 @@ void GreedyWorker(const int rank, const int max_RB,const int seed_global, const 
     delete [] errors;
 }
 
-void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vector_complex *wQuad,const double tol, TrainingSetClass * ts, const char * output_dir, const char *output_data_format)
+void GreedyMaster(const int size,\
+                  const gsl_vector_complex *wQuad,\
+                  const TrainingSetClass &ts,\
+                  const Parameters &params)
 {
 // Input: 
-//          A: gsl matrix of solutions (each row is a solutions, cols are quadrature samples)
-//          seed: first greedy pick (global indexing)
-//          tol: approximation tolerance
 //          size: number of procs. if 1 serial mode assumed
 //
-//   Output:
+// Output (written to file):
 //          sel_rows: row index defining reduced basis. sel_rows[0] = seed
 //          dim_RB: number of greedy_points
-//
 
     fprintf(stdout,"Starting greedy algorithm...\n");
 
-    const int rows = ts->ts_size();  // number of rows to approximate
+    // -- unpackage params class -- //
+    const int max_RB = params.max_RB(); // global indexing
+    const int seed   = params.seed();
+    const double tol = params.tol();
+    const char * output_dir = params.output_dir().c_str();
+    const char * output_data_format = params.output_data_format().c_str();
+
+    const int rows = ts.ts_size();// number of rows to approximate
     const int cols = wQuad->size; // samples (for quadrature)
     int *greedy_points;           // selectted greedy points (row selection)
     double *greedy_err;           // approximate error
     clock_t start, end;           // for algorithm timing experiments
+    clock_t start1, end1;         // for algorithm timing experiments
     double alg_time;              // for algorithm timing experiments
     double worst_err;             // errors in greedy sweep
     int worst_app, worst_worker, worst_rank;             // worst error stored
@@ -370,15 +412,17 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     ru                = gsl_vector_complex_alloc(max_RB);
 
     // --- initialize algorithm with seed --- //
-    int seed_rank = ts->FindRowIndxRank(seed);
+    int seed_rank = ts.FindRowIndxRank(seed);
     fprintf(stdout,"seed index %i on proc rank %i\n",seed,seed_rank);
 
     // -- request seed from worker -- //
     MPI_Barrier(MPI_COMM_WORLD);
     seed_rank = seed_rank+1;
     MPI_Bcast(&seed_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
-    MPI_Recv(vec_real, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    MPI_Recv(vec_imag, cols, MPI_DOUBLE, seed_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    MPI_Recv(vec_real, cols, MPI_DOUBLE, seed_rank, 0,\
+              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    MPI_Recv(vec_imag, cols, MPI_DOUBLE, seed_rank, 0,\
+             MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
     gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
 
@@ -393,6 +437,9 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
     start = clock();
     while(continue_work == 1)
     {
+
+        start1 = clock();
+
         mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
         // -- send last orthonormal rb to work procs -- //
@@ -401,9 +448,10 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
         // -- gather worst (local) info from workers -- //
-        // TODO: worst errors can be passed along with basis, no need to gather
-        MPI_Gather(&dummy_mpi_int,1,MPI_INT,worst_workers_mpi,1,MPI_INT,0,MPI_COMM_WORLD);
-        MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Gather(&dummy_mpi_int,1,MPI_INT,worst_workers_mpi,\
+                   1,MPI_INT,0,MPI_COMM_WORLD);
+        MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,\
+                   1,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
         // -- find worst rb amongst all workers -- //
         worst_err = 0.0;
@@ -421,8 +469,10 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
 
         // -- receive row basis from worker proc worst_rank -- //
-        MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        MPI_Recv(vec_imag, cols, MPI_DOUBLE, worst_rank, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
+                 MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        MPI_Recv(vec_imag, cols, MPI_DOUBLE, worst_rank, 0,\
+                 MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
         // -- decide if another greedy sweep is needed, alert workers -- //
@@ -437,23 +487,28 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
-        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
         //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
 
-        fprintf(stdout,"RB dimension %i || Current row selection %i || Approximation error %1.14e\n",dim_RB,worst_app,worst_err);
+        end1 = clock();
+        alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+
+        fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
+                dim_RB,worst_app,worst_err,alg_time);
 
     }
     end = clock();
 
     alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
-    fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
+    fprintf(stdout,"Greedy routine took %f seconds\n",alg_time);
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,\
+                    greedy_points,ts,output_dir,output_data_format);
 
     gsl_vector_complex_free(ortho_basis);
     delete [] vec_real;
@@ -469,27 +524,36 @@ void GreedyMaster(const int size, const int max_RB, const int seed,const gsl_vec
 }
 #endif // end mpi disabled code (starts with GreedyWorker)
 
-
-// TODO: would like to pass ts as const
-void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const gsl_vector_complex *wQuad,const double tol,TrainingSetClass * ts, const char * output_dir, const char *output_data_format)
+void Greedy(const Parameters &params,\
+            const gsl_matrix_complex *A,\
+            const gsl_vector_complex *wQuad,\
+            const TrainingSetClass &ts)
 {
 // Input: 
-//          A: gsl matrix of solutions (each row is a solution, cols are quadrature samples)
+//          A: matrix (each row is a "solution", cols are quadrature samples)
 //          seed: first greedy pick
 //          tol: approximation tolerance
 //
-// Output:
+// Output (written to file):
 //          sel_rows: row index defining reduced basis. sel_rows[0] = seed
 //          dim_RB: number of greedy_points
-//
 
     fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
+
+    // -- unpack parameter class here -- //
+    const int seed = params.seed();
+    const int max_RB = params.max_RB();
+    const double tol = params.tol();
+    const char *output_dir = params.output_dir().c_str();
+    const char *output_data_format = params.output_data_format().c_str();
+    const int ts_size = params.ts_size();
 
     const int rows = A->size1; // number of rows to approximate
     const int cols = A->size2; // samples (for quadrature)
     int *greedy_points;        // selectted greedy points (row selection)
     double *greedy_err;        // approximate error
     clock_t start, end;        // for algorithm timing experiments
+    clock_t start1, end1;      // for algorithm timing experiments
     double alg_time;           // for algorithm timing experiments
     double tmp,worst_err;      // errors in greedy sweep
     int worst_app;             // worst error stored
@@ -499,8 +563,8 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
 
     gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
     gsl_matrix_complex *RB_space, *R_matrix;
-    double *errors;                       // approximation errors with RB space of dimension dim_RB
-    gsl_matrix_complex *project_coeff; // h = coeff_i e_i is approximation we seek
+    double *errors;                    // approximation errors vs dim_RB
+    gsl_matrix_complex *project_coeff; // h = coeff_i e_i
 
 
     // --- this memory should be freed here --- //
@@ -530,7 +594,9 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     while(continue_work)
     {
 
-        gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // get last computed basis
+        start1 = clock();
+
+        gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
         worst_err = 0.0;
 
         // --- Loop over training set ---//
@@ -563,21 +629,24 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
         greedy_err[dim_RB] = worst_err;
 
         // -- decide if another greedy sweep is needed -- //
-        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts->ts_size() == dim_RB) ){
+        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
             continue_work = false;
         }
 
 
         // --- add worst approximated solution to basis set --- //
         gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS SHOULD BE DEFAULT
+        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
         //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         dim_RB = dim_RB + 1;
 
+        end1 = clock();
+        alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
 
-        fprintf(stdout,"RB dimension %i || Current row selection %i || Approximation error %1.14e\n",dim_RB,worst_app,worst_err);
+        fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
+                dim_RB,worst_app,worst_err,alg_time);
 
     }
     end = clock();
@@ -587,7 +656,8 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     dim_RB = dim_RB - 1;
 
     // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,greedy_points,ts,output_dir,output_data_format);
+    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,\
+                    greedy_points,ts,output_dir,output_data_format);
 
     gsl_vector_complex_free(ts_el);
     gsl_vector_complex_free(last_rb);
@@ -597,7 +667,7 @@ void Greedy(const int seed,const int max_RB, const gsl_matrix_complex *A,const g
     gsl_matrix_complex_free(project_coeff);
     delete [] greedy_points;
     delete [] greedy_err;
-    gsl_matrix_complex_free(RB_space); // this and R_matrix should be written to file
+    gsl_matrix_complex_free(RB_space);
     gsl_matrix_complex_free(R_matrix);
 
 }
@@ -612,8 +682,8 @@ int main (int argc, char **argv) {
     // --- setup MPI info ---//
     MPI::Init(argc, argv);
 
-    // Get number of procs this job is using (size) and unique rank of the processor this thread is running on //
-    // Ex: if executed with "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
+    // # procs this job is using (size) and processor rank of this thread //
+    // Ex: if "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
     rank     = MPI::COMM_WORLD.Get_rank();
     size_mpi = MPI::COMM_WORLD.Get_size();
 
@@ -623,7 +693,7 @@ int main (int argc, char **argv) {
     MPI::Get_processor_name(name,len);
     memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
-    std::cout << "Number of tasks = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
+    std::cout << "Procs = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
     #endif
 
 
@@ -634,8 +704,8 @@ int main (int argc, char **argv) {
     }
     std::cout << "parameter file is: " << argv[1] << std::endl;
 
-    //--- Read input (config) file argv[1]. If there is an error, report and exit.
-    //--- Parameters class definition contains relevant information about parameters 
+    //--- Read input file argv[1]. If there is an error, report and exit.
+    //--- Parameters class contains relevant information about parameters 
     Parameters *params_from_file = new Parameters(argv);
     std::cout << *params_from_file;
 
@@ -648,7 +718,8 @@ int main (int argc, char **argv) {
     int ts_size;
 
     if(params_from_file->export_tspace() && size_mpi > 1){
-        fprintf(stderr,"Training space exporting only works with 1 processor! Your training space will not be exported. \n");
+        fprintf(stderr,"Training space exporting only works with 1 processor!");
+        fprintf(stderr," Your training space will not be exported.\n");
     }
 
     // returns wQuad and xQuad for the full, not reduced, quadrature rule //
@@ -661,19 +732,23 @@ int main (int argc, char **argv) {
         strcat(shell_command, params_from_file->output_dir().c_str());
         system(shell_command);
 
-        snprintf(shell_command,100,"cp %s %s",argv[1],params_from_file->output_dir().c_str());
+        snprintf(shell_command,100,"cp %s %s",argv[1],\
+                 params_from_file->output_dir().c_str());
         system(shell_command);
     }
 
     // allocates dynamic memory, fills up training set with values //
-    TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,size_mpi);
+    TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,\
+                                                           size_mpi);
 
-    // Build training space by evaluating model at ptspace_class->params_. Then run the greedy algorithm //
+    // TS_gsl filled by evaluating model at ptspace_class->params_ //
+    // NOTE: GSL error handler will abort if too much memory requested
+    // Ex" size=1 => rank=0 for 5th argument of FillTrainingSet
     if(size_mpi == 1) // only 1 proc requested (serial mode)
     {
-        TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size); // GSL error handler will abort if too much requested
-        FillTrainingSet(TS_gsl,xQuad,wQuad,ptspace_class,rank);               // size=1  => rank=0. 5th argument is the rank
-        Greedy(params_from_file->seed(),params_from_file->max_RB(),TS_gsl,wQuad,params_from_file->tol(),ptspace_class,params_from_file->output_dir().c_str(),params_from_file->output_data_format().c_str());
+        TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
+        FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
+        Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
     }
     else
     {
@@ -681,23 +756,22 @@ int main (int argc, char **argv) {
         #ifdef COMPILE_WITH_MPI
         if(rank != 0){
             TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
-            FillTrainingSet(TS_gsl,xQuad,wQuad,ptspace_class,rank-1);
+            FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
         }
 
         fprintf(stdout,"Finished distribution of training set\n");
 
         if(rank == 0){
-            GreedyMaster(size_mpi,params_from_file->max_RB(),params_from_file->seed(),wQuad,params_from_file->tol(),ptspace_class,params_from_file->output_dir().c_str(),params_from_file->output_data_format().c_str());
+            GreedyMaster(size_mpi,wQuad,*ptspace_class,*params_from_file);
         }
         else{
-            GreedyWorker(rank-1,params_from_file->max_RB(),params_from_file->seed(),wQuad,params_from_file->tol(),TS_gsl,ptspace_class);
+            GreedyWorker(rank-1,*params_from_file,wQuad,TS_gsl,*ptspace_class);
             gsl_matrix_complex_free(TS_gsl);
         }
         #else
         fprintf(stderr,"Code compiled with mpi yet size_mpi > 1...\n");
         exit(1);
         #endif
-
     }
 
 
@@ -712,7 +786,8 @@ int main (int argc, char **argv) {
 
         outfile = fopen(shell_command,"w");
         for(int i = 0; i < wQuad->size ; i++) {
-            fprintf(outfile,"%1.14f %1.14f\n",gsl_vector_get(xQuad,i),GSL_REAL(gsl_vector_complex_get(wQuad,i)));
+            fprintf(outfile,"%1.14f %1.14f\n",gsl_vector_get(xQuad,i),\
+                    GSL_REAL(gsl_vector_complex_get(wQuad,i)));
         }
         fclose(outfile);
 
