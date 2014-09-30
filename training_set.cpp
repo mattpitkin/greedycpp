@@ -134,7 +134,7 @@ void TrainingSetClass::GetLocalTrainingSet(int &start_ind, int &matrix_size, con
     fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
 }
 
-void TrainingSetClass::LocalTrainingSetSize(int &matrix_size, const int rank)
+void TrainingSetClass::LocalTrainingSetSize(int &matrix_size, const int rank) const
 {
 
     if(distributed_){
@@ -146,7 +146,7 @@ void TrainingSetClass::LocalTrainingSetSize(int &matrix_size, const int rank)
     fprintf(stdout,"proc %i has %i training set elements \n",rank,matrix_size);
 }
 
-void TrainingSetClass::GetParameterValue(double *params_point, const int rank, const int i)
+void TrainingSetClass::GetParameterValue(double *params_point, const int rank, const int i) const
 {
     // TODO: should be written withough if's... mystart_ should work for serial too
     if(distributed_){
@@ -268,7 +268,7 @@ void TrainingSetClass::BuildTS_FromFileND(const char *ts_file)
     std::cout << "ts size = " << counter << std::endl;
 }
 
-int TrainingSetClass::FindRowIndxRank(const int global_row_indx)
+int TrainingSetClass::FindRowIndxRank(const int global_row_indx) const
 {
     int row_rank = 0;
     bool found_rank = false;

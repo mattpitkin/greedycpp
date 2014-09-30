@@ -25,26 +25,26 @@ class TrainingSetClass {
         void BuildTS(const int *, const double *, const double *);
         void BuildTS(const char *);
 
-        // Description here TODO //
-        int FindRowIndxRank(const int);
+        // Find the rank containing a training element via the global index //
+        int FindRowIndxRank(const int) const;
 
         // Return local (on this proc) training set indexes //
         void GetLocalTrainingSet(int &, int &, int const);
-        void LocalTrainingSetSize(int &,const int);
+        void LocalTrainingSetSize(int &, const int) const;
 
         // Return training set value (an array of size param_dim) //
-        void GetParameterValue(double *,const int,const int);
+        void GetParameterValue(double *,const int,const int) const;
 
         // accessor functions
-        inline int ts_size(){ return ts_size_; }
-        inline int param_dim(){ return param_dim_; }
-        inline bool distributed(){ return distributed_; }
-        inline const char * model(){ return model_; }
-        inline const int * mystart(){return mystart_; }
-        inline const int * myend(){ return myend_; }
-        inline const int * matrix_sub_size(){ return matrix_sub_size_; }
-        inline const double * const* params(){ return params_; } // pointer to pointer also needs to be const
-        inline const double * param_scale(){ return param_scale_; }
+        inline int ts_size() const { return ts_size_; }
+        inline int param_dim() const { return param_dim_; }
+        inline bool distributed() const { return distributed_; }
+        inline const char * model() const { return model_; }
+        inline const int * mystart() const {return mystart_; }
+        inline const int * myend() const { return myend_; }
+        inline const int * matrix_sub_size() const { return matrix_sub_size_; }
+        inline const double * const* params() const { return params_; } // pointer to pointer also needs to be const
+        inline const double * param_scale() const { return param_scale_; }
 
         // this routine writes ts to file //
         void WriteTrainingSet();
