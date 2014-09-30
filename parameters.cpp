@@ -132,10 +132,17 @@ Parameters::Parameters(char ** argv){
     {
         cfg_status = cfg.lookupValue("quad_nodes_file", quad_nodes_file_);
         if (!cfg_status){
-            fprintf(stderr, "frequency_vector_file not found in config file\n");
+            fprintf(stderr, "quadrature node file not found in config file\n");
             exit(1);
         }
+
         quad_points_ = fcount_pts(quad_nodes_file_.c_str());
+
+        cfg_status = cfg.lookupValue("num_weight_file", num_weight_file_);
+        if (!cfg_status){
+            fprintf(stderr, "numerical quadrature weight file not found in config file\n");
+            exit(1);
+        }
     }
     else
     {

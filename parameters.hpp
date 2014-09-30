@@ -34,6 +34,7 @@ class Parameters {
         inline std::string ts_file_name() const { return ts_file_name_; }
         inline std::string output_data_format() const { return output_data_format_; }
         inline std::string quad_nodes_file() const { return quad_nodes_file_; }
+        inline std::string num_weight_file() const { return num_weight_file_; }
         inline std::string quad_weight_file() const { return quad_weight_file_; }
 
 
@@ -44,7 +45,7 @@ class Parameters {
 
         // settings which MUST be set //
         bool load_from_file_;          // load training points from file (if true, provide ts_file_name, if false parms low/high/num)
-        int quad_type_;                // 0 = Gaussian quadrature, 1 = Riemann, 2 = user-defined pointset (if 2, provide fvec_file_name)
+        int quad_type_;                // 0 = Gaussian quadrature, 1 = Riemann, 2 = user-defined pointset (if 2, provide quad_nodes_file_, num_weight_file_)
         bool weighted_inner_;          // whether to include a weight W(x): \int W(x) f(x) g(x)  (if true, provide weight_file_name)
         int seed_;                     // greedy algorithm seed
         double tol_;                   // greedy algorithm tolerance ( \| app \|^2)
@@ -58,7 +59,9 @@ class Parameters {
         double x_max_;                 // upper value x_max (physical domain) --> needed if quad_type != 2
         int quad_points_;              // total number of quadrature points   --> needed if quad_type != 2
         std::string quad_nodes_file_;  // file name for vector of quadrature points  --> needed if quad_type = 2
+        std::string num_weight_file_;  // file name of numerical weights             --> needed in quad_type = 2
         std::string quad_weight_file_; // file name of weights --> needed if weighted_inner = true
+
 
         // run settings - MAY need to be set //
         double *params_low_, *params_high_; // this is required if load_from_file = false. lower/upper interval of each parameter 
