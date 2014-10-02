@@ -14,86 +14,88 @@ namespace mygsl {
 // --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
 // TODO: test in inline is actually faster
 // TODO: this routine can be made faster by fixing code!!
-gsl_complex WeightedInner(const gsl_vector_complex *weights, const gsl_vector_complex *u, const gsl_vector_complex *v)
+gsl_complex WeightedInner(const gsl_vector_complex *weights,\
+                          const gsl_vector_complex *u,\
+                          const gsl_vector_complex *v)
 {
-    gsl_complex ans;
+  gsl_complex ans;
+  gsl_vector_complex *v_tmp;
 
-    gsl_vector_complex *v_tmp;
-    v_tmp = gsl_vector_complex_alloc(v->size);
+  v_tmp = gsl_vector_complex_alloc(v->size);
 
-    gsl_vector_complex_memcpy(v_tmp,v);
-    gsl_vector_complex_mul(v_tmp,weights); // pointwise multiplcation, vc_tmp is updated
-    gsl_blas_zdotc(u,v_tmp,&ans); 
+  gsl_vector_complex_memcpy(v_tmp,v);
+  gsl_vector_complex_mul(v_tmp,weights); // pointwise multiplcation
+  gsl_blas_zdotc(u,v_tmp,&ans); 
 
-    gsl_vector_complex_free(v_tmp);
+  gsl_vector_complex_free(v_tmp);
 
-    return ans;
+  return ans;
 }
 
 // --- compute <u,v> = \sum_i u_i^* v_i --- //
-gsl_complex EuclideanInner(const gsl_vector_complex *u, const gsl_vector_complex *v)
+gsl_complex EuclideanInner(const gsl_vector_complex *u,\
+                           const gsl_vector_complex *v)
 {
-    gsl_complex ans;
-    gsl_blas_zdotc(u,v,&ans);
+  gsl_complex ans;
+  gsl_blas_zdotc(u,v,&ans);
 
-    return ans;
+  return ans;
 }
 
 // --- returns WeightedInner(wQuad,u,u) as type double --- //
-double GetNorm_double(const gsl_vector_complex *u, const gsl_vector_complex *wQuad)
+double GetNorm_double(const gsl_vector_complex *u,\
+                      const gsl_vector_complex *wQuad)
 {
-    gsl_complex nrmc = WeightedInner(wQuad,u,u);
-    double nrm = gsl_complex_abs(nrmc);
-    nrm = sqrt(nrm);
+  gsl_complex nrmc = WeightedInner(wQuad,u,u);
+  double nrm = gsl_complex_abs(nrmc);
+  nrm = sqrt(nrm);
 
-    return nrm;
+  return nrm;
 }
 
-void NormalizeVector(gsl_vector_complex *u, const gsl_vector_complex *wQuad)
+void NormalizeVector(gsl_vector_complex *u,\
+                     const gsl_vector_complex *wQuad)
 {
-    gsl_complex nrmc;
-    double nrm = GetNorm_double(u,wQuad);
-    GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
-    gsl_vector_complex_scale(u,nrmc);
+  gsl_complex nrmc;
+  double nrm = GetNorm_double(u,wQuad);
+  GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
+  gsl_vector_complex_scale(u,nrmc);
 }
 
 // normalize row vectors of matrix A using weight w //
 void NormalizeMatrixRows(gsl_matrix_complex *A, const gsl_vector_complex *w)
 {
 
-    const int rows = A->size1;
-    const int cols = A->size2;
+  const int rows = A->size1;
+  const int cols = A->size2;
 
-    std::cout << "rows of A (Training space) = " << rows << std::endl;
-    std::cout << "cols of A (Training space) = " << cols << std::endl;
+  std::cout << "rows of A (Training space) = " << rows << std::endl;
+  std::cout << "cols of A (Training space) = " << cols << std::endl;
 
-    gsl_complex sum_c, inv_norm_c;
-    gsl_vector_complex *row_vector;
-    double norm;
+  gsl_complex sum_c, inv_norm_c;
+  gsl_vector_complex *row_vector;
+  double norm;
 
-    row_vector = gsl_vector_complex_alloc(cols);
+  row_vector = gsl_vector_complex_alloc(cols);
 
-    for(int i = 0; i < rows; i++)
-    {
+  for(int i = 0; i < rows; i++) {
+    gsl_matrix_complex_get_row(row_vector,A,i);
+    NormalizeVector(row_vector,w);
+    gsl_matrix_complex_set_row(A,i,row_vector);
+  }
 
-        gsl_matrix_complex_get_row(row_vector,A,i);
-        NormalizeVector(row_vector,w);
-        gsl_matrix_complex_set_row(A,i,row_vector);
-
-    }
-
-    gsl_vector_complex_free(row_vector);
+  gsl_vector_complex_free(row_vector);
 
 }
 
-void gsl_vector_complex_parts(double *v_real, double *v_imag, const gsl_vector_complex * v_gsl)
+void gsl_vector_complex_parts(double *v_real,\
+                              double *v_imag,\
+                              const gsl_vector_complex * v_gsl)
 {
-
-    for(int i = 0; i < v_gsl->size; i++)
-    {
-        v_real[i] = GSL_REAL(gsl_vector_complex_get(v_gsl,i));
-        v_imag[i] = GSL_IMAG(gsl_vector_complex_get(v_gsl,i));
-    }
+  for(int i = 0; i < v_gsl->size; i++) {
+    v_real[i] = GSL_REAL(gsl_vector_complex_get(v_gsl,i));
+    v_imag[i] = GSL_IMAG(gsl_vector_complex_get(v_gsl,i));
+  }
 }
 
 void gsl_vector_complex_gsl_parts(gsl_vector *v_real,\
@@ -204,7 +206,11 @@ void gsl_vector_sqrt(gsl_vector_complex *out,\
   }
 }
 
-void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
+void MGS(gsl_vector_complex *ru,\
+         gsl_vector_complex *ortho_basis,\
+         const gsl_matrix_complex *RB_space,\
+         const gsl_vector_complex *wQuad,\
+         const int dim_RB)
 {
 /*  Modified GS routine. 
 
@@ -217,48 +223,51 @@ void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matri
 */
 
 
-    int quad_num = RB_space->size2;
-    gsl_complex L2_proj, tmp;
-    gsl_vector_complex *basis;
+  int quad_num = RB_space->size2;
+  gsl_complex L2_proj, tmp;
+  gsl_vector_complex *basis;
 
+  basis = gsl_vector_complex_alloc(quad_num);
 
-    basis = gsl_vector_complex_alloc(quad_num);
+  // if not done, R matrix fills up below diagonal with .5 instead of 0
+  gsl_vector_complex_set_zero(ru); 
 
-    gsl_vector_complex_set_zero(ru); // if not done, R matrix fills up below diagonal with .5 instead of 0
+  for(int i = 0; i < dim_RB; i++)
+  {
+    gsl_matrix_complex_get_row(basis,RB_space,i);
 
+    /* --- ortho_basis = ortho_basis - L2_proj*basis; --- */
+    L2_proj = WeightedInner(wQuad,basis,ortho_basis);
+    gsl_vector_complex_set(ru,i,L2_proj);
+    gsl_vector_complex_scale(basis,L2_proj); // basis <- basis*L2_proj
+    gsl_vector_complex_sub(ortho_basis,basis); // ortho <- ortho - basis
 
-    for(int i = 0; i < dim_RB; i++)
-    {
-        gsl_matrix_complex_get_row(basis,RB_space,i);
+  }
 
-        /* --- ortho_basis = ortho_basis - L2_proj*basis; --- */
-        L2_proj = WeightedInner(wQuad,basis,ortho_basis);
-        gsl_vector_complex_set(ru,i,L2_proj);
-        gsl_vector_complex_scale(basis,L2_proj); // basis <- basis*L2_proj
-        gsl_vector_complex_sub(ortho_basis,basis); // ortho_basis <- ortho_basis - basis
+  double nrm = GetNorm_double(ortho_basis,wQuad);
+  gsl_complex nrmc;
+  GSL_SET_COMPLEX(&nrmc,nrm,0.0);
+  gsl_vector_complex_set(ru,dim_RB,nrmc);
 
-    }
+  NormalizeVector(ortho_basis,wQuad);
 
-    double nrm = GetNorm_double(ortho_basis,wQuad);
-    gsl_complex nrmc;
-    GSL_SET_COMPLEX(&nrmc,nrm,0.0);
-    gsl_vector_complex_set(ru,dim_RB,nrmc);
-
-    NormalizeVector(ortho_basis,wQuad);
-
-    gsl_vector_complex_free(basis);
+  gsl_vector_complex_free(basis);
 
 }
 
 
-void IMGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)
+void IMGS(gsl_vector_complex *ru,\
+          gsl_vector_complex *ortho_basis,\
+          const gsl_matrix_complex *RB_space,\
+          const gsl_vector_complex *wQuad,\
+          const int dim_RB)
 {
 /*  Iterated modified GS routine. 
 
    Input:  RB_space:    an existing orthonormal set of basis vectors
            ortho_basis: basis we shall orthogonalize agains RB_space
            wQuad:       quadrature weights for inner products
-           dim_RB:      number of elements currently in RB_space (ortho_basis is dim_RB+1 element)
+           dim_RB:      elements in RB_space (ortho_basis is dim_RB+1 element)
    Output: ortho_basis: orthonormal basis vector
            ru:           1-by-(dim_RB+1) slice of the R matrix (from QR = A)
 
@@ -266,63 +275,62 @@ void IMGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matr
 
 */
 
-    double ortho_condition = .5; // IMGS stopping condition (HARD CODED!!)
+  double ortho_condition = .5; // IMGS stopping condition (HARD CODED!!)
 
-    int quad_num     = RB_space->size2;
-    int r_size       = ru->size;
-    double nrm_prev  = GetNorm_double(ortho_basis,wQuad);
-    bool flag        = false;
-    int iter         = 0;
-    gsl_vector_complex *e,*r_last;
-    double nrm_current;
-    gsl_complex nrmc_current;
+  int quad_num     = RB_space->size2;
+  int r_size       = ru->size;
+  double nrm_prev  = GetNorm_double(ortho_basis,wQuad);
+  bool flag        = false;
+  int iter         = 0;
+  gsl_vector_complex *e,*r_last;
+  double nrm_current;
+  gsl_complex nrmc_current;
 
-    // --- allocate memory --- //
-    e = gsl_vector_complex_alloc(quad_num);
-    r_last = gsl_vector_complex_alloc(r_size);
+  // --- allocate memory --- //
+  e = gsl_vector_complex_alloc(quad_num);
+  r_last = gsl_vector_complex_alloc(r_size);
 
-    gsl_vector_complex_memcpy(e,ortho_basis);
-    NormalizeVector(e,wQuad);
-    gsl_vector_complex_set_zero(ru); // if not done, R matrix fills up below diagonal with .5 instead of 0
+  gsl_vector_complex_memcpy(e,ortho_basis);
+  NormalizeVector(e,wQuad);
 
-    // TODO: code below looks to have some redundent parts -- after working cleanup
+  // if not done, R matrix fills up below diagonal with .5 instead of 0
+  gsl_vector_complex_set_zero(ru);  
 
-    while(!flag)
-    {
-        gsl_vector_complex_memcpy(ortho_basis,e);
-        gsl_vector_complex_set_zero(r_last);
+  // TODO: code below looks to have some redundent parts -- after working cleanup
 
-        MGS(r_last,ortho_basis,RB_space,wQuad,dim_RB);
+  while(!flag)
+  {
+    gsl_vector_complex_memcpy(ortho_basis,e);
+    gsl_vector_complex_set_zero(r_last);
 
-        gsl_vector_complex_add(ru,r_last);
-        nrmc_current = gsl_vector_complex_get(r_last,dim_RB);
-        nrm_current = GSL_REAL(nrmc_current);
+    MGS(r_last,ortho_basis,RB_space,wQuad,dim_RB);
 
-        gsl_vector_complex_scale(ortho_basis,nrmc_current);
+    gsl_vector_complex_add(ru,r_last);
+    nrmc_current = gsl_vector_complex_get(r_last,dim_RB);
+    nrm_current = GSL_REAL(nrmc_current);
+
+    gsl_vector_complex_scale(ortho_basis,nrmc_current);
 
 
-        if( nrm_current/nrm_prev <= ortho_condition )
-        {
-            nrm_prev = nrm_current;
-            iter = iter + 1;
-            gsl_vector_complex_memcpy(e,ortho_basis);
-
-        }
-        else
-        {
-            flag = true;
-        }
-
-        nrm_current  = GetNorm_double(ortho_basis,wQuad);
-        GSL_SET_COMPLEX(&nrmc_current,nrm_current,0.0);
-        gsl_vector_complex_set(ru,dim_RB,nrmc_current);
-
-        NormalizeVector(ortho_basis,wQuad);
-
+    if( nrm_current/nrm_prev <= ortho_condition ) {
+      nrm_prev = nrm_current;
+      iter = iter + 1;
+      gsl_vector_complex_memcpy(e,ortho_basis);
+    }
+    else{
+      flag = true;
     }
 
-    gsl_vector_complex_free(e);
-    gsl_vector_complex_free(r_last);
+    nrm_current  = GetNorm_double(ortho_basis,wQuad);
+    GSL_SET_COMPLEX(&nrmc_current,nrm_current,0.0);
+    gsl_vector_complex_set(ru,dim_RB,nrmc_current);
+
+    NormalizeVector(ortho_basis,wQuad);
+
+  }
+
+  gsl_vector_complex_free(e);
+  gsl_vector_complex_free(r_last);
 }
 
 }; // namespace mygsl
