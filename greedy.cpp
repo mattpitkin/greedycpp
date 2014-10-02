@@ -6,10 +6,12 @@
 // PURPOSE: mpi version of greedy (pivoted MGS) algorithm 
 
 
+//-- NOTE: to add a model ONLY my_models.h needs to be modified --//
+
+
 // --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
 #define COMPILE_WITH_MPI
 
-#include "gauss_wgts.h"
 
 #ifdef COMPILE_WITH_MPI
 #include <mpi.h>
@@ -36,62 +38,12 @@
 #include <gsl/gsl_vector_complex.h>
 #include <gsl/gsl_block_complex_float.h>
 
-#include "spa_waveforms.h"
-#include "training_space.hpp"
 #include "training_set.hpp"
 #include "gsl_helper_functions.h"
 #include "quadratures.h"
 #include "parameters.hpp"
 #include "utils.h"
-
-// *** ONLY MODEL SPECIFIC PART OF THE CODE *** //
-void FillTrainingSet(gsl_matrix_complex *TS_gsl,\
-                     const gsl_vector *xQuad,\
-                     const gsl_vector_complex *wQuad,\
-                     const TrainingSetClass &ts,\
-                     const int rank)
-{
-
-  fprintf(stdout,"Populating training set on proc %i...\n",rank);
-
-  gsl_vector_complex *model_eval;
-  double *params;
-  int proc_ts_size;
-
-  params     = new double[ts.param_dim()]; // TF2 model param (mass 1, mass 2)
-  model_eval = gsl_vector_complex_alloc(xQuad->size);
-
-  ts.LocalTrainingSetSize(proc_ts_size,rank);
-
-  // *** BEGIN MODEL SPECIFIC SECTION *** //
-  // New models go here...add to the list and loop over paramters //
-  if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
-
-    fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
-
-    for(int i = 0; i < proc_ts_size; i++){
-      // fills params at [global_i][j] * (param_scale[j]) //
-      ts.GetParameterValue(params,rank,i);
-      TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
-      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
-    }
-
-  }
-  else{
-    std::cerr << "Approximant not supported!" << std::endl;
-    exit(1);
-  }    
-  // *** END MODEL SPECIFIC SECTION *** //
-
-
-  // -- Normalize training space here -- //
-  fprintf(stdout,"Normalizing training set...\n");
-  mygsl::NormalizeMatrixRows(TS_gsl,wQuad);
-
-  delete[] params;
-  gsl_vector_complex_free(model_eval);
-}
-
+#include "my_models.h"
 
 void WriteGreedyInfo(const int dim_RB,\
                      const gsl_matrix_complex *RB_space,\
@@ -682,7 +634,7 @@ int main (int argc, char **argv) {
   if(size_mpi == 1) // only 1 proc requested (serial mode)
   {
     TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
-    FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
+    mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
     Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
   }
   else
@@ -691,7 +643,7 @@ int main (int argc, char **argv) {
     #ifdef COMPILE_WITH_MPI
     if(rank != 0){
       TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
-      FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
+      mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
     }
 
     fprintf(stdout,"Finished distribution of training set\n");
