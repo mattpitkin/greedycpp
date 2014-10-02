@@ -21,6 +21,7 @@
 
 #include "training_set.hpp"
 #include "parameters.hpp"
+#include "utils.h"
 
 TrainingSetClass::~TrainingSetClass() {
 
@@ -38,6 +39,24 @@ TrainingSetClass::~TrainingSetClass() {
   delete [] param_scale_;
 }
 
+TrainingSetClass::TrainingSetClass(Parameters *p,std::string file_rand)
+{
+
+  ts_size_ = fcount_pts(file_rand.c_str()); 
+
+  std::cout << "file of " << ts_size_ << " random parameter samples" << std::endl;
+
+  strcpy(model_,p->model_name().c_str());
+  param_scale_ = p->param_scale();
+  param_dim_   = p->param_dim();
+  distributed_ = false;
+
+  AllocTS();
+  BuildTS(file_rand.c_str());
+
+}
+
+
 TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
   strcpy(model_,p->model_name().c_str());
@@ -47,7 +66,8 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
   distributed_ = false; //default value is false. Sets to true if SplitTrainingSet called
 
   // allocate memory for parameter matrix //
-  params_ = new double*[ts_size_];
+  AllocTS();
+/*  params_ = new double*[ts_size_];
   for(int j = 0; j < ts_size_; j++)
   {
 
@@ -58,7 +78,7 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
       exit(1);
     }
 
-  }
+  }*/
 
   // distribute training set over processors if requested //
   if(procs_size > 1){
@@ -79,6 +99,25 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
   std::cout << "Using waveform model: " << model_ << ". Training set class initialized!" << std::endl;
 }
+
+void TrainingSetClass::AllocTS()
+{
+
+  params_ = new double*[ts_size_];
+  for(int j = 0; j < ts_size_; j++)
+  {
+
+    params_[j] = new double[param_dim_];
+
+    if(params_[j] == NULL){
+      fprintf(stderr,"Failed to allocate memory in BuildTS\n");
+      exit(1);
+    }
+
+  }
+
+}
+
 
 void TrainingSetClass::SplitTrainingSet(const int size)
 {

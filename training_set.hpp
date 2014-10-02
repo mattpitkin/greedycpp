@@ -14,8 +14,9 @@ class TrainingSetClass {
     // default constructor -- not explicitly defined in cpp
     TrainingSetClass();
 
-    // overload constructor
+    // overload constructors
     TrainingSetClass(Parameters *, int);
+    TrainingSetClass(Parameters *, std::string); // random sampling. samples in file 
 
     // explicit destructor - constructor allocates memory on the heap
     ~TrainingSetClass();
@@ -61,6 +62,10 @@ class TrainingSetClass {
     bool distributed_;           // set to true if training space distributed over procs/nodes
     int *mystart_, *myend_;      // maps global row index of A onto local worker index 
     int *matrix_sub_size_;       // = ts.myend[rank]-ts.mystart[rank] = TS on each proc
+
+
+    // allocates memory for params_ only called by construtors //
+    void AllocTS();
 
     // this routine distributed the ts over procs //
     void SplitTrainingSet(const int);
