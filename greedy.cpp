@@ -26,11 +26,9 @@
 #include <string.h>
 #include <cmath>
 #include <gsl/gsl_math.h>
-#include <gsl/gsl_eigen.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
-#include <gsl/gsl_permutation.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
@@ -154,10 +152,10 @@ void WriteGreedyInfo(const int dim_RB,\
     //mygsl::gsl_matrix_complex_fprintf(r_filename,R_matrix);
   }
   else{
-    rb_data = fopen(rb_filename,"w");
+    rb_data = fopen(rb_filename,"wb");
     gsl_matrix_complex_fwrite(rb_data,RB_space);
     fclose(rb_data);
-    r_data = fopen(r_filename,"w");
+    r_data = fopen(r_filename,"wb");
     gsl_matrix_complex_fwrite(r_data,R_matrix);
     fclose(r_data);
   }
@@ -737,7 +735,6 @@ int main (int argc, char **argv) {
       }
       gsl_matrix_complex_free(TS_gsl);
     }
-    //tspace_class.WriteTrainingSet();
   }
 
 
