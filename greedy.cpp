@@ -538,12 +538,12 @@ void Greedy(const Parameters &params,\
     fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
     // -- unpack parameter class here -- //
-    const int seed = params.seed();
-    const int max_RB = params.max_RB();
-    const double tol = params.tol();
-    const char *output_dir = params.output_dir().c_str();
+    const int seed                 = params.seed();
+    const int max_RB               = params.max_RB();
+    const double tol               = params.tol();
+    const char *output_dir         = params.output_dir().c_str();
     const char *output_data_format = params.output_data_format().c_str();
-    const int ts_size = params.ts_size();
+    const int ts_size              = params.ts_size();
 
     const int rows = A->size1; // number of rows to approximate
     const int cols = A->size2; // samples (for quadrature)
@@ -704,7 +704,9 @@ int main (int argc, char **argv) {
   //--- Read input file argv[1]. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
   Parameters *params_from_file = new Parameters(argv);
-  std::cout << *params_from_file;
+  if( rank==0 ) {
+    std::cout << *params_from_file;
+  }
 
   // Variables which need to be decarled, but not set in parameter file //
   gsl_matrix_complex *TS_gsl;
