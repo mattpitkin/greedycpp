@@ -9,9 +9,7 @@
 // --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
 #define COMPILE_WITH_MPI
 
-//#include "nr3.h"
 #include "gauss_wgts.h"
-//#include <libconfig.h++>
 
 #ifdef COMPILE_WITH_MPI
 #include <mpi.h>
@@ -28,8 +26,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <time.h>
-#include <complex>
+//#include <time.h>
+//#include <complex>
 #include <cmath>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
@@ -43,7 +41,6 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex.h>
 #include <gsl/gsl_block_complex_float.h>
-//#include <gsl/gsl_errno.h>
 
 #include "spa_waveforms.h"
 #include "training_space.hpp"
@@ -674,147 +671,146 @@ void Greedy(const Parameters &params,\
 
 int main (int argc, char **argv) {
 
-    int rank     = 0;  // needed for serial mode too
-    int size_mpi = 1;  // needed for serial mode too
+  int rank     = 0;  // needed for serial mode too
+  int size_mpi = 1;  // needed for serial mode too
 
 
-    #ifdef COMPILE_WITH_MPI
-    // --- setup MPI info ---//
-    MPI::Init(argc, argv);
+  #ifdef COMPILE_WITH_MPI
+  // --- setup MPI info ---//
+  MPI::Init(argc, argv);
 
-    // # procs this job is using (size) and processor rank of this thread //
-    // Ex: if "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
-    rank     = MPI::COMM_WORLD.Get_rank();
-    size_mpi = MPI::COMM_WORLD.Get_size();
+  // # procs this job is using (size) and processor rank of this thread //
+  // Ex: if "mpirun -np 2", size = 2. "CPU1" will be 0 and "CPU2" will be 1 //
+  rank     = MPI::COMM_WORLD.Get_rank();
+  size_mpi = MPI::COMM_WORLD.Get_size();
 
-    char name[MPI_MAX_PROCESSOR_NAME];
-    int len;
-    memset(name,0,MPI_MAX_PROCESSOR_NAME);
-    MPI::Get_processor_name(name,len);
-    memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
+  char name[MPI_MAX_PROCESSOR_NAME];
+  int len;
+  memset(name,0,MPI_MAX_PROCESSOR_NAME);
+  MPI::Get_processor_name(name,len);
+  memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
-    std::cout << "Procs = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
-    #endif
+  std::cout << "Procs = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
+  #endif
 
 
-    //----- Checking the number of Variables passed to the Executable -----//
-    if (argc != 2) {
-        std::cerr << "Arguments: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
-        exit(0);
-    }
-    std::cout << "parameter file is: " << argv[1] << std::endl;
+  //----- Checking the number of Variables passed to the Executable -----//
+  if (argc != 2) {
+    std::cerr << "Arguments: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
+    exit(0);
+  }
+  std::cout << "parameter file is: " << argv[1] << std::endl;
 
-    //--- Read input file argv[1]. If there is an error, report and exit.
-    //--- Parameters class contains relevant information about parameters 
-    Parameters *params_from_file = new Parameters(argv);
-    std::cout << *params_from_file;
+  //--- Read input file argv[1]. If there is an error, report and exit.
+  //--- Parameters class contains relevant information about parameters 
+  Parameters *params_from_file = new Parameters(argv);
+  std::cout << *params_from_file;
 
-    // Variables which need to be decarled, but not set in parameter file //
-    gsl_matrix_complex *TS_gsl;
-    gsl_vector_complex *wQuad;
-    gsl_vector *xQuad;
-    char shell_command[100];
-    int gsl_status;
-    int ts_size;
+  // Variables which need to be decarled, but not set in parameter file //
+  gsl_matrix_complex *TS_gsl;
+  gsl_vector_complex *wQuad;
+  gsl_vector *xQuad;
+  char shell_command[100];
+  int gsl_status;
+  int ts_size;
 
-    if(params_from_file->export_tspace() && size_mpi > 1){
-        fprintf(stderr,"Training space exporting only works with 1 processor!");
-        fprintf(stderr," Your training space will not be exported.\n");
-    }
+  if(params_from_file->export_tspace() && size_mpi > 1){
+      fprintf(stderr,"Training space exporting only works with 1 processor!");
+      fprintf(stderr," Your training space will not be exported.\n");
+  }
 
-    // returns wQuad and xQuad for the full, not reduced, quadrature rule //
-    SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
+  // returns wQuad and xQuad for the full, not reduced, quadrature rule //
+  SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
 
-    // Creating Run Directory //
-    if(size_mpi == 1 || rank == 0){
+  // Creating Run Directory //
+  if(size_mpi == 1 || rank == 0){
 
-        strcpy(shell_command, "mkdir -p -m700 ");
-        strcat(shell_command, params_from_file->output_dir().c_str());
-        system(shell_command);
+    strcpy(shell_command, "mkdir -p -m700 ");
+    strcat(shell_command, params_from_file->output_dir().c_str());
+    system(shell_command);
 
-        snprintf(shell_command,100,"cp %s %s",argv[1],\
-                 params_from_file->output_dir().c_str());
-        system(shell_command);
-    }
+    snprintf(shell_command,100,"cp %s %s",argv[1],\
+             params_from_file->output_dir().c_str());
+    system(shell_command);
+  }
 
-    // allocates dynamic memory, fills up training set with values //
-    TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,\
+  // allocates dynamic memory, fills up training set with values //
+  TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,\
                                                            size_mpi);
 
-    // TS_gsl filled by evaluating model at ptspace_class->params_ //
-    // NOTE: GSL error handler will abort if too much memory requested
-    // Ex" size=1 => rank=0 for 5th argument of FillTrainingSet
-    if(size_mpi == 1) // only 1 proc requested (serial mode)
-    {
-        TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
-        FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
-        Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
-    }
-    else
-    {
-
-        #ifdef COMPILE_WITH_MPI
-        if(rank != 0){
-            TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
-            FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
-        }
-
-        fprintf(stdout,"Finished distribution of training set\n");
-
-        if(rank == 0){
-            GreedyMaster(size_mpi,wQuad,*ptspace_class,*params_from_file);
-        }
-        else{
-            GreedyWorker(rank-1,*params_from_file,wQuad,TS_gsl,*ptspace_class);
-            gsl_matrix_complex_free(TS_gsl);
-        }
-        #else
-        fprintf(stderr,"Code compiled with mpi yet size_mpi > 1...\n");
-        exit(1);
-        #endif
-    }
-
-
-    // -- output a variety of extra information if requested -- //
-    if(rank == 0)
-    {
-        // -- output quadrature weights -- //
-        FILE *outfile;
-
-        strcpy(shell_command, params_from_file->output_dir().c_str());
-        strcat(shell_command,"/quad_rule.txt");
-
-        outfile = fopen(shell_command,"w");
-        for(int i = 0; i < wQuad->size ; i++) {
-            fprintf(outfile,"%1.14f %1.14f\n",gsl_vector_get(xQuad,i),\
-                    GSL_REAL(gsl_vector_complex_get(wQuad,i)));
-        }
-        fclose(outfile);
-
-        // -- output some waveform(s) for diagnostics -- //
-        if(size_mpi == 1){
-            if(params_from_file->export_tspace()){
-                WriteTrainingSpace(TS_gsl,params_from_file->output_dir().c_str(),-1); // -1 for training set. Manually input number if specific waveform needed
-            }
-            gsl_matrix_complex_free(TS_gsl);
-        }
-        //tspace_class.WriteTrainingSet();
-    }
-
-
-    gsl_vector_complex_free(wQuad);
-    gsl_vector_free(xQuad);
-
-    delete ptspace_class;
-    ptspace_class = NULL;
-
-    delete params_from_file;
-    params_from_file = NULL;
+  // TS_gsl filled by evaluating model at ptspace_class->params_ //
+  // NOTE: GSL error handler will abort if too much memory requested
+  // Ex" size=1 => rank=0 for 5th argument of FillTrainingSet
+  if(size_mpi == 1) // only 1 proc requested (serial mode)
+  {
+    TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
+    FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
+    Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
+  }
+  else
+  {
 
     #ifdef COMPILE_WITH_MPI
-    // Tell the MPI library to release all resources it is using
-    MPI::Finalize();
-    #endif
+    if(rank != 0){
+      TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
+      FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
+    }
 
+    fprintf(stdout,"Finished distribution of training set\n");
+
+    if(rank == 0){
+      GreedyMaster(size_mpi,wQuad,*ptspace_class,*params_from_file);
+    }
+    else{
+      GreedyWorker(rank-1,*params_from_file,wQuad,TS_gsl,*ptspace_class);
+      gsl_matrix_complex_free(TS_gsl);
+    }
+    #else
+    fprintf(stderr,"Code compiled with mpi yet size_mpi > 1...\n");
+    exit(1);
+    #endif
+  }
+
+
+  // -- output a variety of extra information if requested -- //
+  if(rank == 0)
+  {
+    // -- output quadrature weights -- //
+    FILE *outfile;
+
+    strcpy(shell_command, params_from_file->output_dir().c_str());
+    strcat(shell_command,"/quad_rule.txt");
+
+    outfile = fopen(shell_command,"w");
+    for(int i = 0; i < wQuad->size ; i++) {
+      fprintf(outfile,"%1.14f %1.14f\n",gsl_vector_get(xQuad,i),\
+              GSL_REAL(gsl_vector_complex_get(wQuad,i)));
+    }
+    fclose(outfile);
+
+    // -- output some waveform(s) for diagnostics -- //
+    if(size_mpi == 1){
+      if(params_from_file->export_tspace()){
+         WriteTrainingSpace(TS_gsl,params_from_file->output_dir().c_str(),-1); // -1 for training set. Manually input number if specific waveform needed
+      }
+      gsl_matrix_complex_free(TS_gsl);
+    }
+    //tspace_class.WriteTrainingSet();
+  }
+
+
+  gsl_vector_complex_free(wQuad);
+  gsl_vector_free(xQuad);
+
+  delete ptspace_class;
+  ptspace_class = NULL;
+
+  delete params_from_file;
+  params_from_file = NULL;
+
+  #ifdef COMPILE_WITH_MPI
+  // Tell the MPI library to release all resources it is using
+  MPI::Finalize();
+  #endif
 }
 
