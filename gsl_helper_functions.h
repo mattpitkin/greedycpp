@@ -88,32 +88,36 @@ void gsl_vector_complex_parts(double *v_real, double *v_imag, const gsl_vector_c
     }
 }
 
-void gsl_vector_complex_gsl_parts(gsl_vector *v_real, gsl_vector *v_imag, const gsl_vector_complex * v_gsl)
+void gsl_vector_complex_gsl_parts(gsl_vector *v_real,\
+                                  gsl_vector *v_imag,\
+                                  const gsl_vector_complex * v_gsl)
 {
 
-    double tmp_r, tmp_i;
+  double tmp_r, tmp_i;
 
-    for(int i = 0; i < v_gsl->size; i++)
-    {
-        tmp_r = GSL_REAL(gsl_vector_complex_get(v_gsl,i));
-        tmp_i = GSL_IMAG(gsl_vector_complex_get(v_gsl,i));
+  for(int i = 0; i < v_gsl->size; i++)
+  {
+    tmp_r = GSL_REAL(gsl_vector_complex_get(v_gsl,i));
+    tmp_i = GSL_IMAG(gsl_vector_complex_get(v_gsl,i));
 
-        gsl_vector_set(v_real, i,tmp_r);
-        gsl_vector_set(v_imag, i,tmp_i);
-    }
+    gsl_vector_set(v_real, i,tmp_r);
+    gsl_vector_set(v_imag, i,tmp_i);
+  }
 }
 
-void make_gsl_vector_complex_parts(const double *v_real, const double *v_imag,gsl_vector_complex * v_gsl)
+void make_gsl_vector_complex_parts(const double *v_real,\
+                                   const double *v_imag,\
+                                   gsl_vector_complex * v_gsl)
 {
-    gsl_complex tmpc;
+  gsl_complex tmpc;
 
-    for(int i = 0; i < v_gsl->size; i++){
-        GSL_SET_COMPLEX(&tmpc,v_real[i],v_imag[i]);
-        gsl_vector_complex_set(v_gsl,i,tmpc);
-    }
+  for(int i = 0; i < v_gsl->size; i++){
+    GSL_SET_COMPLEX(&tmpc,v_real[i],v_imag[i]);
+    gsl_vector_complex_set(v_gsl,i,tmpc);
+  }
 }
 
-/* output real or imaginary part of m_gsl to file */
+/* write real or imaginary part of m_gsl to file */
 void gsl_matrix_complex_fprintf_part(const char *data_filename,\
                                      const gsl_matrix_complex * m_gsl,\
                                      const char *part)
@@ -162,6 +166,24 @@ void gsl_matrix_complex_fprintf_part(const char *data_filename,\
   free(vec_imag);
 
 }
+
+/* write complex matrix m_gsl to file */
+void gsl_matrix_complex_fprintf(const char *data_filename,\
+                                     const gsl_matrix_complex * m_gsl)
+{
+
+  char data_filename_r[100];
+  char data_filename_i[100];
+
+  strcpy(data_filename_r,data_filename);
+  strcat(data_filename_r,"_real.txt");
+  strcpy(data_filename_i,data_filename);
+  strcat(data_filename_i,"_imag.txt");
+
+  gsl_matrix_complex_fprintf_part(data_filename_r,m_gsl,"real"); 
+  gsl_matrix_complex_fprintf_part(data_filename_i,m_gsl,"imag"); 
+}
+
 
 void gsl_vector_sqrt(gsl_vector_complex *out,\
                      const gsl_vector_complex *in)
