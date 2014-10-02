@@ -31,14 +31,20 @@
 
 int main (int argc, char **argv) {
 
+
+
   //----- Checking the number of Variables passed to the Executable -----//
-  if (argc != 2) {
+  if (argc != 4) {
     std::cerr << "Argument: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
     std::cerr << "Argument: 2. directory containing basis and quadrature information" << std::endl;
-    //exit(0);
+    std::cerr << "Argument: 3. file location containing random samples" << std::endl;
+    return EXIT_FAILURE;
   }
   std::cout << "parameter file is: " << argv[1] << std::endl;
   std::cout << "basis folder is: " << argv[2] << std::endl;
+  std::cout << "random file is: " << argv[3] << std::endl;
+
+  std::string random_sample_file = std::string(argv[3]);
 
   //--- Read input file argv[1]. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
@@ -50,6 +56,7 @@ int main (int argc, char **argv) {
   gsl_vector *xQuad;
   double * errors;
   char err_filename[100];
+  char shell_command[100];
   FILE *err_data;
 
   model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
@@ -65,6 +72,7 @@ int main (int argc, char **argv) {
   pBASIS = fopen(rb_filename,"rb");
   gsl_matrix_complex_fread(pBASIS,RB_space);
   fclose(pBASIS);
+
   //char testwrite[100];
   //strcpy(testwrite,"RB_test");
   //mygsl::gsl_matrix_complex_fprintf(testwrite,RB_space);
@@ -72,13 +80,24 @@ int main (int argc, char **argv) {
   // reconstruct quadrature rule used in greedy //
   SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
 
-  // TODO: overload so random points can be filled here //
-  TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
+  // this is useful sanity check (looks at TS waveform errors) //
+  //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
+  TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,random_sample_file);
 
   model_evaluations = gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
   errors            = new double[random_samples->ts_size()];
 
   mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
+
+  // Creating Run Directory //
+  strcpy(shell_command, "mkdir -p -m700 ");
+  strcat(shell_command, argv[2]);
+  strcat(shell_command, "/validations/");
+  system(shell_command);
+
+  snprintf(shell_command,100,"cp %s %s%s",argv[3],argv[2],"/validations/");
+  system(shell_command);
+
 
   // TODO: use openMP for this part //
   // error reported will be \sqrt(h - Ph) //
@@ -90,7 +109,7 @@ int main (int argc, char **argv) {
 
 
   strcpy(err_filename,argv[2]);
-  strcat(err_filename,"/VerErrors.txt");
+  strcat(err_filename,"/validations/VerErrors.txt");
   err_data = fopen(err_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
