@@ -113,59 +113,65 @@ void make_gsl_vector_complex_parts(const double *v_real, const double *v_imag,gs
     }
 }
 
-void gsl_matrix_complex_fprintf_part(FILE *data_filename, const gsl_matrix_complex * m_gsl,const char *part)
+/* output real or imaginary part of m_gsl to file */
+void gsl_matrix_complex_fprintf_part(const char *data_filename,\
+                                     const gsl_matrix_complex * m_gsl,\
+                                     const char *part)
 {
-/* output the real part of matrix m_gsl, using the first cols columns and rows rows, to file. */
+  // NOTE: output so that A = R * Q is desired QR decomposition //
 
-// NOTE: text output so that A = R * Q is desired QR decomposition //
+  const int cols = m_gsl->size2;
+  const int rows = m_gsl->size1;
 
-    const int cols = m_gsl->size2;
-    const int rows = m_gsl->size1;
+  FILE *pFILE;
+  pFILE = fopen(data_filename,"w");
 
-    gsl_vector_complex *v_gsl;
-    double *vec_real, *vec_imag;
-    v_gsl         = gsl_vector_complex_alloc(cols);
-    vec_real      = (double *)malloc(cols*sizeof(double));
-    vec_imag      = (double *)malloc(cols*sizeof(double));
+  gsl_vector_complex *v_gsl;
+  double *vec_real, *vec_imag;
+  v_gsl         = gsl_vector_complex_alloc(cols);
+  vec_real      = (double *)malloc(cols*sizeof(double));
+  vec_imag      = (double *)malloc(cols*sizeof(double));
 
-    for(int ii = 0; ii < rows; ii++)
+  for(int ii = 0; ii < rows; ii++)
+  {  
+    gsl_matrix_complex_get_row(v_gsl,m_gsl, ii);
+    gsl_vector_complex_parts(vec_real,vec_imag,v_gsl);
+
+    for(int jj = 0; jj < cols; jj++)
     {  
-        gsl_matrix_complex_get_row(v_gsl,m_gsl, ii);
-        gsl_vector_complex_parts(vec_real,vec_imag,v_gsl);
-
-        for(int jj = 0; jj < cols; jj++)
-        {  
-            if(strcmp(part,"real") == 0){
-                fprintf(data_filename, "%1.12e\t",vec_real[jj]);
-            }
-            else if(strcmp(part,"imag") == 0){
-                fprintf(data_filename, "%1.12e\t",vec_imag[jj]);
-            }
-            else{
-                fprintf(stderr,"part unknown");
-                exit(1);
-            }
-        }
-
-        fprintf(data_filename,"\n");
+      if(strcmp(part,"real") == 0){
+        fprintf(pFILE, "%1.12e\t",vec_real[jj]);
+      }
+      else if(strcmp(part,"imag") == 0){
+        fprintf(pFILE, "%1.12e\t",vec_imag[jj]);
+      }
+      else{
+        fprintf(stderr,"part unknown");
+        exit(1);
+      }
     }
 
-    gsl_vector_complex_free(v_gsl);
-    free(vec_real);
-    free(vec_imag);
+   fprintf(pFILE,"\n");
+
+ }
+
+  fclose(pFILE);
+
+  gsl_vector_complex_free(v_gsl);
+  free(vec_real);
+  free(vec_imag);
+
 }
 
-void gsl_vector_sqrt(gsl_vector_complex *out, const gsl_vector_complex *in)
+void gsl_vector_sqrt(gsl_vector_complex *out,\
+                     const gsl_vector_complex *in)
 {  
+  gsl_complex z1;
 
-    gsl_complex z1;
-
-    for(int i=0; i < in->size;i++)
-    {   
-         z1 = gsl_complex_sqrt(gsl_vector_complex_get(in,i));
-         gsl_vector_complex_set(out,i,z1);
-    }
-
+  for(int i=0; i < in->size;i++){   
+     z1 = gsl_complex_sqrt(gsl_vector_complex_get(in,i));
+     gsl_vector_complex_set(out,i,z1);
+  }
 }
 
 void MGS(gsl_vector_complex *ru, gsl_vector_complex *ortho_basis,const gsl_matrix_complex *RB_space,const gsl_vector_complex *wQuad, const int dim_RB)

@@ -108,8 +108,6 @@ void WriteGreedyInfo(const int dim_RB,\
                      const char * output_dir,\
                      const char *datatype)
 {
-    FILE *rb_real_data, *rb_imag_data;
-    FILE *r_real_data, *r_imag_data;
     FILE *err_data, *pts_data;
     FILE *rb_data, *r_data;
     char rb_real_filename[100];
@@ -162,19 +160,13 @@ void WriteGreedyInfo(const int dim_RB,\
 
     //--- write R and RB to file ---//
     if(strcmp(datatype,"txt") == 0){
-        rb_real_data = fopen(rb_real_filename,"w");
-        mygsl::gsl_matrix_complex_fprintf_part(rb_real_data,RB_space,"real");
-        fclose(rb_real_data);
-        rb_imag_data = fopen(rb_imag_filename,"w");
-        mygsl::gsl_matrix_complex_fprintf_part(rb_imag_data,RB_space,"imag");
-        fclose(rb_imag_data);
+
+        mygsl::gsl_matrix_complex_fprintf_part(rb_real_filename,RB_space,"real");
+        mygsl::gsl_matrix_complex_fprintf_part(rb_imag_filename,RB_space,"imag");
+
         // TODO: valgrind reports memory errors here
-        //r_real_data = fopen(r_real_filename,"w");
-        //mygsl::gsl_matrix_complex_fprintf_part(r_real_data,R_matrix,"real");
-        //fclose(r_real_data);
-        //r_imag_data = fopen(r_imag_filename,"w");
-        //mygsl::gsl_matrix_complex_fprintf_part(r_imag_data,R_matrix,"imag");
-        //fclose(r_imag_data);
+        //mygsl::gsl_matrix_complex_fprintf_part(r_real_filename,R_matrix,"real");
+        //mygsl::gsl_matrix_complex_fprintf_part(r_imag_filename,R_matrix,"imag");
     }
     else{
         rb_data = fopen(rb_filename,"w");
@@ -188,43 +180,20 @@ void WriteGreedyInfo(const int dim_RB,\
 }
 
 void WriteTrainingSpace(const gsl_matrix_complex *TS_gsl,\
-                        const char *output_dir,\
-                        const int indx)
+                        const char *output_dir)
 {
 // if indx < 0, all waveforms (training space) is written to file //
 
-    FILE *data_real, *data_imag;
-    char filename_real[100];
-    char filename_imag[100];
+  char filename_real[100];
+  char filename_imag[100];
 
-    strcpy(filename_real,output_dir);
-    strcat(filename_real,"/TSpace_real.txt");
-    strcpy(filename_imag,output_dir);
-    strcat(filename_imag,"/TSpace_imag.txt");
+  strcpy(filename_real,output_dir);
+  strcat(filename_real,"/TSpace_real.txt");
+  strcpy(filename_imag,output_dir);
+  strcat(filename_imag,"/TSpace_imag.txt");
 
-    data_real = fopen(filename_real,"w");
-    if(indx < 0){
-        mygsl::gsl_matrix_complex_fprintf_part(data_real,TS_gsl,"real");
-    }
-    else{
-        for(int cols = 0; cols < TS_gsl->size2 ; cols++){
-            fprintf(data_real,"%1.12e\n",\
-                    GSL_REAL(gsl_matrix_complex_get(TS_gsl,indx,cols)));
-        }
-    }
-    fclose(data_real);
-
-    data_imag = fopen(filename_imag,"w");
-    if(indx < 0){
-        mygsl::gsl_matrix_complex_fprintf_part(data_imag,TS_gsl,"imag");
-    }
-    else{
-        for(int cols = 0; cols < TS_gsl->size2 ; cols++){
-            fprintf(data_imag,"%1.12e\n",\
-                    GSL_IMAG(gsl_matrix_complex_get(TS_gsl,indx,cols)));
-        }
-    }
-    fclose(data_imag);
+  mygsl::gsl_matrix_complex_fprintf_part(filename_real,TS_gsl,"real");
+  mygsl::gsl_matrix_complex_fprintf_part(filename_imag,TS_gsl,"imag");
 }
 
 // --- GreedyWorker and Master are removed for serial builds --- //
@@ -793,7 +762,7 @@ int main (int argc, char **argv) {
     // -- output some waveform(s) for diagnostics -- //
     if(size_mpi == 1){
       if(params_from_file->export_tspace()){
-         WriteTrainingSpace(TS_gsl,params_from_file->output_dir().c_str(),-1); // -1 for training set. Manually input number if specific waveform needed
+         WriteTrainingSpace(TS_gsl,params_from_file->output_dir().c_str());
       }
       gsl_matrix_complex_free(TS_gsl);
     }
