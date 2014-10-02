@@ -1,3 +1,11 @@
+// AUTHOR :  Scott Field 
+//           sfield@astro.cornell.edu
+//
+// DATE: Oct 1, 2014
+//
+// PURPOSE: various gsl helper routines
+
+
 #ifndef gsl_helper_functions_h
 #define gsl_helper_functions_h
 
