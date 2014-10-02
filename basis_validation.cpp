@@ -93,7 +93,8 @@ int main (int argc, char **argv) {
   strcat(err_filename,"/VerErrors.txt");
   err_data = fopen(err_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {
-    fprintf(err_data,"%1.15e\n",errors[i]);
+    random_samples->fprintf_ith(err_data,i);
+    fprintf(err_data," %1.15e\n",errors[i]);
   }
   fclose(err_data);
 

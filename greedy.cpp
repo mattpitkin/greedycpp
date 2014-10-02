@@ -89,9 +89,8 @@ void WriteGreedyInfo(const int dim_RB,\
   for(int i = 0; i < dim_RB ; i++)
   {
     fprintf(err_data,"%1.14f\n",app_err[i]);
-    fprintf(pts_data,"%1.14f %1.14f\n",\
-            ts.params()[sel_rows[i]][0],\
-            ts.params()[sel_rows[i]][1]);
+    ts.fprintf_ith(pts_data,sel_rows[i]);
+    fprintf(pts_data,"\n");
   }
   fclose(err_data);
   fclose(pts_data);

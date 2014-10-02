@@ -404,5 +404,19 @@ void TrainingSetClass::WriteTrainingSet()
     fclose(data1);
 }
 
+void TrainingSetClass::fprintf_ith(FILE *pFILE,const int i) const
+{
+
+  // do NOT add new line here since calling code might not want this //
+  for(int j = 0; j < param_dim_; j++) {
+    if( j == param_dim_ - 1){
+      fprintf(pFILE,"%1.14f",params_[i][j]);
+    }
+    else {
+      fprintf(pFILE,"%1.14f ",params_[i][j]);
+    }
+  }
+
+}
 
 // NOTE: inlined accessor functions defined in hpp //
