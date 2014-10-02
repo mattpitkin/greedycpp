@@ -2,6 +2,7 @@
 #define quadratures_h
 
 #include "parameters.hpp"
+#include "gauss_wgts.h"
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
