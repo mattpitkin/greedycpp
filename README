@@ -122,7 +122,7 @@ and the output says what must be added to g++ for to compile and link. Standard 
 
 >>> wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
 
-Then update LD_LIBRARY_PATH to reflect the location of the newly crated libconfig++ shared library
+Then update LD_LIBRARY_PATH to reflect the location of the newly created libconfig++ shared library
 
 Acknowledgements
 ----------------

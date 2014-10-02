@@ -10,3 +10,6 @@ Some items to do
 
 5) params_, mystart, myend, matrix_sub_size contain global proc information while
 they only need local information. Better memory usage 
+
+6) for very large GQ points, the p_roots call in generate_quadrature is slow.
+   convert to algorithm used in matlab code. 

@@ -26,4 +26,5 @@
 # Shell commands may begin here
 
 export NPROCS=`wc -l $PBS_NODEFILE |gawk '//{print $1}'`
-mpirun -machinefile $PBS_NODEFILE -np $NPROCS /home/rsmith/projects/greedycpp/greedympi
+mpirun -np $NPROCS ./greedympi /home/sfield/manuelcompare/test1.cfg
+#mpirun -machinefile $PBS_NODEFILE -np $NPROCS /home/rsmith/projects/greedycpp/greedympi

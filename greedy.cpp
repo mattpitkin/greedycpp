@@ -11,7 +11,7 @@
 
 //#include "nr3.h"
 #include "gauss_wgts.h"
-#include <libconfig.h++>
+//#include <libconfig.h++>
 
 #ifdef COMPILE_WITH_MPI
 #include <mpi.h>
