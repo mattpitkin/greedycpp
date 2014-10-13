@@ -80,15 +80,15 @@ Parameters::Parameters(char ** argv){
       fprintf(stderr, "ts_file not found in config file\n");
       exit(1);
     }
-    ts_size_ = fcount_pts(ts_file_name_.c_str()); // need to get training set size from file (number of rows)
-    std::cout << "training set file found to " << ts_size_ << " parameter samples" << std::endl;
+    ts_size_ = fcount_pts(ts_file_name_.c_str()); // assumes each row is point
+    std::cout << "training set file found to " 
+              << ts_size_ << " parameter samples" << std::endl;
   }
   else {
     params_num_       = new int[param_dim_];
     params_low_       = new double[param_dim_];
     params_high_      = new double[param_dim_];
 
-    // if destination data type does not match expected on from configuration file an error is thrown //
     // read in params_num and determine ts_size //
     ts_size_ = 1;
     libconfig::Setting& params_num_s = root["params_num"];
@@ -99,7 +99,7 @@ Parameters::Parameters(char ** argv){
     }
     for(int i = 0; i < param_dim_; i++){
       params_num_[i] = params_num_s[i];
-      ts_size_       = params_num_[i]*ts_size_; // assumes tensor product structure on training set
+      ts_size_       = params_num_[i]*ts_size_; // assumes tensor product TS
     }
 
     // read in params_low //
@@ -129,7 +129,7 @@ Parameters::Parameters(char ** argv){
   {
     cfg_status = cfg.lookupValue("quad_nodes_file", quad_nodes_file_);
     if (!cfg_status){
-      fprintf(stderr, "quadrature node file not found in config file\n");
+      fprintf(stderr, "quadrature node file name must be specified\n");
       exit(1);
     }
 
@@ -137,7 +137,7 @@ Parameters::Parameters(char ** argv){
 
     cfg_status = cfg.lookupValue("num_weight_file", num_weight_file_);
     if (!cfg_status){
-      fprintf(stderr, "numerical quadrature weight file not found in config file\n");
+      fprintf(stderr, "quadrature weight file name must be specified\n");
        exit(1);
     }
   }
@@ -160,7 +160,9 @@ Parameters::Parameters(char ** argv){
 
 std::ostream& operator<<(std::ostream& os, const Parameters& p)
 {
-  os << "Dimensionality of parameter space " << p.param_dim() << " sampled by " << p.ts_size() << " training set points.\n" << std::endl;
+  os << "Dimensionality of parameter space " 
+     << p.param_dim() << " sampled by " << p.ts_size() 
+     << " training set points.\n" << std::endl;
   return os;
 }
 

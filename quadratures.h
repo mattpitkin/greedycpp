@@ -14,7 +14,8 @@ void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
     }
 }
 
-void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,const int quad_points)
+void ReimannQuad(const double a,const double b,double *xQuad,double * wQuad,
+                 const int quad_points)
 {
 
     Linspace(quad_points, a, b, xQuad);
@@ -45,7 +46,9 @@ void DynamicQuad(double *wQuad, const gsl_vector *xQuad, const int quad_points)
     wQuad[quad_points-1] = 0.;
 }*/
 
-void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const double a, const double b, const int quad_points,const int quad_type)
+void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, 
+                        const double a, const double b, const int quad_points,
+                        const int quad_type)
 {
     double *wQuad_tmp, *xQuad_tmp;
     wQuad_tmp = new double[quad_points];
@@ -53,7 +56,7 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c, const 
 
     // -- Quadrature rule for inner product between rows -- //
     if(quad_type == 0) {
-        gauleg(a,b,xQuad_tmp,wQuad_tmp,quad_points); // returns grid on [-1,1] from NR3
+        gauleg(a,b,xQuad_tmp,wQuad_tmp,quad_points); // returns grid on [-1,1]
     }
     else if(quad_type == 1){
         ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,quad_points);
@@ -125,7 +128,8 @@ void MakeWeightedInnerProduct(gsl_vector_complex *wQuad, FILE *weightf)
 
 }
 
-void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameters * pParams)
+void SetupQuadratureRule(gsl_vector_complex **wQuad, gsl_vector **xQuad,
+                         Parameters * pParams)
 {
     // wQuad and xQuad are pointers to pointers, which allows memory allocation here to be passed back to main //
 
@@ -154,14 +158,23 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,gsl_vector **xQuad,Parameter
     if(quad_type == 2)
     {
         FILE *fvecf = fopen(quad_nodes_file, "r");
+        if (fvecf==NULL) {
+            fprintf(stderr,"Could not open quadrature nodes file.\n");
+            exit(1);
+        }
         gsl_status = gsl_vector_fscanf(fvecf, xQuad_tmp);
         fclose(fvecf);
         if( gsl_status == GSL_EFAILED ){
-            fprintf(stderr, "Error reading frequency vector from %s\n", quad_nodes_file);
+            fprintf(stderr, "Error reading frequency vector from %s\n",
+                    quad_nodes_file);
             exit(1);
         }
 
         FILE *fweightf = fopen(num_weight_file, "r");
+        if (fweightf==NULL) {
+            fprintf(stderr,"Could not open quadrature weights file.\n");
+            exit(1);
+        }
         gsl_status = gsl_vector_fscanf(fweightf, wQuad_tmp1);
         fclose(fweightf);
         if( gsl_status == GSL_EFAILED ){
