@@ -20,10 +20,10 @@
 
 namespace mymodel {
 
-void FillTrainingSet(gsl_matrix_complex *TS_gsl,\
-                     const gsl_vector *xQuad,\
-                     const gsl_vector_complex *wQuad,\
-                     const TrainingSetClass &ts,\
+void FillTrainingSet(gsl_matrix_complex *TS_gsl,
+                     const gsl_vector *xQuad,
+                     const gsl_vector_complex *wQuad,
+                     const TrainingSetClass &ts,
                      const int rank)
 {
 
