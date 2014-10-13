@@ -9,14 +9,19 @@ import math
 filename = 'RandomSamples.txt'
 
 ### sampling strategies (linear, log10, ln) ###
-param_sampling = "ln";
-scaling_factor = 20.0 # default should be 1. higher values densely sample lower range of parameter interval
 sample_type    = "rand" # "rand" or "deterministc"
 
 ### setup parameter intervals ###
-params_num  = [50,50]  # params_num[i] is the number of samplings in the interval [param_low[i],param_high[i]]
 params_low  = [1.0,1.0]  # lower interval of each parameter
-params_high = [3.0,3.0]  # upper interval of each parameter
+params_high = [3.0,3.0]  # params_num[i] is the number of samplings in the interval [param_low[i],param_high[i]]
+ 
+### setup for deterministic sampling ###
+param_sampling = "ln"
+scaling_factor = 20.0 # default should be 1. higher values densely sample lower range of parameter interval
+params_num  = [50,50] # deterministic: upper interval of each parameter
+
+### setup for random sampling ###
+total_picks = 200     # random: this many draws from interval
 
 if( sample_type is "deterministic"):
 
@@ -55,29 +60,31 @@ if( sample_type is "deterministic"):
   for i in range(1,len(p1)):
       if p1[i]-p1[i-1]<=0: raise Exception("samples not monotonic!")
 
+  ### output MyTS.txt here -- tensor product parameter grid ###
+  fp = open(filename,'w')
+  for ii in range(np.size(p1)):
+    for jj in range(np.size(p2)):
+      fp.write('%1.15e\t' % p1[ii])
+      fp.write('%1.15e\n' % p2[jj])
+
+  fp.close()
+
 elif( sample_type is "rand"):
 
-  p_low  = params_low[0]
-  p_high = params_high[0]
-  p_num  = params_num[0]
-  p1 = (p_high - p_low) * np.random.random_sample((p_num,)) + p_low
+  fp = open(filename,'w')
 
-  p_low  = params_low[1]
-  p_high = params_high[1]
-  p_num  = params_num[1]
-  p2 = (p_high - p_low) * np.random.random_sample((p_num,)) + p_low
-  
-  print "random sampling.\nWARNING: due to tensor product structure this is not uniformly drawn from (p1,p2) space."
+  for ii in range(total_picks):
+    for jj in range(len(params_high)):
+
+      p_jj = (params_high[jj] - params_low[jj]) * np.random.random_sample((1,)) + params_low[jj]
+
+      if(jj == len(params_high)-1):
+        fp.write('%1.15e\n' % p_jj)
+      else:
+        fp.write('%1.15e\t' % p_jj)
 
 else:
   raise Exception("sampling type unknown")
 
 
-### output MyTS.txt here -- tensor product parameter grid ###
-fp = open(filename,'w')
-for ii in range(np.size(p1)):
-  for jj in range(np.size(p2)):
-    fp.write('%1.15e\t' % p1[ii])
-    fp.write('%1.15e\n' % p2[jj])
 
-fp.close()
