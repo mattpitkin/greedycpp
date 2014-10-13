@@ -45,14 +45,10 @@
 #include "utils.h"
 #include "my_models.h"
 
-void WriteGreedyInfo(const int dim_RB,\
-                     const gsl_matrix_complex *RB_space,\
-                     const gsl_matrix_complex *R_matrix,\
-                     const double *app_err,\
-                     const int *sel_rows,\
-                     const TrainingSetClass &ts,\
-                     const char * output_dir,\
-                     const char *datatype)
+void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space,
+                     const gsl_matrix_complex *R_matrix, const double *app_err,
+                     const int *sel_rows, const TrainingSetClass &ts,
+                     const char * output_dir, const char *datatype)
 {
   FILE *err_data, *pts_data;
   FILE *rb_data, *r_data;
@@ -88,7 +84,7 @@ void WriteGreedyInfo(const int dim_RB,\
   pts_data = fopen(pts_filename,"w");
   for(int i = 0; i < dim_RB ; i++)
   {
-    fprintf(err_data,"%1.14f\n",app_err[i]);
+    fprintf(err_data,"%1.15e\n",app_err[i]);
     ts.fprintf_ith(pts_data,sel_rows[i]);
     fprintf(pts_data,"\n");
   }
