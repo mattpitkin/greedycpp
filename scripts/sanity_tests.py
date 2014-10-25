@@ -33,6 +33,17 @@ def load_info(outdir):
 
     return B, weights, nodes
 
+def load_ts(outdir):
+
+    TS_real = np.loadtxt(outdir+'/TSpace_real.txt')
+    TS_imag = np.loadtxt(outdir+'/TSpace_imag.txt')
+    evaluations, quad_points = TS_real.shape
+    TS = np.zeros((quad_points,evaluations), dtype=np.complex)
+    TS[:,:].real = TS_real.transpose()
+    TS[:,:].imag = TS_imag.transpose()
+
+    return TS
+
 def ortho_test(outdir):
 
     B, weights, nodes = load_info(outdir)
@@ -46,12 +57,8 @@ def basis_accuracy_test(outdir):
 
     B, weights, nodes = load_info(outdir)
 
-    TS_real = np.loadtxt(outdir+'/TSpace_real.txt')
-    TS_imag = np.loadtxt(outdir+'/TSpace_imag.txt')
-    evaluations, quad_points = TS_real.shape
-    TS = np.zeros((quad_points,evaluations), dtype=np.complex)
-    TS[:,:].real = TS_real.transpose()
-    TS[:,:].imag = TS_imag.transpose()
+    TS = load_ts(outdir)
+    quad_points, evaluations = TS.real.shape 
 
     err_app = np.zeros(evaluations)
 
