@@ -95,8 +95,8 @@ int main (int argc, char **argv) {
   strcat(shell_command, "/validations/");
   system(shell_command);
 
-  snprintf(shell_command,100,"cp %s %s%s",argv[3],argv[2],"/validations/");
-  system(shell_command);
+  //snprintf(shell_command,100,"cp %s %s%s",argv[3],argv[2],"/validations/");
+  //system(shell_command);
 
 
   // TODO: use openMP for this part //

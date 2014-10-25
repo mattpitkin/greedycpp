@@ -61,22 +61,6 @@ void WriteGreedyInfo(const int dim_RB,
   char rb_filename[100];
   char r_filename[100];
 
-  if(strcmp(datatype,"txt") == 0){
-    strcpy(rb_filename,output_dir);
-    strcat(rb_filename,"/Basis");
-    strcpy(r_filename,output_dir);
-    strcat(r_filename,"/R");
-  } 
-  else if(strcmp(datatype,"bin") == 0){
-    strcpy(rb_filename,output_dir);
-    strcat(rb_filename,"/Basis.bin");
-    strcpy(r_filename,output_dir);
-    strcat(r_filename,"/R.bin");
-  }
-  else{
-    fprintf(stderr,"file type not supported");
-    exit(1);
-  }
 
   strcpy(err_filename,output_dir);
   strcat(err_filename,"/ApproxErrors.txt");
@@ -95,20 +79,36 @@ void WriteGreedyInfo(const int dim_RB,
   fclose(err_data);
   fclose(pts_data);
 
-  //--- write R and RB to file ---//
-  if(strcmp(datatype,"txt") == 0){
+
+  bool wrote = false;
+  if(strcmp(datatype,"txt") == 0 || strcmp(datatype,"both") == 0){
+    strcpy(rb_filename,output_dir);
+    strcat(rb_filename,"/Basis");
+    strcpy(r_filename,output_dir);
+    strcat(r_filename,"/R");
 
     mygsl::gsl_matrix_complex_fprintf(rb_filename,RB_space);
     // TODO: valgrind reports memory errors here
     //mygsl::gsl_matrix_complex_fprintf(r_filename,R_matrix);
-  }
-  else{
+    wrote = true;
+  } 
+  if(strcmp(datatype,"bin") == 0 || strcmp(datatype,"both") == 0){
+    strcpy(rb_filename,output_dir);
+    strcat(rb_filename,"/Basis.bin");
+    strcpy(r_filename,output_dir);
+    strcat(r_filename,"/R.bin");
+
     rb_data = fopen(rb_filename,"wb");
     gsl_matrix_complex_fwrite(rb_data,RB_space);
     fclose(rb_data);
     r_data = fopen(r_filename,"wb");
     gsl_matrix_complex_fwrite(r_data,R_matrix);
     fclose(r_data);
+    wrote = true;
+  }
+  if(!wrote){
+    fprintf(stderr,"file type not supported");
+    exit(1);
   }
 
 }
