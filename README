@@ -86,12 +86,14 @@ is on the order of tol = 1e-12
 Running on SuperMike2 with MPI
 ------------------------------
 0) add the following to ~/.soft:
+@default
 +Intel-13.0.0
 @default
 +gsl-1.15-Intel-13.0.0
 @default
 +openmpi-1.6.3-Intel-13.0.0
 @default
++fftw-3.3.3-Intel-13.0.
 
 and run 'resoft'
 
