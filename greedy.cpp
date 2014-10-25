@@ -45,10 +45,14 @@
 #include "utils.h"
 #include "my_models.h"
 
-void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space,
-                     const gsl_matrix_complex *R_matrix, const double *app_err,
-                     const int *sel_rows, const TrainingSetClass &ts,
-                     const char * output_dir, const char *datatype)
+void WriteGreedyInfo(const int dim_RB,
+                     const gsl_matrix_complex *RB_space,
+                     const gsl_matrix_complex *R_matrix,
+                     const double *app_err,
+                     const int *sel_rows,
+                     const TrainingSetClass &ts,
+                     const char * output_dir,
+                     const char *datatype)
 {
   FILE *err_data, *pts_data;
   FILE *rb_data, *r_data;
@@ -111,10 +115,10 @@ void WriteGreedyInfo(const int dim_RB, const gsl_matrix_complex *RB_space,
 
 // --- GreedyWorker and Master are removed for serial builds --- //
 #ifdef COMPILE_WITH_MPI
-void GreedyWorker(const int rank,\
-                  const Parameters &params,\
-                  const gsl_vector_complex *wQuad,\
-                  const gsl_matrix_complex *A,\
+void GreedyWorker(const int rank,
+                  const Parameters &params,
+                  const gsl_vector_complex *wQuad,
+                  const gsl_matrix_complex *A,
                   const TrainingSetClass &ts)
 {
 
@@ -235,9 +239,9 @@ void GreedyWorker(const int rank,\
     delete [] errors;
 }
 
-void GreedyMaster(const int size,\
-                  const gsl_vector_complex *wQuad,\
-                  const TrainingSetClass &ts,\
+void GreedyMaster(const int size,
+                  const gsl_vector_complex *wQuad,
+                  const TrainingSetClass &ts,
                   const Parameters &params)
 {
 // Input: 
@@ -403,9 +407,9 @@ void GreedyMaster(const int size,\
 }
 #endif // end mpi disabled code (starts with GreedyWorker)
 
-void Greedy(const Parameters &params,\
-            const gsl_matrix_complex *A,\
-            const gsl_vector_complex *wQuad,\
+void Greedy(const Parameters &params,
+            const gsl_matrix_complex *A,
+            const gsl_vector_complex *wQuad,
             const TrainingSetClass &ts)
 {
 // Input: 
@@ -572,13 +576,15 @@ int main (int argc, char **argv) {
   MPI::Get_processor_name(name,len);
   memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
-  std::cout << "Procs = " << size_mpi << " My rank = " << rank << " My name = " << name << "." << std::endl;
+  std::cout << "Procs = " << size_mpi << " My rank = " << rank 
+            << " My name = " << name << "." << std::endl;
   #endif
 
 
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc != 2) {
-    std::cerr << "Arguments: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
+    std::cerr << "Pass only location of configuration file (ends in .cfg)" 
+              << std::endl;
     exit(0);
   }
   std::cout << "parameter file is: " << argv[1] << std::endl;
@@ -598,6 +604,7 @@ int main (int argc, char **argv) {
   char shell_command[100];
   int gsl_status;
   int ts_size;
+  clock_t start, end;
 
   if(params_from_file->export_tspace() && size_mpi > 1){
       fprintf(stderr,"Training space exporting only works with 1 processor!");
@@ -621,29 +628,31 @@ int main (int argc, char **argv) {
 
   // allocates dynamic memory, fills up training set with values //
   TrainingSetClass *ptspace_class = new TrainingSetClass(params_from_file,\
-                                                           size_mpi);
+                                                         size_mpi);
 
   // TS_gsl filled by evaluating model at ptspace_class->params_ //
   // NOTE: GSL error handler will abort if too much memory requested
-  // Ex" size=1 => rank=0 for 5th argument of FillTrainingSet
-  if(size_mpi == 1) // only 1 proc requested (serial mode)
-  {
+  // Ex: size = 1 (serial mode) => rank=0 for 5th argument of FillTrainingSet
+  start = clock();
+  if(size_mpi == 1) {
     TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
     mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
+    end = clock();
+    fprintf(stdout,"Filled TS in %f seconds\n",((double) (end - start)/CLOCKS_PER_SEC));
     Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
   }
-  else
-  {
-
+  else{
     #ifdef COMPILE_WITH_MPI
     if(rank != 0){
       TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
       mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
+      end = clock();
+      fprintf(stdout,"Filled TS in %f seconds\n",((double) (end - start)/CLOCKS_PER_SEC));
     }
 
     fprintf(stdout,"Finished distribution of training set\n");
 
-    if(rank == 0){
+    if(rank == 0) {
       GreedyMaster(size_mpi,wQuad,*ptspace_class,*params_from_file);
     }
     else{
