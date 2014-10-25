@@ -7,17 +7,22 @@ CXXFLAGS=
 #LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++ -lhdf5
 
 SOURCES = training_set.cpp parameters.cpp
-HEADERS = training_set.hpp parameters.hpp gauss_wgts.h spa_waveforms.h gsl_helper_functions.h  my_models.h utils.h
+HEADERS = training_set.hpp parameters.hpp gauss_wgts.h gsl_helper_functions.h  my_models.h utils.h
+
+### model specific flags, headers, sources ###
+MODELFLAGS=
+MODELSOURCES=
+MODELHEADERS=models/spa_waveforms.h
 
 ### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
-greedy: $(SOURCES) $(HEADERS)
-	g++ $(CXXFLAGS) -o greedy greedy.cpp $(SOURCES) $(LDLIBS)
+greedy: $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	g++ $(CXXFLAGS) $(MODELFLAGS) -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
-greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS)
-	mpicxx $(CXXFLAGS) -o greedympi greedy.cpp $(SOURCES) $(LDLIBS)
+greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	mpicxx $(CXXFLAGS) $(MODELFLAGS) -o greedympi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
-verify: basis_validation.cpp $(SOURCES) $(HEADERS)
-	g++ $(CXXFLAGS) -o verify basis_validation.cpp $(SOURCES) -lconfig++ -lgsl -lgslcblas
+verify: basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	g++ $(CXXFLAGS) $(MODELFLAGS) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) -lconfig++ -lgsl -lgslcblas
 
 .PHONY: clean
 clean:
