@@ -1,0 +1,11 @@
+Reproduces 40hz basis (with GQ rule used in first dimensional reduction stage) 
+as described in "Accelerated gravitational-wave parameter estimation with 
+reduced order modeling"
+
+logarithmic parameter sampling of 500 per mass dimension 
+
+quadrature points generated using generate_quadrature.py, which agree with 
+other codes up to 1e-12
+
+Output (greedy points, approximation errors) agree with independent python
+code to machine epsilon.
