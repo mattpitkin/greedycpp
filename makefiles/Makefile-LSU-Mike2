@@ -1,0 +1,16 @@
+all: greedy_mpi
+
+LDLIBS = -lgsl -lgslcblas -lconfig++ -lhdf5
+
+### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
+greedy: greedy.cpp
+	g++ -o greedy greedy.cpp training_set.cpp parameters.cpp $(LDLIBS)
+
+greedy_mpi: greedy.cpp
+	mpicxx -o greedympi greedy.cpp training_set.cpp parameters.cpp -I/home/sfield/pool/include -I/usr/local/packages/gsl/1.15/Intel-13.0.0/include -L/usr/local/packages/gsl/1.15/Intel-13.0.0/lib -L/home/sfield/pool/lib -lgsl -lgslcblas -lm -lconfig++
+
+.PHONY: clean
+clean:
+	rm -f greedy greedympi
+
+
