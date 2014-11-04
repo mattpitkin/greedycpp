@@ -84,11 +84,6 @@ int main (int argc, char **argv) {
   //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
   TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,random_sample_file);
 
-  model_evaluations = gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
-  errors            = new double[random_samples->ts_size()];
-
-  mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
-
   // Creating Run Directory //
   strcpy(shell_command, "mkdir -p -m700 ");
   strcat(shell_command, argv[2]);
@@ -98,6 +93,11 @@ int main (int argc, char **argv) {
   //snprintf(shell_command,100,"cp %s %s%s",argv[3],argv[2],"/validations/");
   //system(shell_command);
 
+
+  model_evaluations = gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
+  errors            = new double[random_samples->ts_size()];
+
+  mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
 
   // TODO: use openMP for this part //
   // error reported will be \sqrt(h - Ph) //
@@ -109,7 +109,10 @@ int main (int argc, char **argv) {
 
 
   strcpy(err_filename,argv[2]);
-  strcat(err_filename,"/validations/VerErrors.txt");
+  strcat(err_filename,"validations/");
+  strcat(err_filename,random_sample_file.substr(
+    random_sample_file.find_last_of("\\/")+1,100).c_str());
+
   err_data = fopen(err_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
