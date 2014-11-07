@@ -1,7 +1,7 @@
 // AUTHOR :  Scott Field 
 //           sfield@astro.cornell.edu
 //
-// DATE: Oct 1, 2014
+// DATE: Nov 10, 2014
 //
 // PURPOSE: mpi version of greedy (pivoted MGS) algorithm 
 

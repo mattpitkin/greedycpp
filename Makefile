@@ -7,7 +7,7 @@ CXXFLAGS=
 #LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
 
 SOURCES = training_set.cpp parameters.cpp
-HEADERS = training_set.hpp parameters.hpp gauss_wgts.h gsl_helper_functions.h  my_models.h utils.h
+HEADERS = training_set.hpp parameters.hpp gsl_helper_functions.h  my_models.h utils.h
 
 ### model specific flags, headers, sources ###
 MODELFLAGS=
