@@ -2,7 +2,6 @@
 #define quadratures_h
 
 #include "parameters.hpp"
-#include "gauss_wgts.h"
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)
@@ -56,7 +55,9 @@ void MakeQuadratureRule(gsl_vector_complex *wQuad_c, gsl_vector *xQuad_c,
 
     // -- Quadrature rule for inner product between rows -- //
     if(quad_type == 0) {
-        gauleg(a,b,xQuad_tmp,wQuad_tmp,quad_points); // returns grid on [-1,1]
+        // TODO: add in gsl quad routine
+        //gauleg(a,b,xQuad_tmp,wQuad_tmp,quad_points); // returns grid on [-1,1]
+        fprintf(stderr,"gaussian quadrature rule removed\n");
     }
     else if(quad_type == 1){
         ReimannQuad(a,b,xQuad_tmp,wQuad_tmp,quad_points);
