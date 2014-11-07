@@ -1,26 +1,23 @@
 Overview
 --------
-Given a parameterized model h(x;p), whose physical variable is x and
-parameterization p. 
 
-From a collection of model evaluations at known at a discrete training set
-of parameter p_i and physical x_j points, we have a training space
+A fast, scalable and easy-to-use parallelization of the greedy algorithm
+for building an application-specific reduced basis. 
 
-   { h(x_j;p_i) }
+In many cases, for example when implimented on a computer and using
+the Euclidean inner product, the greedy algorithm is QR with column pivoting.
+And so this code may also be used to compute QR decompositions of a large
+matrix.
 
-This training space fills up a matrix A such that the i-th row is the model
-evaluation h(\vec{x};p_i). 
+For details on the code's scaling and QR-based model reduction:
 
-The routine greedy.cpp finds a low-rank approximation of A by a 
-pivoted QR (aka greedy) decomposition. The output are a collection 
-of p_i (greedy parameter values), the orthonormal basis, and an 
-R-matrix such that 
+[1] Harbir Antil, Dangxing Chen, and Scott Field. "QR-based model 
+    reduction for large problems". In preperation. 
 
-   A = R * Q 
 
-where the rows of Q are precisely the basis.
+Requirements: libconfig, gsl and MPI (see below to build with mpi disabled).
 
-Requirements: mpi, libconfig, hdf5 
+Code's coordinates: https://sfield83@bitbucket.org/sfield83/greedycpp.git
 
 
 Quick start
@@ -41,12 +38,12 @@ Running example 1
 -----------------
 Lets run an example problem using the configuration file provided in example1/
 
->>> mpirun -np 4 ./ greedympi example1/test1.cfg
+>>> mpirun -np 4 ./ greedympi examples/test1.cfg
 
-A directory called 'example1_output' should contain the output. Check that 
-the output matches whats insides example1 by doing
+A directory called 'my_output_test1' contains the output. Check that 
+the output is whats expected by doing
 
->>> python regression_test.py example1/ example1_output/
+>>> python regression_test.py examples/output_test1 my_output_test1/
 
 This should report on the differences as well as generating a summary 
 html file. Differences, if there any, should be machine precision. 
@@ -58,10 +55,9 @@ params_num  = [30,30];
 params_low  = [1.0,1.0];
 params_high = [3.0,3.0];
 
-
 These settings will, to the first 10 decimal places or so, reproduce the same
-training set samplings as that give from file "example1/TS_Points.txt". Now
-do 
+training set samplings as that give from file "examples/test1_TS_Points.txt". 
+Next, do 
 
 >>> mpirun -np 4 ./ greedympi example1/test1.cfg
 
@@ -78,7 +74,7 @@ Mismatches in the following files:
 ==>            R_imag.txt : Maximum difference =   4.36700e-13 on line 270
 
 
-While differences of 1e-07 might seem large, notice that the 270th 
+While differences of 1e-07 might seem large, notice that the 269th 
 basis is the last one, and its contribution to the approximation 
 is on the order of tol = 1e-12
 
@@ -97,11 +93,7 @@ Running on SuperMike2 with MPI
 
 and run 'resoft'
 
-Next, do
-
-1) open make file and replace mpi install command with
-
-mpicxx -o greedympi greedy.cpp TrainingSet.cpp -I/usr/local/packages/gsl/1.15/Intel-13.0.0/include -L/usr/local/packages/gsl/1.15/Intel-13.0.0/lib -lgsl -lgslcblas -lm
+Using the lsu makefile
 
 2) run 'make'
 3) open mpiGreedyQsub and set number of nodes.
@@ -116,18 +108,46 @@ Troubleshooting
 
 gsl-config --cflags --libs-without-cblas
 
-and the output says what must be added to g++ for to compile and link. Standard spot is in /usr/libs or opt/local
+and the output says what must be added to g++ to compile and link.
 
-2) Install 'libconfig-hr' from macports instead of the package 'libconfig' which is just the c-version
+2) On Macs: Install 'libconfig-hr' from macports instead of the package 
+   'libconfig' which is just the c-version
 
-3) If ld cannot link to libconfig++ (problem on Supermike2), build locally after getting libconfig
+3) If ld cannot link to libconfig++ (problem on Supermike2), 
+   build locally after getting libconfig
 
 >>> wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
 
-Then update LD_LIBRARY_PATH to reflect the location of the newly created libconfig++ shared library
+Then update LD_LIBRARY_PATH to reflect the location of the newly created
+libconfig++ shared library.
+
+
+Problem motivation and typical application
+------------------------------------------
+
+Given a parameterized model h(x;p), whose physical variable is x and
+parameterization p. 
+
+From a collection of model evaluations at known at a discrete training set
+of parameter p_i and physical x_j points, we have a training space
+
+   { h(x_j;p_i) }
+
+This training space fills up a matrix A such that the i-th row is the model
+evaluation h(\vec{x};p_i). 
+
+The routine greedy.cpp finds a low-rank approximation of A by a 
+pivoted QR (aka greedy) decomposition. The output are a collection 
+of p_i (greedy parameter values), the orthonormal basis, and an 
+R-matrix such that 
+
+   A = R * Q 
+
+where the rows of Q are precisely the basis.
+
 
 Acknowledgements
 ----------------
-Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for careful error reporting, 
-code improvements and testing of early versions of the code. 
-
+Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for 
+careful error reporting, code improvements and testing of early versions of 
+the code. Peter Diener for performance optimizations.
