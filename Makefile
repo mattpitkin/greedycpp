@@ -1,10 +1,10 @@
 all: greedy_mpi verify
 
-LDLIBS = -lgsl -lgslcblas -lconfig++ -lhdf5
+LDLIBS = -lgsl -lgslcblas -lconfig++
 #CXXFLAGS=-g -O0 `gsl-config --cflags`
 CXXFLAGS=
-#LDLIBS = -lgsl -lgslcblas -lconfig++ -lhdf5
-#LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++ -lhdf5
+#LDLIBS = -lgsl -lgslcblas -lconfig++
+#LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
 
 SOURCES = training_set.cpp parameters.cpp
 HEADERS = training_set.hpp parameters.hpp gauss_wgts.h gsl_helper_functions.h  my_models.h utils.h

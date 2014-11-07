@@ -4,7 +4,7 @@ Some items to do
 
 2) code should be checkpointable
 
-3) binary or hdf5 output? ignore basis.txt output?
+3) support hdf5 
 
 4) role weights into ts components and use Euclidean inner product. Will be faster
 
@@ -12,4 +12,9 @@ Some items to do
 they only need local information. Better memory usage 
 
 6) for very large GQ points, the p_roots call in generate_quadrature is slow.
-   convert to algorithm used in matlab code. 
+   Use a faster algorithm
+
+7)  num = 1 (for higher d>1 models)
+ 
+8) Bug: valgrind reports memory leak when WriteGreedyInfo writes R matrix
+   exported to text file by WriteGreedyInfo

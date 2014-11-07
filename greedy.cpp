@@ -17,9 +17,6 @@
 #include <mpi.h>
 #endif
 
-//#include "hdf5.h"
-//#define FILE_H5 "file.h5"
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -89,7 +86,7 @@ void WriteGreedyInfo(const int dim_RB,
 
     mygsl::gsl_matrix_complex_fprintf(rb_filename,RB_space);
     // TODO: valgrind reports memory errors here
-    //mygsl::gsl_matrix_complex_fprintf(r_filename,R_matrix);
+    mygsl::gsl_matrix_complex_fprintf(r_filename,R_matrix);
     wrote = true;
   } 
   if(strcmp(datatype,"bin") == 0 || strcmp(datatype,"both") == 0){
