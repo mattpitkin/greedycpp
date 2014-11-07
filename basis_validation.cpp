@@ -36,7 +36,7 @@ int main (int argc, char **argv) {
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc != 4) {
     std::cerr << "Argument: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
-    std::cerr << "Argument: 2. directory containing basis and quadrature information" << std::endl;
+    std::cerr << "Argument: 2. directory containing basis and quadrature information (must end with /)" << std::endl;
     std::cerr << "Argument: 3. file location containing random samples" << std::endl;
     return EXIT_FAILURE;
   }
@@ -105,6 +105,7 @@ int main (int argc, char **argv) {
     gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
     mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,params_from_file->max_RB()-1);
     errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,params_from_file->max_RB()-1));
+    fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
   }
 
 
