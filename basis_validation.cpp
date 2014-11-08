@@ -12,6 +12,8 @@
 #include <string.h>
 #include <cmath>
 
+#include <omp.h>
+
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_matrix.h>
@@ -30,7 +32,6 @@
 #include "my_models.h"
 
 int main (int argc, char **argv) {
-
 
 
   //----- Checking the number of Variables passed to the Executable -----//
@@ -58,6 +59,8 @@ int main (int argc, char **argv) {
   char err_filename[100];
   char shell_command[100];
   FILE *err_data;
+  clock_t start, end;
+
 
   model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
   r_tmp      = gsl_vector_complex_alloc(params_from_file->max_RB());
@@ -101,19 +104,26 @@ int main (int argc, char **argv) {
 
   // TODO: use openMP for this part //
   // error reported will be \sqrt(h - Ph) //
+  start = clock();
+  double omp_start = omp_get_wtime();
+  #pragma omp parallel for
   for(int ii = 0; ii < random_samples->ts_size(); ii++) {
     gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
     mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,params_from_file->max_RB()-1);
     errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,params_from_file->max_RB()-1));
     fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
   }
-
-
+  
   strcpy(err_filename,argv[2]);
   strcat(err_filename,"validations/");
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
+  end = clock();
+  double omp_end  = omp_get_wtime();
+  double omp_time = omp_end - omp_start;
+  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"validation took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
   err_data = fopen(err_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);

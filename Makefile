@@ -22,7 +22,7 @@ greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	mpicxx $(CXXFLAGS) $(MODELFLAGS) -o greedympi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 verify: basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	g++ $(CXXFLAGS) $(MODELFLAGS) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) -lconfig++ -lgsl -lgslcblas
+	g++ $(CXXFLAGS) $(MODELFLAGS) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS) -fopenmp
 
 .PHONY: clean
 clean:
