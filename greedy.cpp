@@ -185,7 +185,8 @@ void GreedyWorker(const int rank,
             for(int j = 0; j < dim_RB; j++)
             {
                 tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-                tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
+//                tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
+                tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
             }
             errors[i] = 1.0 - tmp;
         }
@@ -491,7 +492,8 @@ void Greedy(const Parameters &params,
             for(int j = 0; j < dim_RB; j++)
             {
                tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-               tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
+//               tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
+	       tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
             }
 
             errors[i] = 1.0 - tmp;

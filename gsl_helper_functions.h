@@ -8,13 +8,14 @@
 
 #ifndef gsl_helper_functions_h
 #define gsl_helper_functions_h
+#include <assert.h>
 
 namespace mygsl {
 
 // --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
 // TODO: test in inline is actually faster
 // TODO: this routine can be made faster by fixing code!!
-gsl_complex WeightedInner(const gsl_vector_complex *weights,\
+gsl_complex WeightedInnerOld(const gsl_vector_complex *weights,\
                           const gsl_vector_complex *u,\
                           const gsl_vector_complex *v)
 {
@@ -28,6 +29,40 @@ gsl_complex WeightedInner(const gsl_vector_complex *weights,\
   gsl_blas_zdotc(u,v_tmp,&ans); 
 
   gsl_vector_complex_free(v_tmp);
+
+  return ans;
+}
+
+// Returns the weighted complex scalar product u^H v working on the
+// gsl_complex_vector data structures directly to avoid a copy,
+// traversing the loop only once and enabling vectorization. 
+gsl_complex WeightedInner(const gsl_vector_complex *weights,\
+                          const gsl_vector_complex *u,\
+                          const gsl_vector_complex *v)
+{
+  gsl_complex ans;
+
+  const size_t N = weights->size;
+
+  assert(u->size == N && v->size == N);
+    
+  double ar = 0.0;
+  double ai = 0.0;
+
+  for (size_t i = 0; i < N; i++)
+  {
+    double weightsr = weights->data[2*i];
+    double weightsi = weights->data[2*i+1];
+    double ur = u->data[2*i];
+    double ui = -u->data[2*i+1];
+    double vr = v->data[2*i];
+    double vi = v->data[2*i+1];
+    double tmpr = weightsr*vr - weightsi*vi;
+    double tmpi = weightsr*vi + weightsi*vr;
+    ar += ur*tmpr - ui*tmpi;
+    ai += ur*tmpi + ui*tmpr;
+  }
+  GSL_SET_COMPLEX(&ans, ar, ai);
 
   return ans;
 }
@@ -49,7 +84,6 @@ double GetNorm_double(const gsl_vector_complex *u,\
   gsl_complex nrmc = WeightedInner(wQuad,u,u);
   double nrm = gsl_complex_abs(nrmc);
   nrm = sqrt(nrm);
-
   return nrm;
 }
 
