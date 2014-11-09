@@ -53,7 +53,7 @@ int main (int argc, char **argv) {
   std::cout << *params_from_file;
 
   gsl_matrix_complex *RB_space, *model_evaluations;
-  gsl_vector_complex *wQuad, *model_eval, *r_tmp;
+  gsl_vector_complex *wQuad;
   gsl_vector *xQuad;
   double * errors;
   char err_filename[100];
@@ -61,9 +61,6 @@ int main (int argc, char **argv) {
   FILE *err_data;
   clock_t start, end;
 
-
-  model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
-  r_tmp      = gsl_vector_complex_alloc(params_from_file->max_RB());
   RB_space   = gsl_matrix_complex_alloc(params_from_file->max_RB(),params_from_file->quad_points());
 
   // read in basis from gsl binary file //
@@ -102,16 +99,27 @@ int main (int argc, char **argv) {
 
   mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
 
-  // TODO: use openMP for this part //
   // error reported will be \sqrt(h - Ph) //
   start = clock();
   double omp_start = omp_get_wtime();
-  #pragma omp parallel for
-  for(int ii = 0; ii < random_samples->ts_size(); ii++) {
-    gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
-    mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,params_from_file->max_RB()-1);
-    errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,params_from_file->max_RB()-1));
-    fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
+  #pragma omp parallel
+  {
+    // every variable declared here is thread private (thread-safe)
+    gsl_vector_complex *model_eval, *r_tmp;
+    model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
+    r_tmp      = gsl_vector_complex_alloc(params_from_file->max_RB());
+ 
+    #pragma omp for
+    for(int ii = 0; ii < random_samples->ts_size(); ii++) {
+      gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
+      mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,params_from_file->max_RB()-1);
+      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,params_from_file->max_RB()-1));
+      fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
+    }
+
+    gsl_vector_complex_free(r_tmp);
+    gsl_vector_complex_free(model_eval);
+
   }
   
   strcpy(err_filename,argv[2]);
@@ -134,8 +142,6 @@ int main (int argc, char **argv) {
 
   gsl_matrix_complex_free(RB_space);
   gsl_matrix_complex_free(model_evaluations);
-  gsl_vector_complex_free(r_tmp);
-  gsl_vector_complex_free(model_eval);
   gsl_vector_complex_free(wQuad);
   gsl_vector_free(xQuad);
 
