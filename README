@@ -105,7 +105,8 @@ where the rows of Q are precisely the basis.
 
 Running on SuperMike2
 ---------------------
-0) add the following to ~/.soft:
+
+add the following to ~/.soft:
 @default
 +Intel-13.0.0
 @default
@@ -115,14 +116,11 @@ Running on SuperMike2
 @default
 +fftw-3.3.3-Intel-13.0.
 
-and run 'resoft'
+and run 'resoft'. You might need to download and install libconfig++
 
 Using the lsu makefile
-
-2) run 'make'
-3) open mpiGreedyQsub and set number of nodes.
-4) run 'qsub mpiGreedyQsub' (this will print a jobID to screen)
-5) monitor job with qstat jobID
+1) rename makefiles/Makefile-LSU-Mike2 to "Makefile". run make
+2) open scrips/Qsub-lsu and set number of nodes, submit the job
 
 
 Troubleshooting
@@ -146,9 +144,26 @@ Then update LD_LIBRARY_PATH to reflect the location of the newly created
 libconfig++ shared library.
 
 
+Optimizations
+-------------
+
+The routine WeightedInner comprises the bulk of the computations. We wish to 
+optimize this routine with AVX vector instructions. In turn, underlying gsl
+functions are called (and gsl_vector_complex_mul is not a BLAS routine), 
+and so vectorization would amount to compiling a vectorized version of gsl.
+
+Instead, the following set of tricks (uncovered by Peter Diener) will allow
+for vectorization. First the routine WeightedInner is rewritten to directly
+work on the gsl data structures. Next, a preprocessor flag OPTIMIZE_AVX 
+can be used to decide which version of WeightedInner to use. With OPTIMIZE_AVX
+defined, OPTFLAGS (see the makefile) will vectorize this routine.
+
+One should of course check the optimization works for them. Speedup factors
+between 1.5 and 2 have been observed in practice. 
+
 
 Acknowledgements
 ----------------
 Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for 
 careful error reporting, code improvements and testing of early versions of 
-the code. Peter Diener for performance optimizations.
+the code. Peter Diener for numerous performance optimizations.
