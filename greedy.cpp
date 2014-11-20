@@ -211,16 +211,9 @@ void GreedyWorker(const int rank,
         for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
-            tmpc = mygsl::WeightedInner(wQuad,last_rb,row_vec);
-            gsl_matrix_complex_set(project_coeff,dim_RB-1,i,tmpc);
-
-            tmp = 0;
-            for(int j = 0; j < dim_RB; j++)
-            {
-                tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-                tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
-            }
-            errors[i] = 1.0 - tmp;
+            gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                                  mygsl::WeightedInner(wQuad,last_rb,row_vec));
+            errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
         }
 
         // -- find worst error here (worst_local is worker's row index) -- //
