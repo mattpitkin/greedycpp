@@ -9,11 +9,9 @@
 //-- NOTE: to add a model ONLY my_models.h needs to be modified --//
 
 
-// --- SET PRECOMPILER FLAG FOR MPI OR SERIAL (comment out define) --- //
-#define COMPILE_WITH_MPI
+// --- DEFINE PRECOMPILER FLAG COMPILE_WITHOUT_MPI from makefile --- //
 
-
-#ifdef COMPILE_WITH_MPI
+#ifndef COMPILE_WITHOUT_MPI
 #include <mpi.h>
 #endif
 
@@ -111,7 +109,7 @@ void WriteGreedyInfo(const int dim_RB,
 }
 
 // --- GreedyWorker and Master are removed for serial builds --- //
-#ifdef COMPILE_WITH_MPI
+#ifndef COMPILE_WITHOUT_MPI
 void GreedyWorker(const int rank,
                   const Parameters &params,
                   const gsl_vector_complex *wQuad,
@@ -560,7 +558,7 @@ int main (int argc, char **argv) {
   int size_mpi = 1;  // needed for serial mode too
 
 
-  #ifdef COMPILE_WITH_MPI
+  #ifndef COMPILE_WITHOUT_MPI
   // --- setup MPI info ---//
   MPI::Init(argc, argv);
 
@@ -641,7 +639,7 @@ int main (int argc, char **argv) {
     Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
   }
   else{
-    #ifdef COMPILE_WITH_MPI
+    #ifndef COMPILE_WITHOUT_MPI
     if(rank != 0){
       TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
       mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
@@ -702,7 +700,7 @@ int main (int argc, char **argv) {
   delete params_from_file;
   params_from_file = NULL;
 
-  #ifdef COMPILE_WITH_MPI
+  #ifndef COMPILE_WITHOUT_MPI
   // Tell the MPI library to release all resources it is using
   MPI::Finalize();
   #endif

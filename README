@@ -24,18 +24,18 @@ Quick start
 -----------
 
          -- serial mode --
-1) edit greedy.cpp by commenting out the line "#define COMPILE_WITH_MPI"
-2) run 'make greedy'
-3) run './greedy PARAM_FILE.cfg'
+>>> make greedy
+>>> ./greedy examples/test1.cfg
 
 
          -- mpi --
-1) run 'make'
-2) mpirun -np NUM_PROCS ./greedympi PARAM_FILE.cfg
+>>> run 'make'
+>>> mpirun -np NUM_PROCS ./greedympi examples/test1.cfg
 
 
 Running example 1
 -----------------
+
 Lets run an example problem using the configuration file provided in example1/
 
 >>> mpirun -np 4 ./ greedympi examples/test1.cfg
@@ -46,7 +46,7 @@ the output is whats expected by doing
 >>> python regression_test.py examples/output_test1 my_output_test1/
 
 This should report on the differences as well as generating a summary 
-html file. Differences, if there any, should be machine precision. 
+html file. Differences, if they exist, should be machine precision. 
 
 Next, lets modify test1.cfg. The relevant variables should be changed to 
 
@@ -55,15 +55,15 @@ params_num  = [30,30];
 params_low  = [1.0,1.0];
 params_high = [3.0,3.0];
 
-These settings will, to the first 10 decimal places or so, reproduce the same
-training set samplings as that give from file "examples/test1_TS_Points.txt". 
-Next, do 
+These settings will, to the first 10-ish digits, reproduce the same training 
+set samplings as that give from file "examples/test1_TS_Points.txt". Next, do 
 
 >>> mpirun -np 4 ./ greedympi example1/test1.cfg
 
 You should find minor differences similar to:
 
 >>> python regression_test.py example1/ example1_output/
+
 
 Mismatches in the following files: 
 ==>      ApproxErrors.txt : Maximum difference =   9.00391e-14 on line 261
@@ -79,8 +79,32 @@ basis is the last one, and its contribution to the approximation
 is on the order of tol = 1e-12
 
 
-Running on SuperMike2 with MPI
-------------------------------
+Problem motivation and typical application
+------------------------------------------
+
+Given a parameterized model h(x;p), whose physical variable is x and
+parameterization p. 
+
+From a collection of model evaluations at known at a discrete training set
+of parameter p_i and physical x_j points, we have a training space
+
+   { h(x_j;p_i) }
+
+This training space fills up a matrix A such that the i-th row is the model
+evaluation h(\vec{x};p_i). 
+
+The routine greedy.cpp finds a low-rank approximation of A by a 
+pivoted QR (aka greedy) decomposition. The output are a collection 
+of p_i (greedy parameter values), the orthonormal basis, and an 
+R-matrix such that 
+
+   A = R * Q 
+
+where the rows of Q are precisely the basis.
+
+
+Running on SuperMike2
+---------------------
 0) add the following to ~/.soft:
 @default
 +Intel-13.0.0
@@ -121,29 +145,6 @@ and the output says what must be added to g++ to compile and link.
 Then update LD_LIBRARY_PATH to reflect the location of the newly created
 libconfig++ shared library.
 
-
-Problem motivation and typical application
-------------------------------------------
-
-Given a parameterized model h(x;p), whose physical variable is x and
-parameterization p. 
-
-From a collection of model evaluations at known at a discrete training set
-of parameter p_i and physical x_j points, we have a training space
-
-   { h(x_j;p_i) }
-
-This training space fills up a matrix A such that the i-th row is the model
-evaluation h(\vec{x};p_i). 
-
-The routine greedy.cpp finds a low-rank approximation of A by a 
-pivoted QR (aka greedy) decomposition. The output are a collection 
-of p_i (greedy parameter values), the orthonormal basis, and an 
-R-matrix such that 
-
-   A = R * Q 
-
-where the rows of Q are precisely the basis.
 
 
 Acknowledgements

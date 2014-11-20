@@ -10,29 +10,12 @@
 #define gsl_helper_functions_h
 #include <assert.h>
 
+// Define OPTIMIZE_AVX with -D compiler flag // 
+// compiling with icc and -O3 -xHOST flags should be faster
+
 namespace mygsl {
 
-// --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
-// TODO: test in inline is actually faster
-// TODO: this routine can be made faster by fixing code!!
-gsl_complex WeightedInnerOld(const gsl_vector_complex *weights,\
-                          const gsl_vector_complex *u,\
-                          const gsl_vector_complex *v)
-{
-  gsl_complex ans;
-  gsl_vector_complex *v_tmp;
-
-  v_tmp = gsl_vector_complex_alloc(v->size);
-
-  gsl_vector_complex_memcpy(v_tmp,v);
-  gsl_vector_complex_mul(v_tmp,weights); // pointwise multiplcation
-  gsl_blas_zdotc(u,v_tmp,&ans); 
-
-  gsl_vector_complex_free(v_tmp);
-
-  return ans;
-}
-
+#ifdef OPTIMIZE_AVX
 // Returns the weighted complex scalar product u^H v working on the
 // gsl_complex_vector data structures directly to avoid a copy,
 // traversing the loop only once and enabling vectorization. 
@@ -66,6 +49,30 @@ gsl_complex WeightedInner(const gsl_vector_complex *weights,\
 
   return ans;
 }
+
+#else
+
+// --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
+// TODO: this routine can be made faster by fixing code!!
+gsl_complex WeightedInner(const gsl_vector_complex *weights,\
+                          const gsl_vector_complex *u,\
+                          const gsl_vector_complex *v)
+{
+  gsl_complex ans;
+  gsl_vector_complex *v_tmp;
+
+  v_tmp = gsl_vector_complex_alloc(v->size);
+
+  gsl_vector_complex_memcpy(v_tmp,v);
+  gsl_vector_complex_mul(v_tmp,weights); // pointwise multiplcation
+  gsl_blas_zdotc(u,v_tmp,&ans); 
+
+  gsl_vector_complex_free(v_tmp);
+
+  return ans;
+}
+
+#endif
 
 // --- compute <u,v> = \sum_i u_i^* v_i --- //
 gsl_complex EuclideanInner(const gsl_vector_complex *u,\

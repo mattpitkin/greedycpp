@@ -23,7 +23,7 @@ def generate_sampling(filename):
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
     ### setup for random sampling ###
-    total_picks = 2000     # random: this many draws from interval
+    total_picks = 10     # random: this many draws from interval
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
@@ -92,4 +92,6 @@ def generate_sampling(filename):
 if __name__=="__main__":
 
     filename = str(sys.argv[1])
-    generate_sampling(filename)
+    files    = int(sys.argv[2])
+    for ii in range(files):
+        generate_sampling(filename+str(ii))
