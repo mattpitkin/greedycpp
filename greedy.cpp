@@ -223,17 +223,9 @@ void GreedyWorker(const int rank,
             errors[i] = 1.0 - tmp;
         }
 
-        // -- find worst error here -- //
-        tmp = 0.0;
-        for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
-        {
-            if(tmp < errors[i])
-            {
-                tmp = errors[i];
-                worst_local = i;  // local (worker's) row index
-                worst_global = ts.mystart()[rank] + i; // global row index 
-            }
-        }
+        // -- find worst error here (worst_local is worker's row index) -- //
+        FindWorstTS(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
+        worst_global = ts.mystart()[rank] + worst_local; // global row index
 
         // -- pass worst error and index to master --//
         MPI_Gather(&worst_global,1,MPI_INT,worst_workers_mpi,\
