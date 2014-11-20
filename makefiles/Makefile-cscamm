@@ -17,7 +17,7 @@ CXXFLAGS=-I/home/sfield/pool/include -I/home/sfield/pool -L/home/sfield/pool/lib
 
 
 ### gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) ###
-OPTFLAGS=-O3 -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
+#OPTFLAGS=-O3 -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 
 SOURCES = training_set.cpp parameters.cpp
 HEADERS = training_set.hpp parameters.hpp gsl_helper_functions.h  my_models.h utils.h
