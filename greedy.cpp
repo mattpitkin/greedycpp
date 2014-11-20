@@ -15,6 +15,10 @@
 #include <mpi.h>
 #endif
 
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -54,8 +58,22 @@ double SumProjectionCoeffs(const gsl_matrix_complex *project_coeff,
   }
 
   return tmp;
-
 }
+
+void FindWorstTS(const double *errors,
+                 const int len,
+                 double &worst_err,
+                 int &worst_app)
+{
+  worst_err = 0.0;
+  for(int i = 0; i < len; i++) {
+    if(worst_err < errors[i]) {
+      worst_err = errors[i];
+      worst_app = i;
+    }
+  }
+}
+
 
 void WriteGreedyInfo(const int dim_RB,
                      const gsl_matrix_complex *RB_space,
@@ -486,6 +504,11 @@ void Greedy(const Parameters &params,
 
   // --- Continue approximation until tolerance satisfied --- //
   start = clock();
+
+  #ifdef USE_OPENMP
+  double omp_start = omp_get_wtime();
+  #endif
+ 
   while(continue_work)
   {
 
@@ -494,26 +517,27 @@ void Greedy(const Parameters &params,
     gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
 
     // --- Loop over training set ---//
-    for(int i = 0; i < rows; i++)
+    #pragma omp parallel
     {
-      gsl_matrix_complex_get_row(ts_el,A,i);
-      gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                             mygsl::WeightedInner(wQuad,last_rb,ts_el));
-      errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
-    }
+      // every variable declared here is thread private (thread-safe)
+      gsl_vector_complex *ts_el_omp;
+      ts_el_omp = gsl_vector_complex_alloc(cols);
 
-    // --- find worst error --- //
-    worst_err = 0.0;
-    for(int i = 0; i < rows; i++) {
-      if(worst_err < errors[i]) {
-        worst_err = errors[i];
-        worst_app = i;
+      #pragma omp for
+      for(int i = 0; i < rows; i++)
+      {
+        gsl_matrix_complex_get_row(ts_el_omp,A,i);
+        gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                               mygsl::WeightedInner(wQuad,last_rb,ts_el_omp));
+        errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
       }
+      gsl_vector_complex_free(ts_el_omp);
     }
 
-    // --- add worst approximated element to basis --- //
+    // --- find worst represented ts element, add to basis --- //
+    FindWorstTS(errors,rows,worst_err,worst_app);
     greedy_points[dim_RB] = worst_app;
-    greedy_err[dim_RB] = worst_err;
+    greedy_err[dim_RB]    = worst_err;
 
     // -- decide if another greedy sweep is needed -- //
     if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
@@ -537,9 +561,16 @@ void Greedy(const Parameters &params,
 
   }
   end = clock();
-
   alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
-  fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
+
+  #ifdef USE_OPENMP
+  double omp_end  = omp_get_wtime();
+  double omp_time = omp_end - omp_start;
+  #else
+  double omp_time = alg_time;
+  #endif
+ 
+  fprintf(stdout,"Building approximation space took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
   dim_RB = dim_RB - 1;
 
   // -- output relevant information -- //

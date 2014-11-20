@@ -12,7 +12,9 @@
 #include <string.h>
 #include <cmath>
 
+#ifdef USE_OPENMP
 #include <omp.h>
+#endif
 
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_randist.h>
@@ -101,7 +103,10 @@ int main (int argc, char **argv) {
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
+  #ifdef USE_OPENMP
   double omp_start = omp_get_wtime();
+  #endif
+
   #pragma omp parallel
   {
     // every variable declared here is thread private (thread-safe)
@@ -128,9 +133,15 @@ int main (int argc, char **argv) {
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
   end = clock();
+  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+
+  #ifdef USE_OPENMP
   double omp_end  = omp_get_wtime();
   double omp_time = omp_end - omp_start;
-  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  #else
+  double omp_time = alg_time;
+  #endif
+
   fprintf(stdout,"validation took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
   err_data = fopen(err_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {

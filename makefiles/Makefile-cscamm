@@ -4,10 +4,11 @@ all: greedy_mpi greedy verify
 MODELFLAGS=
 MODELSOURCES=
 MODELHEADERS=models/spa_waveforms.h
-### end model specific information ###
 
 COMPILER=g++
 COMPILER_MPI=mpicxx
+
+OPENMP=-fopenmp -DUSE_OPENMP
 
 LDLIBS=-lgsl -lgslcblas -lconfig++
 #CXXFLAGS=-g -O0 `gsl-config --cflags`
@@ -23,14 +24,14 @@ HEADERS = training_set.hpp parameters.hpp gsl_helper_functions.h  my_models.h ut
 
 
 ### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
-greedy: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -DCOMPILE_WITHOUT_MPI -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+greedy: $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -DCOMPILE_WITHOUT_MPI -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	mpicxx $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -o greedympi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+	mpicxx $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -o greedympi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 verify: basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) -lconfig++ -lgsl -lgslcblas -fopenmp
+	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 .PHONY: clean
 clean:
