@@ -23,7 +23,7 @@ HEADERS = training_set.hpp parameters.hpp gsl_helper_functions.h  my_models.h ut
 
 
 ### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
-greedy: $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+greedy: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -DCOMPILE_WITHOUT_MPI -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)

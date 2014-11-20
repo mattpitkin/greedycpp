@@ -40,6 +40,23 @@
 #include "utils.h"
 #include "my_models.h"
 
+double SumProjectionCoeffs(const gsl_matrix_complex *project_coeff,
+                           const int i,
+                           const int dim_RB)
+{
+
+  double tmp = 0;
+  gsl_complex tmpc;
+
+  for(int j = 0; j < dim_RB; j++) {
+    tmpc = gsl_matrix_complex_get(project_coeff,j,i);
+    tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
+  }
+
+  return tmp;
+
+}
+
 void WriteGreedyInfo(const int dim_RB,
                      const gsl_matrix_complex *RB_space,
                      const gsl_matrix_complex *R_matrix,
@@ -183,7 +200,6 @@ void GreedyWorker(const int rank,
             for(int j = 0; j < dim_RB; j++)
             {
                 tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-                //tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
                 tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
             }
             errors[i] = 1.0 - tmp;
@@ -417,138 +433,129 @@ void Greedy(const Parameters &params,
 //          sel_rows: row index defining reduced basis. sel_rows[0] = seed
 //          dim_RB: number of greedy_points
 
-    fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
+  fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
-    // -- unpack parameter class here -- //
-    const int seed                 = params.seed();
-    const int max_RB               = params.max_RB();
-    const double tol               = params.tol();
-    const char *output_dir         = params.output_dir().c_str();
-    const char *output_data_format = params.output_data_format().c_str();
-    const int ts_size              = params.ts_size();
+  // -- unpack parameter class here -- //
+  const int seed                 = params.seed();
+  const int max_RB               = params.max_RB();
+  const double tol               = params.tol();
+  const char *output_dir         = params.output_dir().c_str();
+  const char *output_data_format = params.output_data_format().c_str();
+  const int ts_size              = params.ts_size();
 
-    const int rows = A->size1; // number of rows to approximate
-    const int cols = A->size2; // samples (for quadrature)
-    int *greedy_points;        // selectted greedy points (row selection)
-    double *greedy_err;        // approximate error
-    clock_t start, end;        // for algorithm timing experiments
-    clock_t start1, end1;      // for algorithm timing experiments
-    double alg_time;           // for algorithm timing experiments
-    double tmp,worst_err;      // errors in greedy sweep
-    int worst_app;             // worst error stored
-    gsl_complex tmpc;          // worst error temp
-    bool continue_work = true;
-
-
-    gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
-    gsl_matrix_complex *RB_space, *R_matrix;
-    double *errors;                    // approximation errors vs dim_RB
-    gsl_matrix_complex *project_coeff; // h = coeff_i e_i
+  const int rows = A->size1; // number of rows to approximate
+  const int cols = A->size2; // samples (for quadrature)
+  int *greedy_points;        // selectted greedy points (row selection)
+  double *greedy_err;        // approximate error
+  clock_t start, end;        // for algorithm timing experiments
+  clock_t start1, end1;      // for algorithm timing experiments
+  double alg_time;           // for algorithm timing experiments
+  double tmp,worst_err;      // errors in greedy sweep
+  int worst_app;             // worst error stored
+  gsl_complex tmpc;          // worst error temp
+  bool continue_work = true;
 
 
-    // --- this memory should be freed here --- //
-    ts_el         = gsl_vector_complex_alloc(cols);
-    last_rb       = gsl_vector_complex_alloc(cols);
-    ortho_basis   = gsl_vector_complex_alloc(cols);
-    ru = gsl_vector_complex_alloc(max_RB);
-    errors        = new double[rows];
-    project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
-    greedy_points = new int[max_RB];
-    greedy_err    = new double[max_RB];
-    RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
-    R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
+  gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
+  gsl_matrix_complex *RB_space, *R_matrix;
+  double *errors;                    // approximation errors vs dim_RB
+  gsl_matrix_complex *project_coeff; // h = coeff_i e_i
 
-    // --- initialize algorithm with seed --- //
-    gsl_matrix_complex_get_row(ts_el,A,seed);
-    gsl_matrix_complex_set_row(RB_space,0,ts_el);
-    GSL_SET_COMPLEX(&tmpc,1.0,0.0);
-    gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // assumes normalized solutions
 
-    greedy_points[0] = seed;
-    int dim_RB       = 1;
-    greedy_err[0]    = 1.0;
+  // --- this memory should be freed here --- //
+  ts_el         = gsl_vector_complex_alloc(cols);
+  last_rb       = gsl_vector_complex_alloc(cols);
+  ortho_basis   = gsl_vector_complex_alloc(cols);
+  ru            = gsl_vector_complex_alloc(max_RB);
+  errors        = new double[rows];
+  project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
+  greedy_points = new int[max_RB];
+  greedy_err    = new double[max_RB];
+  RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
+  R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
 
-    // --- Continue approximation until tolerance satisfied --- //
-    start = clock();
-    while(continue_work)
+  // --- initialize algorithm with seed --- //
+  gsl_matrix_complex_get_row(ts_el,A,seed);
+  gsl_matrix_complex_set_row(RB_space,0,ts_el);
+  GSL_SET_COMPLEX(&tmpc,1.0,0.0);
+  gsl_matrix_complex_set(R_matrix,0,0,tmpc);  // assumes normalized solutions
+
+  greedy_points[0] = seed;
+  int dim_RB       = 1;
+  greedy_err[0]    = 1.0;
+
+  // --- Continue approximation until tolerance satisfied --- //
+  start = clock();
+  while(continue_work)
+  {
+
+    start1 = clock();
+
+    gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
+
+    // --- Loop over training set ---//
+    for(int i = 0; i < rows; i++)
     {
-
-        start1 = clock();
-
-        gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
-        worst_err = 0.0;
-
-        // --- Loop over training set ---//
-        for(int i = 0; i < rows; i++)
-        {
-
-            gsl_matrix_complex_get_row(ts_el,A,i);
-            tmpc = mygsl::WeightedInner(wQuad,last_rb,ts_el);
-            gsl_matrix_complex_set(project_coeff,dim_RB-1,i,tmpc);
-
-            tmp = 0;
-            for(int j = 0; j < dim_RB; j++)
-            {
-               tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-               // tmp = tmp + gsl_complex_abs(tmpc)*gsl_complex_abs(tmpc);
-	       tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
-            }
-
-            errors[i] = 1.0 - tmp;
-
-            if(worst_err < errors[i])
-            {
-                worst_err = errors[i];
-                worst_app = i;
-            }
-
-        }
-
-        // --- add worst approximated element to basis --- //
-        greedy_points[dim_RB] = worst_app;
-        greedy_err[dim_RB] = worst_err;
-
-        // -- decide if another greedy sweep is needed -- //
-        if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
-            continue_work = false;
-        }
-
-
-        // --- add worst approximated solution to basis set --- //
-        gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
-        mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
-        //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-        gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
-        gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
-        dim_RB = dim_RB + 1;
-
-        end1 = clock();
-        alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-
-        fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
-                dim_RB,worst_app,worst_err,alg_time);
-
+      gsl_matrix_complex_get_row(ts_el,A,i);
+      gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                             mygsl::WeightedInner(wQuad,last_rb,ts_el));
+      errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
     }
-    end = clock();
 
-    alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
-    fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
-    dim_RB = dim_RB - 1;
+    // --- find worst error --- //
+    worst_err = 0.0;
+    for(int i = 0; i < rows; i++) {
+      if(worst_err < errors[i]) {
+        worst_err = errors[i];
+        worst_app = i;
+      }
+    }
 
-    // -- output relevant information -- //
-    WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,\
-                    greedy_points,ts,output_dir,output_data_format);
+    // --- add worst approximated element to basis --- //
+    greedy_points[dim_RB] = worst_app;
+    greedy_err[dim_RB] = worst_err;
 
-    gsl_vector_complex_free(ts_el);
-    gsl_vector_complex_free(last_rb);
-    gsl_vector_complex_free(ortho_basis);
-    gsl_vector_complex_free(ru);
-    delete [] errors;
-    gsl_matrix_complex_free(project_coeff);
-    delete [] greedy_points;
-    delete [] greedy_err;
-    gsl_matrix_complex_free(RB_space);
-    gsl_matrix_complex_free(R_matrix);
+    // -- decide if another greedy sweep is needed -- //
+    if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
+      continue_work = false;
+    }
+
+
+    // --- add worst approximated solution to basis set --- //
+    gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
+    mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
+    //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+    gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
+    gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
+    dim_RB = dim_RB + 1;
+
+    end1 = clock();
+    alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+
+    fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
+            dim_RB,worst_app,worst_err,alg_time);
+
+  }
+  end = clock();
+
+  alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"Building approximation space took %f seconds\n",alg_time);
+  dim_RB = dim_RB - 1;
+
+  // -- output relevant information -- //
+  WriteGreedyInfo(dim_RB,RB_space,R_matrix,greedy_err,\
+                  greedy_points,ts,output_dir,output_data_format);
+
+  gsl_vector_complex_free(ts_el);
+  gsl_vector_complex_free(last_rb);
+  gsl_vector_complex_free(ortho_basis);
+  gsl_vector_complex_free(ru);
+  delete [] errors;
+  gsl_matrix_complex_free(project_coeff);
+  delete [] greedy_points;
+  delete [] greedy_err;
+  gsl_matrix_complex_free(RB_space);
+  gsl_matrix_complex_free(R_matrix);
 
 }
 
