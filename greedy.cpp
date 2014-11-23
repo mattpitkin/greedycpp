@@ -69,7 +69,7 @@ void WriteGreedyInfo(const int dim_RB,
   //--- write errors and greedy points to text file ---//
   err_data = fopen(err_filename,"w");
   pts_data = fopen(pts_filename,"w");
-  for(int i = 0; i < dim_RB ; i++)
+  for(int i = 0; i <= dim_RB ; i++)
   {
     fprintf(err_data,"%1.15e\n",app_err[i]);
     ts.fprintf_ith(pts_data,sel_rows[i]);
