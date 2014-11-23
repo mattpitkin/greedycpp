@@ -18,3 +18,7 @@ they only need local information. Better memory usage
  
 8) Bug: valgrind reports memory leak when WriteGreedyInfo writes R matrix
    exported to text file by WriteGreedyInfo
+
+9) when openMP used, directly access matrix data to avoid ts_el_omp allocs
+
+10) when non using openMP, code should never realloc ts_el_omp

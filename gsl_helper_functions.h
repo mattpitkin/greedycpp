@@ -236,6 +236,23 @@ void gsl_matrix_complex_fprintf(const char *data_filename,\
 }
 
 
+// sum first n rows of A's column i
+double SumColumn(const gsl_matrix_complex *A,
+                           const int i,
+                           const int n)
+{
+  double tmp = 0;
+  gsl_complex tmpc;
+
+  for(int j = 0; j < n; j++) {
+    tmpc = gsl_matrix_complex_get(A,j,i);
+    tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
+  }
+
+  return tmp;
+}
+
+
 void gsl_vector_sqrt(gsl_vector_complex *out,\
                      const gsl_vector_complex *in)
 {  
