@@ -22,3 +22,5 @@ they only need local information. Better memory usage
 9) when openMP used, directly access matrix data to avoid ts_el_omp allocs
 
 10) when non using openMP, code should never realloc ts_el_omp
+
+11) control output verbosity from cfg file 
