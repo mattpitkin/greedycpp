@@ -44,37 +44,6 @@
 #include "utils.h"
 #include "my_models.h"
 
-double SumProjectionCoeffs(const gsl_matrix_complex *project_coeff,
-                           const int i,
-                           const int dim_RB)
-{
-
-  double tmp = 0;
-  gsl_complex tmpc;
-
-  for(int j = 0; j < dim_RB; j++) {
-    tmpc = gsl_matrix_complex_get(project_coeff,j,i);
-    tmp += tmpc.dat[0]*tmpc.dat[0]+tmpc.dat[1]*tmpc.dat[1];
-  }
-
-  return tmp;
-}
-
-void FindWorstTS(const double *errors,
-                 const int len,
-                 double &worst_err,
-                 int &worst_app)
-{
-  worst_err = 0.0;
-  for(int i = 0; i < len; i++) {
-    if(worst_err < errors[i]) {
-      worst_err = errors[i];
-      worst_app = i;
-    }
-  }
-}
-
-
 void WriteGreedyInfo(const int dim_RB,
                      const gsl_matrix_complex *RB_space,
                      const gsl_matrix_complex *R_matrix,
@@ -207,17 +176,40 @@ void GreedyWorker(const int rank,
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
         mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
+
+        #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
+        //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+        #pragma omp parallel
+        {
+          //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+
+          // every variable declared here is thread private (thread-safe)
+          gsl_vector_complex *ts_el_omp;
+          ts_el_omp = gsl_vector_complex_alloc(cols);
+
+          #pragma omp for
+          for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
+          {
+              gsl_matrix_complex_get_row(ts_el_omp,A,i);
+              gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                                    mygsl::WeightedInner(wQuad,last_rb,ts_el_omp));
+              errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+          }
+          gsl_vector_complex_free(ts_el_omp);
+        }
+        #else
         // Compute overlaps of pieces of A with rb_new //
         for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
         {
             gsl_matrix_complex_get_row(row_vec,A,i);
             gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                                   mygsl::WeightedInner(wQuad,last_rb,row_vec));
-            errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
+            errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
         }
+        #endif
 
         // -- find worst error here (worst_local is worker's row index) -- //
-        FindWorstTS(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
+        FindMax2(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
         worst_global = ts.mystart()[rank] + worst_local; // global row index
 
         // -- pass worst error and index to master --//
@@ -281,7 +273,9 @@ void GreedyMaster(const int size,
     double *greedy_err;           // approximate error
     clock_t start, end;           // for algorithm timing experiments
     clock_t start1, end1;         // for algorithm timing experiments
-    double alg_time;              // for algorithm timing experiments
+    clock_t start_or, end_or;     // time between orthogonalizations
+    clock_t start_sw, end_sw;     // greedy sweep times
+    double alg_time,or_t,sw_t;    // for algorithm timing experiments
     double worst_err;             // errors in greedy sweep
     int worst_app, worst_worker, worst_rank;             // worst error stored
     double rb_inc_r, rb_inc_i;
@@ -346,10 +340,12 @@ void GreedyMaster(const int size,
         MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
         // -- gather worst (local) info from workers -- //
+        start_sw = clock();
         MPI_Gather(&dummy_mpi_int,1,MPI_INT,worst_workers_mpi,\
                    1,MPI_INT,0,MPI_COMM_WORLD);
         MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,\
                    1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        end_sw = clock();
 
         // -- find worst rb amongst all workers -- //
         worst_err = 0.0;
@@ -385,17 +381,22 @@ void GreedyMaster(const int size,
         greedy_err[dim_RB] = worst_err;
 
         // --- add worst approximated solution/row to basis set --- //
+        start_or = clock();
         mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
         //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+        end_or = clock();
         gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
         gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
         dim_RB = dim_RB + 1;
 
         end1 = clock();
+        or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
+        sw_t     = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
         alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
 
-        fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
-                dim_RB,worst_app,worst_err,alg_time);
+        fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+                       "| sweep time %1.3e | total time %1.3e\n",\
+                dim_RB,worst_app,worst_err,or_t,sw_t,alg_time);
 
     }
     end = clock();
@@ -453,7 +454,7 @@ void Greedy(const Parameters &params,
   clock_t start, end;        // for algorithm timing experiments
   clock_t start1, end1;      // for algorithm timing experiments
   double alg_time;           // for algorithm timing experiments
-  double tmp,worst_err;      // errors in greedy sweep
+  double worst_err;          // errors in greedy sweep
   int worst_app;             // worst error stored
   gsl_complex tmpc;          // worst error temp
   bool continue_work = true;
@@ -501,9 +502,14 @@ void Greedy(const Parameters &params,
 
     gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
 
+
     // --- Loop over training set ---//
+    #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
+    //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
     #pragma omp parallel
     {
+      //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+
       // every variable declared here is thread private (thread-safe)
       gsl_vector_complex *ts_el_omp;
       ts_el_omp = gsl_vector_complex_alloc(cols);
@@ -514,13 +520,24 @@ void Greedy(const Parameters &params,
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                                mygsl::WeightedInner(wQuad,last_rb,ts_el_omp));
-        errors[i] = 1.0 - SumProjectionCoeffs(project_coeff,i,dim_RB);
+        errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
     }
+    #else
+    // Compute overlaps of pieces of A with rb_new //
+    for(int i = 0; i < rows; i++)
+    {
+        gsl_matrix_complex_get_row(ts_el,A,i);
+        gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                              mygsl::WeightedInner(wQuad,last_rb,ts_el));
+        errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+    }
+    #endif
+
 
     // --- find worst represented ts element, add to basis --- //
-    FindWorstTS(errors,rows,worst_err,worst_app);
+    FindMax2(errors,rows,worst_err,worst_app);
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
