@@ -32,6 +32,9 @@
 #include "quadratures.h"
 #include "training_set.hpp"
 #include "my_models.h"
+#include "utils.h"
+
+#include <assert.h>
 
 int main (int argc, char **argv) {
 
@@ -62,8 +65,19 @@ int main (int argc, char **argv) {
   char shell_command[100];
   FILE *err_data;
   clock_t start, end;
+  char rb_size_filename[100];
+  char quad_size_filename[100];
 
-  RB_space   = gsl_matrix_complex_alloc(params_from_file->max_RB(),params_from_file->quad_points());
+  strcpy(rb_size_filename,argv[2]);
+  strcat(rb_size_filename,"/ApproxErrors.txt");
+
+  strcpy(quad_size_filename,argv[2]);
+  strcat(quad_size_filename,"/quad_rule.txt");
+
+  const int rb_size   = fcount_pts(rb_size_filename);
+  const int quad_size = fcount_pts(quad_size_filename);
+
+  RB_space = gsl_matrix_complex_alloc(rb_size,quad_size);
 
   // read in basis from gsl binary file //
   char rb_filename[100];
@@ -75,12 +89,10 @@ int main (int argc, char **argv) {
   gsl_matrix_complex_fread(pBASIS,RB_space);
   fclose(pBASIS);
 
-  //char testwrite[100];
-  //strcpy(testwrite,"RB_test");
-  //mygsl::gsl_matrix_complex_fprintf(testwrite,RB_space);
-
   // reconstruct quadrature rule used in greedy //
   SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
+
+  assert(quad_size == xQuad->size && quad_size == params_from_file->quad_points());
 
   // this is useful sanity check (looks at TS waveform errors) //
   //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
@@ -92,14 +104,11 @@ int main (int argc, char **argv) {
   strcat(shell_command, "/validations/");
   system(shell_command);
 
-  //snprintf(shell_command,100,"cp %s %s%s",argv[3],argv[2],"/validations/");
-  //system(shell_command);
-
-
   model_evaluations = gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
   errors            = new double[random_samples->ts_size()];
 
   mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
+  std::cout << "IM HERE" << std::endl;
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
@@ -112,13 +121,13 @@ int main (int argc, char **argv) {
     // every variable declared here is thread private (thread-safe)
     gsl_vector_complex *model_eval, *r_tmp;
     model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
-    r_tmp      = gsl_vector_complex_alloc(params_from_file->max_RB());
+    r_tmp      = gsl_vector_complex_alloc(rb_size);
  
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
       gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
-      mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,params_from_file->max_RB()-1);
-      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,params_from_file->max_RB()-1));
+      mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,rb_size-1);
+      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,rb_size-1));
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
     }
 
