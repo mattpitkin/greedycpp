@@ -21,7 +21,7 @@ def load_info(outdir):
     weights    = quad_rule[:,1]
     nodes      = quad_rule[:,0]
 
-    ### remove the zeros --- final XXX rows are identically zero ###
+    ### remove the zeros --- final XXX rows could be identically zero ###
     basis_real = basis_real[np.where(np.any(basis_real != 0, axis=1))]
     basis_imag = basis_imag[np.where(np.any(basis_imag != 0, axis=1))]
 
@@ -69,7 +69,7 @@ def basis_accuracy_test(outdir):
         err_app[ii] = np.sqrt( np.dot( weights * err_h,err_h.conj()) ).real
 
     import matplotlib.pyplot as plt
-    plt.semilogy(range(evaluations),err_app)
+    plt.semilogy(range(evaluations),err_app,'ro')
     plt.show()
 
     ## to show other info ##

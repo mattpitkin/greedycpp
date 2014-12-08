@@ -45,8 +45,8 @@
 #include "my_models.h"
 
 void WriteGreedyInfo(const int dim_RB,
-                     const gsl_matrix_complex *RB_space,
-                     const gsl_matrix_complex *R_matrix,
+                     gsl_matrix_complex *RB_space, // "const": need to resize
+                     gsl_matrix_complex *R_matrix, // same "const"
                      const double *app_err,
                      const int *sel_rows,
                      const TrainingSetClass &ts,
@@ -59,6 +59,15 @@ void WriteGreedyInfo(const int dim_RB,
   char pts_filename[100];
   char rb_filename[100];
   char r_filename[100];
+
+  // directly resize matrix so only non-zero basis are output //
+  // (undo this before leaving routine) //
+  int RB_space_size1 = RB_space->size1; 
+  int R_size1        = R_matrix->size1;
+  int R_size2        = R_matrix->size2;
+  RB_space->size1 = dim_RB+1;
+  R_matrix->size1 = dim_RB+1;
+  R_matrix->size2 = dim_RB+1; 
 
 
   strcpy(err_filename,output_dir);
@@ -109,6 +118,11 @@ void WriteGreedyInfo(const int dim_RB,
     fprintf(stderr,"file type not supported");
     exit(1);
   }
+
+  // restore matrix to its original size //
+  RB_space->size1 = RB_space_size1;
+  R_matrix->size1 = R_size1;
+  R_matrix->size2 = R_size2; 
 
 }
 
