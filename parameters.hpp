@@ -9,7 +9,7 @@
 class Parameters {
   public:
     Parameters();
-    Parameters(char **);
+    Parameters(char **,bool);
     ~Parameters();
 
     inline bool load_from_file() const { return load_from_file_; }

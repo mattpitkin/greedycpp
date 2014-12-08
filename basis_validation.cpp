@@ -51,7 +51,7 @@ int main (int argc, char **argv) {
 
   //--- Read input file argv[1]. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
-  Parameters *params_from_file = new Parameters(argv);
+  Parameters *params_from_file = new Parameters(argv,true);
   std::cout << *params_from_file;
 
   gsl_matrix_complex *RB_space, *model_evaluations;

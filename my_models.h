@@ -42,7 +42,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   // New models go here...add to the list and loop over paramters //
   if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
 
-    fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
+    //fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
     for(int i = 0; i < proc_ts_size; i++){
       // fills params at [global_i][j] * (param_scale[j]) //
@@ -60,7 +60,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
 
 
   // -- Normalize training space here -- //
-  fprintf(stdout,"Normalizing training set...\n");
+  //fprintf(stdout,"Normalizing training set...\n");
   mygsl::NormalizeMatrixRows(TS_gsl,wQuad);
 
   delete[] params;
