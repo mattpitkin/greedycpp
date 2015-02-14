@@ -110,8 +110,8 @@ void NormalizeMatrixRows(gsl_matrix_complex *A, const gsl_vector_complex *w)
   const int rows = A->size1;
   const int cols = A->size2;
 
-  std::cout << "rows of A (Training space) = " << rows << std::endl;
-  std::cout << "cols of A (Training space) = " << cols << std::endl;
+  //std::cout << "rows of A (Training space) = " << rows << std::endl;
+  //std::cout << "cols of A (Training space) = " << cols << std::endl;
 
   gsl_complex sum_c, inv_norm_c;
   gsl_vector_complex *row_vector;

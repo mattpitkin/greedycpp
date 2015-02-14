@@ -67,18 +67,6 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
   // allocate memory for parameter matrix //
   AllocTS();
-/*  params_ = new double*[ts_size_];
-  for(int j = 0; j < ts_size_; j++)
-  {
-
-    params_[j] = new double[param_dim_];
-
-    if(params_[j] == NULL){
-      fprintf(stderr,"Failed to allocate memory in BuildTS\n");
-      exit(1);
-    }
-
-  }*/
 
   // distribute training set over processors if requested //
   if(procs_size > 1){
@@ -97,7 +85,7 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
     BuildTS(p->params_num(),p->params_low(),p->params_high());
   }
 
-  std::cout << "Using waveform model: " << model_ << ". Training set class initialized!" << std::endl;
+  //std::cout << "Using waveform model: " << model_ << ". Training set class initialized!" << std::endl;
 }
 
 void TrainingSetClass::AllocTS()
@@ -169,7 +157,7 @@ void TrainingSetClass::GetLocalTrainingSet(int &start_ind, int &matrix_size, con
     matrix_size = ts_size_;
     end_ind     = ts_size_;
   }
-  fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
+  //fprintf(stdout,"start ind is %i and end ind is %i\n",start_ind,end_ind);
 }
 
 void TrainingSetClass::LocalTrainingSetSize(int &matrix_size, const int rank) const
@@ -201,7 +189,7 @@ void TrainingSetClass::GetParameterValue(double *params_point, const int rank, c
 
 void TrainingSetClass::BuildTS(const int *params_num, const double *params_low, const double *params_high){
 
-  std::cout << "Building from tensor product grid" << std::endl;
+  //std::cout << "Building from tensor product grid" << std::endl;
 
   if(param_dim_ == 2){
     BuildTS_TensorProduct2D(params_num,params_low,params_high);
@@ -213,7 +201,7 @@ void TrainingSetClass::BuildTS(const int *params_num, const double *params_low, 
  
 void TrainingSetClass::BuildTS(const char *ts_file){
 
-  std::cout << "Building from file input" << std::endl;
+  //std::cout << "Building from file input" << std::endl;
 
   if(param_dim_ == 2){
     BuildTS_FromFile2D(ts_file);
@@ -226,7 +214,7 @@ void TrainingSetClass::BuildTS(const char *ts_file){
 void TrainingSetClass::BuildTS_FromFile2D(const char *ts_file)
 {
 
-  std::cout << "Reading TS points from file: " << ts_file << std::endl;
+  //std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
   if(param_dim_ != 2){
     fprintf(stderr,"TS from file does not yet support dimensions other than 2\n");
@@ -252,7 +240,7 @@ void TrainingSetClass::BuildTS_FromFile2D(const char *ts_file)
   }
   fclose(data);
 
-  std::cout << "ts size = " << counter << std::endl;
+  //std::cout << "ts size = " << counter << std::endl;
 
   if( counter != ts_size_){
     std::cout << "TS file size does not match expected size" << std::endl;
@@ -267,7 +255,7 @@ void TrainingSetClass::BuildTS_FromFileND(const char *ts_file)
 // cin a good solution for this? whats benefits of fscanf or other functions?
 // if training set values are in strange format, will cin still work?
 
-  std::cout << "Reading TS points from file: " << ts_file << std::endl;
+  //std::cout << "Reading TS points from file: " << ts_file << std::endl;
 
   double parameter_tmp;
   int counter = 0;

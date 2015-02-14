@@ -45,8 +45,8 @@
 #include "my_models.h"
 
 void WriteGreedyInfo(const int dim_RB,
-                     const gsl_matrix_complex *RB_space,
-                     const gsl_matrix_complex *R_matrix,
+                     gsl_matrix_complex *RB_space, // "const": need to resize
+                     gsl_matrix_complex *R_matrix, // same "const"
                      const double *app_err,
                      const int *sel_rows,
                      const TrainingSetClass &ts,
@@ -59,6 +59,15 @@ void WriteGreedyInfo(const int dim_RB,
   char pts_filename[100];
   char rb_filename[100];
   char r_filename[100];
+
+  // directly resize matrix so only non-zero basis are output //
+  // (undo this before leaving routine) //
+  int RB_space_size1 = RB_space->size1; 
+  int R_size1        = R_matrix->size1;
+  int R_size2        = R_matrix->size2;
+  RB_space->size1 = dim_RB+1;
+  R_matrix->size1 = dim_RB+1;
+  R_matrix->size2 = dim_RB+1; 
 
 
   strcpy(err_filename,output_dir);
@@ -109,6 +118,11 @@ void WriteGreedyInfo(const int dim_RB,
     fprintf(stderr,"file type not supported");
     exit(1);
   }
+
+  // restore matrix to its original size //
+  RB_space->size1 = RB_space_size1;
+  R_matrix->size1 = R_size1;
+  R_matrix->size2 = R_size2; 
 
 }
 
@@ -595,7 +609,7 @@ int main (int argc, char **argv) {
 
   int rank     = 0;  // needed for serial mode too
   int size_mpi = 1;  // needed for serial mode too
-
+  bool high_verbosity; // controls output based on rank
 
   #ifndef COMPILE_WITHOUT_MPI
   // --- setup MPI info ---//
@@ -616,6 +630,12 @@ int main (int argc, char **argv) {
             << " My name = " << name << "." << std::endl;
   #endif
 
+  if( rank==0 ) {
+    high_verbosity = true;
+  } 
+  else {
+    high_verbosity = false;
+  } 
 
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc != 2) {
@@ -623,14 +643,20 @@ int main (int argc, char **argv) {
               << std::endl;
     exit(0);
   }
-  std::cout << "parameter file is: " << argv[1] << std::endl;
+  if(high_verbosity) {
+    std::cout << "parameter file is: " << argv[1] << std::endl;
+  }
 
   //--- Read input file argv[1]. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
-  Parameters *params_from_file = new Parameters(argv);
+  Parameters *params_from_file = new Parameters(argv,high_verbosity);
   if( rank==0 ) {
     std::cout << *params_from_file;
   }
+
+  #ifndef COMPILE_WITHOUT_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  #endif
 
   // Variables which need to be decarled, but not set in parameter file //
   gsl_matrix_complex *TS_gsl;
@@ -642,7 +668,7 @@ int main (int argc, char **argv) {
   int ts_size;
   clock_t start, end;
 
-  if(params_from_file->export_tspace() && size_mpi > 1){
+  if(params_from_file->export_tspace() && size_mpi > 1 && high_verbosity){
       fprintf(stderr,"Training space exporting only works with 1 processor!");
       fprintf(stderr," Your training space will not be exported.\n");
   }
@@ -661,12 +687,14 @@ int main (int argc, char **argv) {
              params_from_file->output_dir().c_str());
     system(shell_command);
 
-    #ifdef USE_OPENMP
-    fprintf(stdout,"openMP enabled. Each mpi (or serial) process will sweep "
-                   "over training space chunks using openMP par for\n");
-    #else
-    fprintf(stdout,"openMP disabled\n");
-    #endif
+    if(high_verbosity) {
+      #ifdef USE_OPENMP
+      fprintf(stdout,"openMP enabled. Each mpi (or serial) process will sweep "
+                     "over training space chunks using openMP par for\n");
+      #else
+      fprintf(stdout,"openMP disabled\n");
+      #endif
+    }
   }
 
   // allocates dynamic memory, fills up training set with values //
@@ -690,10 +718,9 @@ int main (int argc, char **argv) {
       TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
       mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
       end = clock();
-      fprintf(stdout,"Filled TS in %f seconds\n",((double) (end - start)/CLOCKS_PER_SEC));
+      fprintf(stdout,"Rank %i filled TS in %f seconds\n",
+                     rank,((double) (end - start)/CLOCKS_PER_SEC));
     }
-
-    fprintf(stdout,"Finished distribution of training set\n");
 
     if(rank == 0) {
       GreedyMaster(size_mpi,wQuad,*ptspace_class,*params_from_file);
