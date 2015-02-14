@@ -1,4 +1,4 @@
-all: greedy_mpi greedy verify
+all: greedy_mpi greedyOMP_mpi verify greedy greedyOMP
 
 ### model specific flags, headers, sources ###
 MODELFLAGS=
@@ -17,24 +17,30 @@ CXXFLAGS=-I/home/sfield/pool/include -I/home/sfield/pool -L/home/sfield/pool/lib
 
 
 ### gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) ###
-#OPTFLAGS=-O3 -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
+OPTFLAGS=-O3 -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 
 SOURCES = training_set.cpp parameters.cpp
 HEADERS = training_set.hpp parameters.hpp gsl_helper_functions.h  my_models.h utils.h
 
 
-### comment out COMPILE_WITH_MPI defined in greedy.cpp ###
-greedy: $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -DCOMPILE_WITHOUT_MPI -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+greedy: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(COMPILER) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -DCOMPILE_WITHOUT_MPI -o greedy greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+
+greedyOMP: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(COMPILER) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -DCOMPILE_WITHOUT_MPI -o greedyOMP greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+
 
 greedy_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	mpicxx $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -o greedympi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+	$(COMPILER_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -o greedy_mpi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+
+
+greedyOMP_mpi: greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(COMPILER_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -o greedyOMP_mpi greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+
 
 verify: basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	g++ $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) -o verify basis_validation.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+	$(COMPILER) $(CXXFLAGS) $(MODELFLAGS)  $(OPTFLAGS) $(OPENMP) -o verifyOMP basis_validation.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
 
 .PHONY: clean
 clean:
-	rm -f greedy greedympi verify
-
-
+	rm -f greedy greedyOMP greedy_mpi greedyOMP_mpi verifyOMP
