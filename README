@@ -161,6 +161,22 @@ defined, OPTFLAGS (see the makefile) will vectorize this routine.
 One should of course check the optimization works for them. Speedup factors
 between 1.5 and 2 have been observed in practice. 
 
+Multithreading
+--------------
+
+The code can be compiled with OpenMP. Two versions exist: single node/machine
+and MPI+openMP. 
+
+ADD MORE HERE!
+
+Large memory jobs
+-----------------
+
+For some applications the size of the basis will be large. The basis is
+managed by the rank 0 (master) processor which (by default) shares its memory
+with worker processors. For large problems it is better to allow the 
+master processor to have an entire node. This can be achieved by using a 
+hostfile. An example can be found in the scripts folder.
 
 Acknowledgements
 ----------------
