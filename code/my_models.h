@@ -15,7 +15,7 @@
 #include "gsl_helper_functions.h"
 
 // model specific header files //
-#include "models/spa_waveforms.h"
+#include "../models/taylorf2/spa_waveforms.h"
 
 
 namespace mymodel {
