@@ -9,18 +9,20 @@ SRCDIR=code
 BINDIR=bin
 
 ### model specific flags, headers, sources ###
-MODELFLAGS=
+MODELFLAGS=$(shell pkg-config --cflags lalsimulation)
 MODELSOURCES=
-MODELHEADERS=models/taylorf2/spa_waveforms.h
+MODELHEADERS=models/taylorf2/spa_waveforms.h models/lal/phenomp.h
+MODELLIBS=$(shell pkg-config --libs lalsimulation)
+
 
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Needed for gsl, gsl's verion of blas and input file parser libconfig++ ###
-LDLIBS = -lgsl -lgslcblas -lconfig++
-#LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
+#LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
+LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
 CXXFLAGS=
-#CXXFLAGS=-g -O0 `gsl-config --cflags`
+#CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
 
 ### Optimizations ###
 # gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) #
@@ -40,23 +42,27 @@ all: $(BINDIR)/greedy_mpi $(BINDIR)/greedyOMP_mpi $(BINDIR)/verifyOMP $(BINDIR)/
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) \
         -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
-        $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+        $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
-        -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+        -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) \
-        -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+        -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedyOMP_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
-        -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+        -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/verifyOMP: $(SRCDIR)/basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
-        -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) $(MODELSOURCES) $(LDLIBS)
+        -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 .PHONY: clean
 clean:

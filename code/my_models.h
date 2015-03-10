@@ -16,6 +16,7 @@
 
 // model specific header files //
 #include "../models/taylorf2/spa_waveforms.h"
+#include "../models/lal/phenomp.h"
 
 
 namespace mymodel {
@@ -41,16 +42,59 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   // *** BEGIN MODEL SPECIFIC SECTION *** //
   // New models go here...add to the list and loop over paramters //
   if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
-
-    //fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
+    fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
     for(int i = 0; i < proc_ts_size; i++){
-      // fills params at [global_i][j] * (param_scale[j]) //
-      ts.GetParameterValue(params,rank,i);
+      ts.GetParameterValue(params,rank,i); //params [global_i][j] * (scale[j])
       TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
       gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
     }
 
+  }
+  else if (strcmp(ts.model(),"PhenomP_plus") == 0){
+    fprintf(stdout,"Using the PhenP approx\n");
+
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i);
+      PhenP_Waveform(model_eval, xQuad, params, ts.model());
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
+  }
+  else if (strcmp(ts.model(),"PhenomP_cross") == 0){
+    fprintf(stdout,"Using the PhenP approx\n");
+
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i);
+      PhenP_Waveform(model_eval, xQuad, params, ts.model());
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
+  }
+  else if(strcmp(ts.model(),"hphp") == 0){
+    fprintf(stdout,"Using the PhenP  approx (hplus squared)\n");
+
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i);
+      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
+  }  
+  else if (strcmp(ts.model(),"hchc") == 0){
+    fprintf(stdout,"Using the PhenP  approx (hcross squared)\n");
+
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i);
+      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
+  }
+  else if (strcmp(ts.model(),"hphc") == 0){
+    fprintf(stdout,"Using the PhenP  approx (hplus x hcross)\n");
+
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i);
+      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
   }
   else{
     std::cerr << "Approximant not supported!" << std::endl;
