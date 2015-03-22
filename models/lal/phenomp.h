@@ -50,21 +50,6 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	  f_min,                    /**< Starting GW frequency (Hz) */
 	  f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
 	  f_ref);                    /**< Reference frequency */
-	/* removed Rory's XLALSimIMRPhenomP_forRB which takes in arbitrary frequencies (future lal patch)
-        XLALSimIMRPhenomP_forRB(
-          &hptilde,   //< Output: Frequency-domain waveform h+ /
-          &hctilde,   //< Output: Frequency-domain waveform hx 
-          chi_eff,                  //< Effective aligned spin 
-          chip,                     //< Effective spin in the orbital plane 
-          eta,                      /< Symmetric mass-ratio 
-          thetaJ,                   /< Angle between J0 and line of sight (z-direction) /
-          phiJ,                     /< Angle of J0 in the plane of the sky /
-          Mtot_SI,                  /< Total mass of binary (kg) /
-          distance,                 /< Distance of source (m) /
-          alpha0,                   /< Initial value of alpha angle /
-          phic,                     /< Orbital phase at the peak of the underlying non precessing model (rad) /
-          f_ref,
-          fnodes);*/
 
 
 	gsl_complex zM;
@@ -131,29 +116,12 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
 	  f_min,                    /**< Starting GW frequency (Hz) */
 	  f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
 	  f_ref);                    /**< Reference frequency */
-	/* removed Rory's XLALSimIMRPhenomP_forRB which takes in arbitrary frequencies (future lal patch)
-        XLALSimIMRPhenomP_forRB(
-          &hptilde,   //< Output: Frequency-domain waveform h+ /
-          &hctilde,   //< Output: Frequency-domain waveform hx 
-          chi_eff,                  //< Effective aligned spin 
-          chip,                     //< Effective spin in the orbital plane 
-          eta,                      /< Symmetric mass-ratio 
-          thetaJ,                   /< Angle between J0 and line of sight (z-direction) /
-          phiJ,                     /< Angle of J0 in the plane of the sky /
-          Mtot_SI,                  /< Total mass of binary (kg) /
-          distance,                 /< Distance of source (m) /
-          alpha0,                   /< Initial value of alpha angle /
-          phic,                     /< Orbital phase at the peak of the underlying non precessing model (rad) /
-          f_ref,
-          fnodes);*/
 
 	gsl_complex zM;
 
 	if(strcmp(plus_cross_flag,"hphp") == 0){
   		for(int cols = 0; cols < fnodes->size; cols++)
    		{
-                      //std::cout << cols << std::endl;
-                      //std::cout << "real: " << creal(hptilde->data->data[cols]) << "imag: " << cimag(hptilde->data->data[cols]) << std::endl;
         		GSL_SET_COMPLEX(&zM, creal(hptilde->data->data[cols])*creal(hptilde->data->data[cols]) + cimag(hptilde->data->data[cols])*cimag(hptilde->data->data[cols]), 0);
         		gsl_vector_complex_set(wv,cols,zM);
     		}
