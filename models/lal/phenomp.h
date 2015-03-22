@@ -24,7 +24,7 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	const REAL8 chi_eff = params[2];
 	const REAL8 chip = params[3];
 	const REAL8 thetaJ = params[4];
-	const REAL8 phiJ = 0;
+	//const REAL8 phiJ = 0;
 	const REAL8 distance = 1;
 	const REAL8 phic = 0;
 	const REAL8 f_ref = 40;
@@ -41,7 +41,6 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	  chip,                     /**< Effective spin in the orbital plane */
 	  eta,                      /**< Symmetric mass-ratio */
 	  thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
-	  phiJ,                     /**< Angle of J0 in the plane of the sky */
 	  Mtot_SI,                  /**< Total mass of binary (kg) */
 	  distance,                 /**< Distance of source (m) */
 	  alpha0,                   /**< Initial value of alpha angle */
@@ -89,7 +88,7 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
 	const REAL8 chi_eff = params[2];
 	const REAL8 chip = params[3];
 	const REAL8 thetaJ = params[4];
-	const REAL8 phiJ = 0;
+	//const REAL8 phiJ = 0;
 	const REAL8 distance = 1;
 	const REAL8 phic = 0;
 	const REAL8 f_ref = 40;
@@ -107,7 +106,6 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
 	  chip,                     /**< Effective spin in the orbital plane */
 	  eta,                      /**< Symmetric mass-ratio */
 	  thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
-	  phiJ,                     /**< Angle of J0 in the plane of the sky */
 	  Mtot_SI,                  /**< Total mass of binary (kg) */
 	  distance,                 /**< Distance of source (m) */
 	  alpha0,                   /**< Initial value of alpha angle */
