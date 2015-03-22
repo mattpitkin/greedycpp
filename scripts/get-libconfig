@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# run from greedycpp #
+if [ $# -ne 1 ]
+then
+    echo "Usage: `basename $0` PREFIX"
+    exit 65
+fi
+
+prefix=$1
+
+echo -e "\n\n*****************************\nINSTALLING LIBCONFIG in path ${prefix}/libconfig....\n\n"
+
+mkdir libconfig 
+cd libconfig
+wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
+tar -xf libconfig-1.4.9.tar.gz
+cd libconfig-1.4.9
+
+./configure --prefix=${prefix}/libconfig
+
+echo -e "\n\n Check your settings look OK. Then run make and make install from libconfig-1.4.9\n\n"
