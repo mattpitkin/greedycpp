@@ -42,10 +42,10 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	const REAL8 alpha0 = params[5];
 
 	const REAL8 f_min  = gsl_vector_get(fnodes,0);
-	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size);
+	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size-1);
 	const REAL8 deltaF = gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
 
-	/*XLALSimIMRPhenomP(
+	XLALSimIMRPhenomP(
 	  &hptilde,   //< Output: Frequency-domain waveform h+ /
 	  &hctilde,   //< Output: Frequency-domain waveform hx //
 	  chi_eff,                  //< Effective aligned spin //
@@ -62,7 +62,6 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	  f_ref);                    //< Reference frequency //
 
 	gsl_complex zM;
-
 	if(strcmp(plus_cross_flag,"PhenomP_plus") == 0){
 
   		for(int cols = 0; cols < fnodes->size; cols++)
@@ -71,7 +70,6 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
         		gsl_vector_complex_set(wv,cols,zM);
     		}
 	}
-
 	else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0){
 
   		for(int cols = 0; cols < fnodes->size; cols++)
@@ -82,12 +80,13 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	}
 
 	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-	XLALDestroyCOMPLEX16FrequencySeries(hctilde);*/
+	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 
-	int n = fnodes->size;
+	/*int n = fnodes->size;
         const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
 	for (int i=0; i<n; i++)
     	  freqs->data[i] = gsl_vector_get(fnodes, i);
+
 
         int ret = XLALSimIMRPhenomPFrequencySequence(
           &hptilde,   //< Output: Frequency-domain waveform h+ //
@@ -120,7 +119,7 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 
   	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-  	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+  	XLALDestroyCOMPLEX16FrequencySeries(hctilde);*/
 }
 
 
@@ -141,7 +140,7 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
 	const REAL8 f_ref = 40;
 	const REAL8 alpha0 = params[5];
 
-	/*const REAL8 f_min  = gsl_vector_get(fnodes,0);
+	const REAL8 f_min  = gsl_vector_get(fnodes,0);
 	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size-1);
 	const REAL8 deltaF = gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
 	XLALSimIMRPhenomP(
@@ -188,10 +187,8 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
                 }
         }
 
-	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-	XLALDestroyCOMPLEX16FrequencySeries(hctilde);*/
 
-	int n = fnodes->size;
+	/*int n = fnodes->size;
         const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
 	for (int i=0; i<n; i++)
     	  freqs->data[i] = gsl_vector_get(fnodes, i);
@@ -228,8 +225,10 @@ void hp_hc_hphc(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params
     	  for (int i=0; i<n; i++)
       	    gsl_vector_complex_set(wv, i, gsl_complex_mul((hptilde->data->data)[i], (hctilde->data->data)[i]));
   	}
+  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);*/
 
-  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
+
   	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 
