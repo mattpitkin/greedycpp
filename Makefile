@@ -14,7 +14,6 @@ MODELSOURCES=
 MODELHEADERS=models/taylorf2/spa_waveforms.h models/lal/phenomp.h
 MODELLIBS=$(shell pkg-config --libs lalsimulation)
 
-
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
 
