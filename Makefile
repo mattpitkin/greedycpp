@@ -12,6 +12,7 @@ BINDIR=bin
 MODELFLAGS=
 MODELSOURCES=
 MODELHEADERS=models/taylorf2/spa_waveforms.h
+MODELLIBS=
 
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
