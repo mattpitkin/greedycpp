@@ -29,6 +29,8 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	COMPLEX16FrequencySeries *hptilde = NULL;
 	COMPLEX16FrequencySeries *hctilde = NULL;
 
+	int n = fnodes->size;
+	int offset; // XLALSimIMRPhenomP pads f<fmin with zeros
 
 	const REAL8 Mtot_Msun = params[0];
 	const REAL8 eta = params[1];
@@ -41,9 +43,14 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	const REAL8 f_ref = 40;
 	const REAL8 alpha0 = params[5];
 
-	const REAL8 f_min  = gsl_vector_get(fnodes,0);
+
+
+	// used XLALSimIMRPhenomP with fixed deltaF //
+	/*const REAL8 f_min  = gsl_vector_get(fnodes,0);
 	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size-1);
 	const REAL8 deltaF = gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
+	double deltaF_double =  gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
+	double fmin_double   = gsl_vector_get(fnodes,0);
 
 	XLALSimIMRPhenomP(
 	  &hptilde,   //< Output: Frequency-domain waveform h+ /
@@ -61,32 +68,27 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	  f_max,                    //< End frequency; 0 defaults to ringdown cutoff freq //
 	  f_ref);                    //< Reference frequency //
 
-	gsl_complex zM;
-	if(strcmp(plus_cross_flag,"PhenomP_plus") == 0){
-
-  		for(int cols = 0; cols < fnodes->size; cols++)
-   		{
-        		GSL_SET_COMPLEX(&zM, creal(hptilde->data->data[cols]), cimag(hptilde->data->data[cols]));
-        		gsl_vector_complex_set(wv,cols,zM);
-    		}
+	// check this is indeed the offset -- data[offset] == 0, data[offset+1]!=0 //
+	// LAL code pads frequencies 0 through fmin-deltaF with zero data //
+	offset = (int) ((int) (fmin_double/deltaF_double));
+	if( creal((hptilde->data->data)[offset-1]) !=0 || cimag((hptilde->data->data)[offset-1]) !=0) {
+	  fprintf(stderr, "nonzero data.\n");
+    	  exit(-1);
 	}
-	else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0){
-
-  		for(int cols = 0; cols < fnodes->size; cols++)
-   		{
-        		GSL_SET_COMPLEX(&zM, creal(hctilde->data->data[cols]), cimag(hctilde->data->data[cols]));
-        		gsl_vector_complex_set(wv,cols,zM);
-    		}
+	if( creal((hptilde->data->data)[offset]) ==0 || cimag((hptilde->data->data)[offset]) ==0) {
+	  fprintf(stderr, "zero data.\n");
+    	  exit(-1);
 	}
+	offset = offset + 1; // offset used below whe copying into output buffer*/
 
-	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 
-	/*int n = fnodes->size;
+
+	// use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
         const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
 	for (int i=0; i<n; i++)
     	  freqs->data[i] = gsl_vector_get(fnodes, i);
 
+	offset = 0; // data not padded with zeros (offset !=0 with XLALSimIMRPhenomP)
 
         int ret = XLALSimIMRPhenomPFrequencySequence(
           &hptilde,   //< Output: Frequency-domain waveform h+ //
@@ -106,20 +108,23 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
     	  fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
     	  exit(-1);
   	}
+  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
+
 
   	// Copy polarization into output buffer
-  	if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
-    	  for (int i=0; i<n; i++)
-      	    gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
-  	}
+	// used for both XLALSimIMRPhenomPFrequencySequence and XLALSimIMRPhenomP
+	if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
+    	  for (int i=offset; i<(offset+n); i++)
+	    gsl_vector_complex_set(wv, i-offset, (hptilde->data->data)[i]);
+	}
   	else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0) {
-    	  for (int i=0; i<n; i++)
-      	    gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
+    	  for (int i=offset; i<(offset+n); i++)
+      	    gsl_vector_complex_set(wv, i-offset, (hctilde->data->data)[i]);
   	}
 
-  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-  	XLALDestroyCOMPLEX16FrequencySeries(hctilde);*/
+  	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
 
 
