@@ -46,11 +46,13 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 
 
 	// used XLALSimIMRPhenomP with fixed deltaF //
-	/*const REAL8 f_min  = gsl_vector_get(fnodes,0);
-	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size-1);
+	const REAL8 f_min  = gsl_vector_get(fnodes,0);
 	const REAL8 deltaF = gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
+	const REAL8 f_max  = gsl_vector_get(fnodes,fnodes->size-1) + deltaF;
 	double deltaF_double =  gsl_vector_get(fnodes,1) - gsl_vector_get(fnodes,0);
 	double fmin_double   = gsl_vector_get(fnodes,0);
+
+	//std::cout << f_min << "\n" << f_max << "\n" << deltaF << "\n";
 
 	XLALSimIMRPhenomP(
 	  &hptilde,   //< Output: Frequency-domain waveform h+ /
@@ -79,11 +81,11 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
 	  fprintf(stderr, "zero data.\n");
     	  exit(-1);
 	}
-	offset = offset + 1; // offset used below whe copying into output buffer*/
+	offset = offset; // offset used below whe copying into output buffer
 
 
 
-	// use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
+	/*// use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
         const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
 	for (int i=0; i<n; i++)
     	  freqs->data[i] = gsl_vector_get(fnodes, i);
@@ -108,7 +110,7 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *pa
     	  fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
     	  exit(-1);
   	}
-  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);*/
 
 
 
