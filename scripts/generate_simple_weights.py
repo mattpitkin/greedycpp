@@ -7,7 +7,9 @@ def GenerateWeights(filename):
 
     quad_pts = np.loadtxt(filename)
     weights  = np.diff(quad_pts)
-    weights  = np.append(weights,0)
+
+    #weights  = np.append(weights,0) # ignores last point
+    weights  = np.append(weights,weights[-1]) # duplicates last quadrature weight
 
     fp = open('MyWeights.txt','w')
     for ii in range(np.size(weights)):
