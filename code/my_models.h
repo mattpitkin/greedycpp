@@ -69,30 +69,30 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
       gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
     }
   }
-  else if(strcmp(ts.model(),"hphp") == 0){
+  else if(strcmp(ts.model(),"PhenomP_hphp") == 0){
     fprintf(stdout,"Using the PhenP  approx (hplus squared)\n");
 
     for(int i = 0; i < proc_ts_size; i++){
       ts.GetParameterValue(params,rank,i);
-      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      PhenP_Waveform(model_eval, xQuad, params, ts.model());
       gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
     }
   }  
-  else if (strcmp(ts.model(),"hchc") == 0){
+  else if (strcmp(ts.model(),"PhenomP_hchc") == 0){
     fprintf(stdout,"Using the PhenP  approx (hcross squared)\n");
 
     for(int i = 0; i < proc_ts_size; i++){
       ts.GetParameterValue(params,rank,i);
-      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      PhenP_Waveform(model_eval, xQuad, params, ts.model());
       gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
     }
   }
-  else if (strcmp(ts.model(),"hphc") == 0){
+  else if (strcmp(ts.model(),"PhenomP_hphc") == 0){
     fprintf(stdout,"Using the PhenP  approx (hplus x hcross)\n");
 
     for(int i = 0; i < proc_ts_size; i++){
       ts.GetParameterValue(params,rank,i);
-      hp_hc_hphc(model_eval, xQuad, params, ts.model());
+      PhenP_Waveform(model_eval, xQuad, params, ts.model());
       gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
     }
   }
