@@ -4,7 +4,7 @@ Overview
 A fast, scalable and easy-to-use parallelization of the greedy algorithm
 for building an application-specific reduced basis. 
 
-In many cases, for example when implimented on a computer and using
+In many cases, for example when implemented on a computer and using
 the Euclidean inner product, the greedy algorithm is QR with column pivoting.
 And so this code may also be used to compute QR decompositions of a large
 matrix.
@@ -12,7 +12,7 @@ matrix.
 For details on the code's scaling and QR-based model reduction:
 
 [1] Harbir Antil, Dangxing Chen, and Scott Field. "QR-based model 
-    reduction for large problems". In preperation. 
+    reduction for large problems". In preparation. 
 
 
 Requirements: libconfig, gsl and MPI (see below to build with mpi disabled).
@@ -177,6 +177,61 @@ managed by the rank 0 (master) processor which (by default) shares its memory
 with worker processors. For large problems it is better to allow the 
 master processor to have an entire node. This can be achieved by using a 
 hostfile. An example can be found in the scripts folder.
+
+Iterative enrichment
+--------------------
+
+Often the training set one wishes to use is too large to process. Or
+it is not known ahead of time if the training set constitutes a faithful
+sampling of the continuum. Iteratively enriching the basis identifies
+pockets of the parameter space where the basis' accuracy is low, and 
+(i) combines these "bad" points with previous greedy points then 
+(ii) reruns the greedy on the combined set.
+
+The process is partly automated, and can be carried out as 
+follows:
+
+1) create a run directory, run_dir
+2) create, say, 3 subdirectories called run0, run1 and run2
+and another 2 called randset1 and randset2
+3) In run0, place all the necessary parameter and data files needed 
+for a typical greedy run.
+4) Suppose you have access to 10 nodes. After the greedy algorithm
+completes you anticipate running 10 separate basis validation studies,
+one on each node. Therefore, you should place 10 separate files
+into randset1 and 10 separate files into randset2. Each
+file should contain a list of verification points (parameter values
+at which you will check the basis accuracy).
+
+You are now ready to iteratively refine the basis.
+
+NOTE: make sure the paths set in the configuration
+file are absolute! The output_dir location set by the 
+configuration file 
+
+1) Submit a greedy job using data in the run0 directory.
+2) Verify the basis accuracy using the results written to 
+the output directory (whatever you specified in the
+output_dir configuration file). This is done using the veryifyOMP 
+program -- you would launch 10 separate executables,
+each one taking a different random sampling input file
+located in randset1
+3) A new folder called validations will be created in output_dir,
+and there will be 10 separate files containing a list of 
+parameter values for which the basis performed poorly.
+4) Using the unix cat program, combine these 10 files together
+with the GreedyPoints.txt file found in run0. Call this file
+TrainingSetIteration1.txt
+5) Move TrainingSetIteration1.txt into run1 directory along
+with any other files (e.g. the cfg  file) needed to successfully
+run the greedy algorithm.
+6) Edit the cfg file to use TrainingSetIteration1.txt as the new
+training set.
+
+Repeat the above process until your basis has converged (i.e.
+it passes the verification step with no bad points).
+
+
 
 Acknowledgements
 ----------------

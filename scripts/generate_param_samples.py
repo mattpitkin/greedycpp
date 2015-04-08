@@ -14,8 +14,9 @@ def generate_sampling(filename):
     sample_type    = "rand" # "rand" or "deterministc"
 
     ### setup parameter intervals ###
+    ### ith parameter interval will be [param_low[i],param_high[i]]
     params_low  = [1.0,1.0]  # lower interval of each parameter
-    params_high = [3.0,3.0]  # params_num[i] is the number of samplings in the interval [param_low[i],param_high[i]]
+    params_high = [3.0,3.0]
  
     ### setup for deterministic sampling ###
     param_sampling = "ln"
@@ -23,7 +24,7 @@ def generate_sampling(filename):
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
     ### setup for random sampling ###
-    total_picks = 10     # random: this many draws from interval
+    total_picks = 1000     # random: this many draws from interval
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
@@ -91,7 +92,12 @@ def generate_sampling(filename):
 
 if __name__=="__main__":
 
+    ### typical usage: 3 random sample files are desired...
+    ### enter base name as first argument and 3 as second
+
     filename = str(sys.argv[1])
     files    = int(sys.argv[2])
     for ii in range(files):
         generate_sampling(filename+str(ii))
+
+

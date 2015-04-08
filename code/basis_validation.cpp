@@ -39,11 +39,16 @@
 int main (int argc, char **argv) {
 
 
+  // -- record parameters with errors above tolerance to separate file -- //
+  double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
+
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc != 4) {
-    std::cerr << "Argument: 1. location of a cfg configuration/parameter file (ends in .cfg)" << std::endl;
-    std::cerr << "Argument: 2. directory containing basis and quadrature information (must end with /)" << std::endl;
-    std::cerr << "Argument: 3. file location containing random samples" << std::endl;
+    std::cerr << 
+         "Argument: 1. location of a cfg and parameter file" << std::endl;
+    std::cerr << 
+         "Argument: 2. directory (ending with /) with basis+quadrature info\n";
+    std::cerr << "Argument: 3. file containing random samples" << std::endl;
     return EXIT_FAILURE;
   }
   std::cout << "parameter file is: " << argv[1] << std::endl;
@@ -61,30 +66,31 @@ int main (int argc, char **argv) {
   gsl_vector_complex *wQuad;
   gsl_vector *xQuad;
   double * errors;
-  char err_filename[100];
-  char shell_command[100];
-  FILE *err_data;
+  char err_filename[200];
+  char bad_param_filename[200];
+  char shell_command[200];
+  FILE *err_data, *bad_param;
   clock_t start, end;
-  char rb_size_filename[100];
-  char quad_size_filename[100];
+  char rb_size_filename[200];
+  char quad_size_filename[200];
 
+  // -- Deduce quadrature and basis sizes -- //
   strcpy(rb_size_filename,argv[2]);
   strcat(rb_size_filename,"/ApproxErrors.txt");
-
   strcpy(quad_size_filename,argv[2]);
   strcat(quad_size_filename,"/quad_rule.txt");
-
   const int rb_size   = fcount_pts(rb_size_filename);
   const int quad_size = fcount_pts(quad_size_filename);
 
   RB_space = gsl_matrix_complex_alloc(rb_size,quad_size);
 
   // read in basis from gsl binary file //
-  char rb_filename[100];
+  char rb_filename[200];
   FILE *pBASIS;
   strcpy(rb_filename,argv[2]);
   strcat(rb_filename,"/Basis.bin");
-  std::cout << "reading basis from file " << rb_filename << " ..." << std::endl;
+  std::cout << "reading basis from file " 
+            << rb_filename << " ..." << std::endl;
   pBASIS = fopen(rb_filename,"rb");
   gsl_matrix_complex_fread(pBASIS,RB_space);
   fclose(pBASIS);
@@ -92,11 +98,12 @@ int main (int argc, char **argv) {
   // reconstruct quadrature rule used in greedy //
   SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
 
-  assert(quad_size == xQuad->size && quad_size == params_from_file->quad_points());
+  assert(quad_size==xQuad->size && quad_size==params_from_file->quad_points());
 
   // this is useful sanity check (looks at TS waveform errors) //
   //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
-  TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,random_sample_file);
+  TrainingSetClass *random_samples = 
+    new TrainingSetClass(params_from_file,random_sample_file);
 
   // Creating Run Directory //
   strcpy(shell_command, "mkdir -p -m700 ");
@@ -104,11 +111,11 @@ int main (int argc, char **argv) {
   strcat(shell_command, "/validations/");
   system(shell_command);
 
-  model_evaluations = gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
+  model_evaluations = 
+   gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
   errors            = new double[random_samples->ts_size()];
 
   mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
-  std::cout << "IM HERE" << std::endl;
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
@@ -136,11 +143,6 @@ int main (int argc, char **argv) {
 
   }
   
-  strcpy(err_filename,argv[2]);
-  strcat(err_filename,"validations/");
-  strcat(err_filename,random_sample_file.substr(
-    random_sample_file.find_last_of("\\/")+1,100).c_str());
-
   end = clock();
   double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
 
@@ -151,12 +153,29 @@ int main (int argc, char **argv) {
   double omp_time = alg_time;
   #endif
 
-  fprintf(stdout,"validation took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
-  err_data = fopen(err_filename,"w");
+  // -- record results -- //
+  fprintf(stdout,"validation took %f cpu secs and %f wall secs \n",
+          alg_time,omp_time);
+  strcpy(err_filename,argv[2]);
+  strcat(err_filename,"validations/");
+  strcpy(bad_param_filename,err_filename);
+  strcat(bad_param_filename,"points_");
+  strcat(err_filename,random_sample_file.substr(
+    random_sample_file.find_last_of("\\/")+1,100).c_str());
+  strcat(bad_param_filename,random_sample_file.substr(
+    random_sample_file.find_last_of("\\/")+1,100).c_str());
+
+  err_data  = fopen(err_filename,"w");
+  bad_param = fopen(bad_param_filename,"w");
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
     fprintf(err_data," %1.15e\n",errors[i]);
+    if(errors[i]>err_tol) {
+      random_samples->fprintf_ith(bad_param,i);
+      fprintf(bad_param,"\n");
+    }
   }
+  fclose(bad_param);
   fclose(err_data);
 
 
