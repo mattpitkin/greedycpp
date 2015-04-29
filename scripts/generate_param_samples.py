@@ -15,8 +15,10 @@ def generate_sampling(filename):
 
     ### setup parameter intervals ###
     ### ith parameter interval will be [param_low[i],param_high[i]]
-    params_low  = [1.0,1.0]  # lower interval of each parameter
-    params_high = [3.0,3.0]
+    #params_low  = [1.0,1.0]  # lower interval of each parameter
+    #params_high = [3.0,3.0]
+    params_low  = [2.8,0.098765,-.7,-.7,0.0,0.0]  # lower interval of each parameter
+    params_high = [20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi]
  
     ### setup for deterministic sampling ###
     param_sampling = "ln"
@@ -24,7 +26,7 @@ def generate_sampling(filename):
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
     ### setup for random sampling ###
-    total_picks = 1000     # random: this many draws from interval
+    total_picks = 10000     # random: this many draws from interval
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
