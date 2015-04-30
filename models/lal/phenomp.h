@@ -23,7 +23,7 @@ extern "C"{
  -----------------------------------------------------------------------------*/
 
 
-void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, double *params, const char *plus_cross_flag)
+void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, const double *params, const char *plus_cross_flag)
 {
 
 	COMPLEX16FrequencySeries *hptilde = NULL;

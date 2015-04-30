@@ -111,11 +111,13 @@ int main (int argc, char **argv) {
   strcat(shell_command, "/validations/");
   system(shell_command);
 
-  model_evaluations = 
+  // Use this if filling up matrix upfront (faster for smaller studies) 
+  /*model_evaluations = 
    gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
+  mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);*/
+
   errors            = new double[random_samples->ts_size()];
 
-  mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
@@ -125,14 +127,25 @@ int main (int argc, char **argv) {
 
   #pragma omp parallel
   {
+
     // every variable declared here is thread private (thread-safe)
     gsl_vector_complex *model_eval, *r_tmp;
     model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
     r_tmp      = gsl_vector_complex_alloc(rb_size);
- 
+    double *params;
+    params     = new double[random_samples->param_dim()]; //
+
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
-      gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
+
+      // Use this if model_evaluations matrix has been filled (see above) //
+      //gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
+
+      // Use this if model evalutions are done on-the-fly //
+      random_samples->GetParameterValue(params,0,ii);
+      mymodel::EvaluateModel(model_eval,xQuad,params,*random_samples);
+      mygsl::NormalizeVector(model_eval,wQuad);
+
       mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,rb_size-1);
       errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,rb_size-1));
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
@@ -180,9 +193,9 @@ int main (int argc, char **argv) {
 
 
   gsl_matrix_complex_free(RB_space);
-  gsl_matrix_complex_free(model_evaluations);
   gsl_vector_complex_free(wQuad);
   gsl_vector_free(xQuad);
+  //gsl_matrix_complex_free(model_evaluations);
 
   delete [] errors;
 

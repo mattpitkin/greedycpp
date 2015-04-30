@@ -7,7 +7,7 @@
  Used in both ROQ and Full computations
  -----------------------------------------------------------------------------*/
 
-void TF2_Waveform(double &TF2_Real, double &TF2_Imag, double *theta, double frq, double amp, double PN)
+void TF2_Waveform(double &TF2_Real, double &TF2_Imag, const double *theta, double frq, double amp, double PN)
 {
     const double gammaE = 0.5772156649015328; // Euler–Mascheroni constant
 
@@ -66,7 +66,7 @@ void TF2_Waveform(double &TF2_Real, double &TF2_Imag, double *theta, double frq,
 }
 
 // this routine is interface with greedy routine -- returns gsl data type //
-void TF2_FullWaveform(gsl_vector_complex *wv, double *params, const gsl_vector *xQuad, double amp, double PN)
+void TF2_FullWaveform(gsl_vector_complex *wv, const double *params, const gsl_vector *xQuad, double amp, double PN)
 {
 
     double *more_params;

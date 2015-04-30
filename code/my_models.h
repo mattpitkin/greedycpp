@@ -21,6 +21,45 @@
 
 namespace mymodel {
 
+void EvaluateModel(gsl_vector_complex *model_eval,
+                     const gsl_vector *xQuad,
+                     const double *params,
+                     const TrainingSetClass &ts)
+{
+
+
+  // *** BEGIN MODEL SPECIFIC SECTION *** //
+  // New models go here...add to the list and loop over paramters //
+  if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
+    //fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
+    TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
+  }
+  else if (strcmp(ts.model(),"PhenomP_plus") == 0){
+    //fprintf(stdout,"Using the PhenP approx\n");
+    PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  }
+  else if (strcmp(ts.model(),"PhenomP_cross") == 0){
+    //fprintf(stdout,"Using the PhenP approx\n");
+    PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  }
+  else if(strcmp(ts.model(),"PhenomP_hphp") == 0){
+    //fprintf(stdout,"Using the PhenP  approx (hplus squared)\n");
+    PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  }
+  else if (strcmp(ts.model(),"PhenomP_hchc") == 0){
+    //fprintf(stdout,"Using the PhenP  approx (hcross squared)\n");
+    PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  }
+  else if (strcmp(ts.model(),"PhenomP_hphc") == 0){
+    //fprintf(stdout,"Using the PhenP  approx (hplus x hcross)\n");
+    PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  }
+  else{
+    std::cerr << "Approximant not supported!" << std::endl;
+    exit(1);
+  }
+}
+
 void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const gsl_vector *xQuad,
                      const gsl_vector_complex *wQuad,
@@ -29,6 +68,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
 {
 
   fprintf(stdout,"Populating training set on proc %i...\n",rank);
+  fprintf(stdout,"Using the model %s\n",ts.model());
 
   gsl_vector_complex *model_eval;
   double *params;
@@ -40,7 +80,12 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   ts.LocalTrainingSetSize(proc_ts_size,rank);
 
   // *** BEGIN MODEL SPECIFIC SECTION *** //
-  // New models go here...add to the list and loop over paramters //
+  for(int i = 0; i < proc_ts_size; i++){
+    ts.GetParameterValue(params,rank,i); //params [global_i][j] * (scale[j])
+    EvaluateModel(model_eval,xQuad,params,ts);
+    gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+  }
+  /*// New models go here...add to the list and loop over paramters //
   if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0){
     fprintf(stdout,"Using the TaylorF2 spa approximant to PN=3.5\n");
 
@@ -99,7 +144,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   else{
     std::cerr << "Approximant not supported!" << std::endl;
     exit(1);
-  }
+  }*/
   // *** END MODEL SPECIFIC SECTION *** //
 
 
