@@ -5,6 +5,7 @@
 import numpy as np
 import math
 import sys
+import timeit
 
 ### output file name ###
 
@@ -17,8 +18,8 @@ def generate_sampling(filename):
     ### ith parameter interval will be [param_low[i],param_high[i]]
     #params_low  = [1.0,1.0]  # lower interval of each parameter
     #params_high = [3.0,3.0]
-    params_low  = [2.8,0.098765,-.7,-.7,0.0,0.0]  # lower interval of each parameter
-    params_high = [20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi]
+    params_low  = np.array([2.8,0.098765,-.7,-.7,0.0,0.0])  # lower interval of each parameter
+    params_high = np.array([20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi])
  
     ### setup for deterministic sampling ###
     param_sampling = "ln"
@@ -26,7 +27,7 @@ def generate_sampling(filename):
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
     ### setup for random sampling ###
-    total_picks = 10000     # random: this many draws from interval
+    total_picks = 100     # random: this many draws from interval
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
@@ -73,19 +74,28 @@ def generate_sampling(filename):
 
       fp.close()
 
-    elif( sample_type is "rand"):
+    elif(sample_type is "rand"):
 
       fp = open(filename,'w')
+      parameter_dim = len(params_high)
 
+      tic = timeit.default_timer()
       for ii in range(total_picks):
-        for jj in range(len(params_high)):
 
-          p_jj = (params_high[jj] - params_low[jj]) * np.random.random_sample((1,)) + params_low[jj]
+        p_jj = (params_high[:] - params_low[:]) * np.random.random_sample((parameter_dim,)) + params_low[:]
 
-          if(jj == len(params_high)-1):
-            fp.write('%1.15e\n' % p_jj)
+        if np.mod(ii,100000)==0:
+          print "sample number = ",ii
+          print "ii/total_picks  = %1.14f"%(float(ii)/float(total_picks))
+
+        for jj in range(parameter_dim):
+          if(jj == parameter_dim-1):
+            fp.write('%1.15e\n' % p_jj[jj])
           else:
-            fp.write('%1.15e\t' % p_jj)
+            fp.write('%1.15e\t' % p_jj[jj])
+
+      toc = timeit.default_timer()
+      print "timer = %1.14e"%(toc-tic)
 
     else:
       raise Exception("sampling type unknown")
