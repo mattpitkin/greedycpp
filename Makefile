@@ -17,6 +17,10 @@ MODELLIBS=$(shell pkg-config --libs lalsimulation)
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
 
+### LIGO Analysis Library (LAL) flags 
+## set "LAL=" if you do not have LAL installed) ###
+LAL=-DMODEL_LAL
+
 ### Needed for gsl, gsl's verion of blas and input file parser libconfig++ ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
 LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
@@ -39,27 +43,27 @@ HEADERS = $(SRCDIR)/training_set.hpp $(SRCDIR)/parameters.hpp \
 all: $(BINDIR)/greedy_mpi $(BINDIR)/greedyOMP_mpi $(BINDIR)/verifyOMP $(BINDIR)/greedy $(BINDIR)/greedyOMP
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) \
         -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
         $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
         -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
 	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) \
+	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) \
         -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/greedyOMP_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
+	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
         -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 
 $(BINDIR)/verifyOMP: $(SRCDIR)/basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
         -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
 

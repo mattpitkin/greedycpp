@@ -33,6 +33,20 @@ Quick start
 >>> mpirun -np NUM_PROCS ./greedympi examples/test1.cfg
 
 
+Adding a new model
+------------------
+
+Simply make the following changes to my_models.h
+
+1) Add your model-specific header file
+2) Invent a descriptive model-specific tag and add
+   your model's evaluation (interface routine and tag) to EvaluateModel
+
+Additionally, you might add precompiler directives before and
+after your model-specific code so that the code is only
+compiled if -DMODEL_NAME is passed to the compiler.
+
+
 Running example 1
 -----------------
 
