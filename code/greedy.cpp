@@ -663,6 +663,7 @@ int main (int argc, char **argv) {
   gsl_vector_complex *wQuad;
   gsl_vector *xQuad;
   char ts_filename[100];
+  char ts_pts_filename[100];
   char shell_command[100];
   int gsl_status;
   int ts_size;
@@ -740,7 +741,7 @@ int main (int argc, char **argv) {
   if(rank == 0)
   {
     // -- output quadrature weights -- //
-    FILE *outfile;
+    FILE *outfile, *ts_pts;
 
     strcpy(shell_command, params_from_file->output_dir().c_str());
     strcat(shell_command,"/quad_rule.txt");
@@ -752,12 +753,24 @@ int main (int argc, char **argv) {
     }
     fclose(outfile);
 
-    // -- output some waveform(s) for diagnostics -- //
     if(size_mpi == 1){
       if(params_from_file->export_tspace()){
+        // -- output some waveform(s) for diagnostics -- //
         strcpy(ts_filename,params_from_file->output_dir().c_str());
         strcat(ts_filename,"/TSpace");
         mygsl::gsl_matrix_complex_fprintf(ts_filename,TS_gsl);
+
+        // -- output these waveform(s) parameter values -- //
+        strcpy(ts_pts_filename,params_from_file->output_dir().c_str());
+        strcat(ts_pts_filename,"/TSpacePts.txt");
+        ts_pts = fopen(ts_pts_filename,"w");
+        for(int i = 0; i < ptspace_class->ts_size(); i++) {
+          ptspace_class->fprintf_ith(ts_pts,i);
+          fprintf(ts_pts,"\n");
+        }
+        fclose(ts_pts);
+
+
       }
       gsl_matrix_complex_free(TS_gsl);
     }
