@@ -12,18 +12,21 @@
 #include <string.h>
 #include <cmath>
 
+#ifdef USE_NUMPY
+#include <complex.h>
+#include "cnpy.h"
+#include <complex>
+#endif
+
 #ifdef USE_OPENMP
 #include <omp.h>
 #endif
 
 #include <gsl/gsl_math.h>
-#include <gsl/gsl_randist.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
-#include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex.h>
 #include <gsl/gsl_block_complex_float.h>
 
@@ -34,6 +37,7 @@
 #include "my_models.h"
 #include "utils.h"
 
+
 #include <assert.h>
 
 int main (int argc, char **argv) {
@@ -43,17 +47,19 @@ int main (int argc, char **argv) {
   double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
 
   //----- Checking the number of Variables passed to the Executable -----//
-  if (argc != 4) {
+  if (argc != 5) {
     std::cerr << 
          "Argument: 1. location of a cfg and parameter file" << std::endl;
     std::cerr << 
          "Argument: 2. directory (ending with /) with basis+quadrature info\n";
     std::cerr << "Argument: 3. file containing random samples" << std::endl;
+    std::cerr << "Argument: 4. basis format (npy or gsl)" << std::endl;
     return EXIT_FAILURE;
   }
   std::cout << "parameter file is: " << argv[1] << std::endl;
   std::cout << "basis folder is: " << argv[2] << std::endl;
   std::cout << "random file is: " << argv[3] << std::endl;
+  std::cout << "basis format is: " << argv[4] << std::endl;
 
   std::string random_sample_file = std::string(argv[3]);
 
@@ -71,29 +77,45 @@ int main (int argc, char **argv) {
   char shell_command[200];
   FILE *err_data, *bad_param;
   clock_t start, end;
-  char rb_size_filename[200];
-  char quad_size_filename[200];
+  char rb_filename[200];
 
   // -- Deduce quadrature and basis sizes -- //
-  strcpy(rb_size_filename,argv[2]);
-  strcat(rb_size_filename,"/ApproxErrors.txt");
-  strcpy(quad_size_filename,argv[2]);
-  strcat(quad_size_filename,"/quad_rule.txt");
-  const int rb_size   = fcount_pts(rb_size_filename);
-  const int quad_size = fcount_pts(quad_size_filename);
+  //int rb_size   = fcount_pts(argv[2],"/ApproxErrors.txt");
+  int rb_size   = fcount_pts(argv[2],"/GreedyPoints.txt");
+  int quad_size;
+  if(params_from_file->quad_type() == 0 || params_from_file->quad_type() == 1){
+    quad_size = params_from_file->quad_points();
+  } else {
+    quad_size = fcount_pts(argv[2],"/quad_rule.txt");
+  }
+
 
   RB_space = gsl_matrix_complex_alloc(rb_size,quad_size);
 
-  // read in basis from gsl binary file //
-  char rb_filename[200];
-  FILE *pBASIS;
+  // read in basis from a binary file //
+  std::cout << "reading basis from file...\n";
   strcpy(rb_filename,argv[2]);
-  strcat(rb_filename,"/Basis.bin");
-  std::cout << "reading basis from file " 
-            << rb_filename << " ..." << std::endl;
-  pBASIS = fopen(rb_filename,"rb");
-  gsl_matrix_complex_fread(pBASIS,RB_space);
-  fclose(pBASIS);
+  if (strcmp(argv[4],"gsl") == 0) {
+
+    strcat(rb_filename,"/Basis.bin");
+    FILE *pBASIS;
+    pBASIS = fopen(rb_filename,"rb");
+    if (pBASIS==NULL) {
+      std::cerr << "could not open file\n";
+      exit(1);
+    }
+    gsl_matrix_complex_fread(pBASIS,RB_space);
+    fclose(pBASIS);
+
+  }
+  else if (strcmp(argv[4],"npy") == 0) {
+    strcat(rb_filename,"/Basis.npy");
+    mygsl::gsl_matrix_complex_npy_load(rb_filename,RB_space);
+  }
+  else {
+    std::cerr << "file type not supported\n";
+    exit(1);
+  }
 
   // reconstruct quadrature rule used in greedy //
   SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
@@ -179,7 +201,17 @@ int main (int argc, char **argv) {
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
   err_data  = fopen(err_filename,"w");
+  if (err_data==NULL) {
+    std::cerr << "could not open error file\n";
+    exit(1);
+  }
+
   bad_param = fopen(bad_param_filename,"w");
+  if (bad_param==NULL) {
+    std::cerr << "could not open bad param file\n";
+    exit(1);
+  }
+
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
     fprintf(err_data," %1.15e\n",errors[i]);
@@ -188,6 +220,7 @@ int main (int argc, char **argv) {
       fprintf(bad_param,"\n");
     }
   }
+
   fclose(bad_param);
   fclose(err_data);
 

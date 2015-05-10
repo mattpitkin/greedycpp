@@ -26,6 +26,7 @@
 #include <math.h>
 #include <string.h>
 #include <cmath>
+
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_matrix.h>
@@ -114,6 +115,17 @@ void WriteGreedyInfo(const int dim_RB,
     fclose(r_data);
     wrote = true;
   }
+  if(strcmp(datatype,"npy") == 0){
+
+    strcpy(rb_filename,output_dir);
+    strcat(rb_filename,"/Basis.npy");
+    strcpy(r_filename,output_dir);
+    strcat(r_filename,"/R.npy");
+    mygsl::gsl_matrix_complex_npy_save(rb_filename,RB_space);
+    mygsl::gsl_matrix_complex_npy_save(r_filename,R_matrix);
+    wrote = true;
+  }
+
   if(!wrote){
     fprintf(stderr,"file type not supported");
     exit(1);

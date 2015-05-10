@@ -15,6 +15,7 @@ class Parameters {
     inline bool load_from_file() const { return load_from_file_; }
     inline bool export_tspace() const { return export_tspace_; }
     inline bool weighted_inner() const { return weighted_inner_; }
+    inline bool ts_file_exists() const { return ts_file_exists_; }
     inline int param_dim() const { return param_dim_; }
     inline int seed() const { return seed_; }
     inline int max_RB() const { return max_RB_; }
@@ -65,6 +66,7 @@ class Parameters {
     std::string output_dir_;            // folder to put all output files
     std::string output_data_format_;    // format of output files (text or gsl binary supported)
     std::string ts_file_name_;          // this is required if load_from_file = true
+    bool ts_file_exists_;               // true if ts file loaded, otherwise false -- useful to avoid termination when file not found since a basis validation study might not make this available 
     int ts_size_;
 };
 

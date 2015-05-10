@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]
+then
+    echo "Usage: `basename $0` PREFIX"
+    exit 65
+fi
+
+prefix=$1
+
+echo -e "\n\n*****************************\nINSTALLING CNPY in path ${prefix}/CNPY....\n\n"
+
+#mkdir cnpy
+#cd cnpy
+#wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
+git clone https://github.com/rogersce/cnpy.git
+mkdir build_cnpy
+cd build_cnpy
+#tar -xf libconfig-1.4.9.tar.gz
+#cd libconfig-1.4.9
+#./configure --prefix=${prefix}/libconfig
+cmake -DCMAKE_INSTALL_PREFIX=${prefix} ../cnpy
+make
+
+echo -e '\n\nCheck your settings look OK. Then run "make install" from the cnpy build directory.'
+echo -e "You will need to add the cnpy library to your shared library path\n\n"

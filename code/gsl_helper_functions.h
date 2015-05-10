@@ -10,6 +10,13 @@
 #define gsl_helper_functions_h
 #include <assert.h>
 
+#ifdef USE_NUMPY
+#include <complex.h>
+#include "cnpy.h"
+#include <complex>
+#endif
+
+
 // Define OPTIMIZE_AVX with -D compiler flag // 
 // compiling with icc and -O3 -xHOST flags should be faster
 
@@ -262,6 +269,69 @@ void gsl_vector_sqrt(gsl_vector_complex *out,\
      z1 = gsl_complex_sqrt(gsl_vector_complex_get(in,i));
      gsl_vector_complex_set(out,i,z1);
   }
+}
+
+/* write complex matrix m_gsl to numpy file */
+void gsl_matrix_complex_npy_save(const char *data_filename,\
+                                 const gsl_matrix_complex * m_gsl)
+{
+
+  #ifdef USE_NUMPY
+  const int cols = m_gsl->size2; // "quad_size"
+  const int rows = m_gsl->size1; // "dim_rb"
+
+  // TODO: this is going to double the memory footprint! //
+  std::complex<double>* data = new std::complex<double>[cols*rows];
+  gsl_vector_complex *row_vec;
+  row_vec = gsl_vector_complex_alloc(cols);
+  for(int ii=0;ii<rows;ii++) {
+    gsl_matrix_complex_get_row(row_vec,m_gsl,ii);
+    for(int jj=0;jj<cols;jj++) {
+      data[cols*ii+jj] =  std::complex<double>(row_vec->data[2*jj]   + I*row_vec->data[2*jj+1]);
+    }
+  }
+
+  const unsigned int shape[] = {rows,cols};
+  cnpy::npy_save(data_filename,data,shape,2,"w");
+
+  gsl_vector_complex_free(row_vec);
+  delete [] data;
+  #else
+  std::cerr << "\nCode not compiled with cnpy\n";
+  std::terminate();
+  #endif
+
+}
+
+/* load complex matrix m_gsl from numpy file */
+// m_gsl must be the correct shape
+void gsl_matrix_complex_npy_load(const char *data_filename,\
+                                 gsl_matrix_complex * m_gsl)
+{
+
+  #ifdef USE_NUMPY
+  const int cols = m_gsl->size2; // "quad_size"
+  const int rows = m_gsl->size1; // "dim_rb"
+
+  // TODO: Large memory footprint here
+  cnpy::NpyArray arr = cnpy::npy_load(data_filename);
+  std::complex<double>* loaded_data =
+    reinterpret_cast<std::complex<double>*>(arr.data);
+  gsl_complex tmp_gsl;
+  for(int ii=0;ii<rows;ii++) {
+    for(int jj=0;jj<cols;jj++) {
+      std::complex<double> tmp = loaded_data[cols*ii+jj];
+      GSL_SET_COMPLEX(&tmp_gsl,tmp.real(),tmp.imag());
+      gsl_matrix_complex_set(m_gsl, ii, jj, tmp_gsl);
+    }
+  }
+  delete [] loaded_data;
+  //arr.destruct();
+  #else
+  std::cerr << "\nCode not compiled with cnpy\n";
+  std::terminate();
+  #endif
+
 }
 
 void MGS(gsl_vector_complex *ru,\

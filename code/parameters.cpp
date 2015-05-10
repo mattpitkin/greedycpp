@@ -89,20 +89,39 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
   }
 
 
-  // -- build training set (builds list of paramter values in ts.params) -- //
+  // -- load training set information (allocation and filling in training_set class) -- //
   if (load_from_file_) {
     if(high_verbosity) {
       fprintf(stdout,"Loading ts values from file...\n");
     }
     cfg_status = cfg.lookupValue("ts_file", ts_file_name_);
     if (!cfg_status){
-      fprintf(stderr, "ts_file not found in config file\n");
-      exit(1);
+
+      fprintf(stderr, "ts_file not found in config file. Hopefully this a validation run...\n");
+      ts_file_exists_ = false;
+      ts_size_ = -1;
+      //exit(1);
+
     }
-    ts_size_ = fcount_pts(ts_file_name_.c_str()); // assumes each row is point
-    if(high_verbosity) { 
-      std::cout << "training set file found to " 
-                << ts_size_ << " parameter samples" << std::endl;
+    else {
+
+      // test if file exists //
+      FILE *pf = fopen(ts_file_name_.c_str(), "r");
+      if(pf==NULL) {
+        fprintf(stderr, "ts_file could not be opened. Hopefully this a validation run...\n");
+        ts_file_exists_ = false;
+        ts_size_ = -1;
+      }
+      else {
+        fclose(pf);
+        ts_file_exists_ = true;
+        ts_size_ = fcount_pts(ts_file_name_.c_str()); // assumes each row is point
+        if(high_verbosity) {
+          std::cout << "training set file found to "
+                    << ts_size_ << " parameter samples" << std::endl;
+        }
+      }
+
     }
   }
   else {

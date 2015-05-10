@@ -79,7 +79,15 @@ TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
 
   // fills params_ with values //
   if(p->load_from_file()){
-    BuildTS(p->ts_file_name().c_str());
+
+    if(p->ts_file_exists()) {
+      BuildTS(p->ts_file_name().c_str());
+    }
+    else{
+      std::cerr << "training space file doesn't exist yet you are trying to use it\n";
+      exit(1);
+    }
+
   }
   else{
     BuildTS(p->params_num(),p->params_low(),p->params_high());
@@ -228,7 +236,7 @@ void TrainingSetClass::BuildTS_FromFile2D(const char *ts_file)
   data = fopen(ts_file,"r");
 
   if(data == NULL) {
-    std::cout << "failed to open training set file" << std::endl;
+    std::cerr << "failed to open training set file" << std::endl;
     exit(1);
   }
 
@@ -274,7 +282,7 @@ void TrainingSetClass::BuildTS_FromFileND(const char *ts_file)
         params_[i][j] = parameter_tmp;
       }
       else{
-        std::cout << "failed reading training set from file" << std::endl;
+        std::cerr << "failed reading training set from file" << std::endl;
         exit(1);
       }
 

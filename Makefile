@@ -17,6 +17,11 @@ MODELLIBS=$(shell pkg-config --libs lalsimulation)
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
 
+### Work with numpy data files ###
+NUMPY=-DUSE_NUMPY
+NUMPYHEADERS=-I/home/scott/pool/cnpy/include
+NUMPYLIBS=-L/home/scott/pool/cnpy/lib -lcnpy
+
 ### LIGO Analysis Library (LAL) flags 
 ## set "LAL=" if you do not have LAL installed) ###
 LAL=-DMODEL_LAL
@@ -43,29 +48,29 @@ HEADERS = $(SRCDIR)/training_set.hpp $(SRCDIR)/parameters.hpp \
 all: $(BINDIR)/greedy_mpi $(BINDIR)/greedyOMP_mpi $(BINDIR)/verifyOMP $(BINDIR)/greedy $(BINDIR)/greedyOMP
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) \
-        -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
-        $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) \
+        $(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
+        $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
-        -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
-	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
+        $(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) \
-        -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
-	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
+	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) \
+        $(NUMPYHEADERS) -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedyOMP_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
-        -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
-	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
+	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
+        $(NUMPYHEADERS) -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/verifyOMP: $(SRCDIR)/basis_validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) \
-        -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) \
-	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
+	$(NUMPYHEADERS) -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 .PHONY: clean
 clean:

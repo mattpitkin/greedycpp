@@ -27,6 +27,19 @@ static int fcount_pts(const char *infile) {
   return points;
 }
 
+// overload for path + file
+static int fcount_pts(const char *path, const char *infile)
+{
+  char filename[200];
+
+  strcpy(filename,path);
+  strcat(filename,infile);
+
+  int N = fcount_pts(filename);
+  return N;
+
+}
+
 static void FindMax2(const double *errors,
                  const int len,
                  double &worst_err,
@@ -40,9 +53,6 @@ static void FindMax2(const double *errors,
     }
   }
 }
-
-
-
 
 
 #endif

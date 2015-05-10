@@ -15,9 +15,19 @@ For details on the code's scaling and QR-based model reduction:
     reduction for large problems". In preparation. 
 
 
-Requirements: libconfig, gsl and MPI (see below to build with mpi disabled).
-
 Code's coordinates: https://sfield83@bitbucket.org/sfield83/greedycpp.git
+
+
+Dependencies
+------------
+
+Requirements: libconfig, gsl and MPI (see below to build with mpi disabled).
+Optional:     cnpy for reading and writing to Python's numpy binary format.
+
+The get-libconfig and get-cnpy scripts (found in the scripts folder) 
+will download and install these external packages for you.
+
+cnpy coordinates: https://github.com/rogersce/cnpy.git
 
 
 Quick start
