@@ -7,27 +7,48 @@ import math
 import sys
 import timeit
 
-### output file name ###
+# helper function (run in ipython) for determining
+# max/min of each parameter range (e.g. by running
+# on a file of greedy points)
+def get_param_max_min(filename):
 
-def generate_sampling(filename):
+  params = np.loadtxt(filename)
+  param_range = np.zeros([2,params.shape[1]])
+  for i in range(params.shape[1]):
+    param_range[0,i] = params[:,i].min()
+    param_range[1,i] = params[:,i].max()
+    print "param %i max %1.14e and min %1.14e"%(i,param_range[1,i],param_range[0,i])
+
+  return param_range
+
+def generate_sampling(filename,param_file=None,total_picks=100):
+    """ filename   -- name of output file
+        parm_file -- optional input file from which min/max range
+                      of parameters is deduced 
+        total_picks -- if random sampling, this many random picks  """
 
     ### sampling strategies (linear, log10, ln) ###
     sample_type    = "rand" # "rand" or "deterministc"
 
     ### setup parameter intervals ###
     ### ith parameter interval will be [param_low[i],param_high[i]]
-    params_low  = np.array([1.0,1.0])  # lower interval of each parameter
-    params_high = np.array([3.0,3.0])
-    #params_low  = np.array([2.8,0.098765,-.7,-.7,0.0,0.0])  # lower interval of each parameter
-    #params_high = np.array([20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi])
- 
+    if param_file is None: # manual setup
+      params_low  = np.array([1.0,1.0])  # lower interval of each parameter
+      params_high = np.array([3.0,3.0])
+      #params_low  = np.array([2.8,0.098765,-.7,-.7,0.0,0.0])  # lower interval of each parameter
+      #params_high = np.array([20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi])
+    else:
+      param_range = get_param_max_min(param_file)
+      params_low  = param_range[0,:]
+      params_high = param_range[1,:]
+
     ### setup for deterministic sampling ###
     param_sampling = "ln"
     scaling_factor = 20.0 # default should be 1. higher values densely sample lower range of parameter interval
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
     ### setup for random sampling ###
-    total_picks = 100     # random: this many draws from interval
+    #total_picks = 100     # random: this many draws from interval
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
