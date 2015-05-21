@@ -676,7 +676,7 @@ int main (int argc, char **argv) {
   gsl_vector *xQuad;
   char ts_filename[100];
   char ts_pts_filename[100];
-  char shell_command[100];
+  char shell_command[200];
   int gsl_status;
   int ts_size;
   clock_t start, end;
@@ -696,9 +696,14 @@ int main (int argc, char **argv) {
     strcat(shell_command, params_from_file->output_dir().c_str());
     system(shell_command);
 
-    snprintf(shell_command,100,"cp %s %s",argv[1],\
-             params_from_file->output_dir().c_str());
-    system(shell_command);
+    std::string copy_filename(params_from_file->output_dir());
+    copy_filename.append("/run_settings.cfg");
+    std::ifstream src(argv[1],std::ios::binary);
+    std::ofstream dst(copy_filename.c_str(),std::ios::binary);
+    dst << src.rdbuf();
+    src.close();
+    dst.close();
+
 
     if(high_verbosity) {
       #ifdef USE_OPENMP
