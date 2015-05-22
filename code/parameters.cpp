@@ -39,7 +39,9 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
     exit(1);
   }
   catch(const libconfig::ParseException &pex){
-    std::cerr << "Parse error. Check cfg file for correct syntax." 
+    std::cerr << "Parse error. Check cfg file for correct syntax.\n"
+              << "Common probelems (i) missing semicolon\n"
+              << "                 (ii) single instead of double quotes\n"
               << std::endl;
     exit(1);
   }
