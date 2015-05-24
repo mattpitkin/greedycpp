@@ -42,6 +42,8 @@
 
 int main (int argc, char **argv) {
 
+  // TODO: code contains a terrible mix of c char and c++ string
+
 
   // -- record parameters with errors above tolerance to separate file -- //
   double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
@@ -61,7 +63,14 @@ int main (int argc, char **argv) {
   std::cout << "random file is: " << argv[3] << std::endl;
   std::cout << "basis format is: " << argv[4] << std::endl;
 
+  std::string basis_path         = std::string(argv[2]);
   std::string random_sample_file = std::string(argv[3]);
+
+  if(basis_path.at(basis_path.length()-1) != '/') {
+    std::cerr << "directory with basis file must end with '/' " << std::endl;
+    exit(1);
+  }
+
 
   //--- Read input file argv[1]. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
@@ -101,7 +110,7 @@ int main (int argc, char **argv) {
     FILE *pBASIS;
     pBASIS = fopen(rb_filename,"rb");
     if (pBASIS==NULL) {
-      std::cerr << "could not open file\n";
+      std::cerr << "could not open basis file\n";
       exit(1);
     }
     gsl_matrix_complex_fread(pBASIS,RB_space);
@@ -191,24 +200,30 @@ int main (int argc, char **argv) {
   // -- record results -- //
   fprintf(stdout,"validation took %f cpu secs and %f wall secs \n",
           alg_time,omp_time);
+
   strcpy(err_filename,argv[2]);
   strcat(err_filename,"validations/");
+
   strcpy(bad_param_filename,err_filename);
   strcat(bad_param_filename,"points_");
+
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
+
   strcat(bad_param_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
   err_data  = fopen(err_filename,"w");
   if (err_data==NULL) {
-    std::cerr << "could not open error file\n";
+    std::cerr << "Could not open error report file\n";
+    std::cerr << "with file name = " << err_filename << std::endl;
     exit(1);
   }
 
   bad_param = fopen(bad_param_filename,"w");
   if (bad_param==NULL) {
     std::cerr << "could not open bad param file\n";
+    std::cerr << "with file name = " << bad_param_filename << std::endl;
     exit(1);
   }
 
