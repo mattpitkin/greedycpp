@@ -122,6 +122,11 @@ int main (int argc, char **argv) {
 
   assert(quad_size==xQuad->size && quad_size==params_from_file->quad_points());
 
+  // If basis is orthogonal (but not normalized) carry out normalization //
+  // NOTE: validation studies assume the basis satisfies <ei,ej> = \delta_{ij}
+  //std::cout << "Normalizing the basis..." << std::endl;
+  //mygsl::NormalizeMatrixRows(RB_space,wQuad);
+
   // this is useful sanity check (looks at TS waveform errors) //
   //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
   TrainingSetClass *random_samples = 
