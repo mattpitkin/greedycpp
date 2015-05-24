@@ -7,8 +7,7 @@ import math
 import sys
 import timeit
 
-# helper function (run in ipython) for determining
-# max/min of each parameter range (e.g. by running
+# determine max/min of each parameter range (e.g. by running
 # on a file of greedy points)
 def get_param_max_min(filename):
 
@@ -21,34 +20,39 @@ def get_param_max_min(filename):
 
   return param_range
 
-def generate_sampling(filename,param_file=None,total_picks=100):
-    """ filename   -- name of output file
-        parm_file -- optional input file from which min/max range
-                      of parameters is deduced 
-        total_picks -- if random sampling, this many random picks  """
-
-    ### sampling strategies (linear, log10, ln) ###
-    sample_type    = "rand" # "rand" or "deterministc"
+def generate_sampling(filename,param_list=None,total_picks=100,\
+                      sample_type="rand",seed=None):
+    """ filename     -- name of output file
+        param_list   -- optional. If an input file, a min/max range
+                        of parameters is deduced. Otherwise, a vector 
+                        of max/min parameter values directly.
+        total_picks  -- if random sampling, this many random picks
+        sample_type  -- 'rand' or 'deterministc' 
+        seed         -- if 'rand', seed the RandomState class"""
 
     ### setup parameter intervals ###
     ### ith parameter interval will be [param_low[i],param_high[i]]
-    if param_file is None: # manual setup
+    if param_list is None: # manual setup
       params_low  = np.array([1.0,1.0])  # lower interval of each parameter
       params_high = np.array([3.0,3.0])
       #params_low  = np.array([2.8,0.098765,-.7,-.7,0.0,0.0])  # lower interval of each parameter
       #params_high = np.array([20.0,0.25,.7,-0.046667,2*np.pi,2*np.pi])
     else:
-      param_range = get_param_max_min(param_file)
-      params_low  = param_range[0,:]
-      params_high = param_range[1,:]
+      try: # attempt to get the max/min from a file
+        param_range = get_param_max_min(param_list)
+        params_low  = param_range[0,:]
+        params_high = param_range[1,:]
+      except: # parameter ranges have been passed
+        param_range = param_list
+        params_low  = param_range[0,:]
+        params_high = param_range[1,:]
 
     ### setup for deterministic sampling ###
     param_sampling = "ln"
     scaling_factor = 20.0 # default should be 1. higher values densely sample lower range of parameter interval
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
-    ### setup for random sampling ###
-    #total_picks = 100     # random: this many draws from interval
+
 
     if( sample_type is "deterministic"):
       print "deterministic sampling"
@@ -97,13 +101,15 @@ def generate_sampling(filename,param_file=None,total_picks=100):
 
     elif(sample_type is "rand"):
 
+      rs = np.random.RandomState(seed=seed)
+
       fp = open(filename,'w')
       parameter_dim = len(params_high)
 
       tic = timeit.default_timer()
       for ii in range(total_picks):
 
-        p_jj = (params_high[:] - params_low[:]) * np.random.random_sample((parameter_dim,)) + params_low[:]
+        p_jj = (params_high[:] - params_low[:]) * rs.random_sample((parameter_dim,)) + params_low[:]
 
         if np.mod(ii,100000)==0:
           print "sample number = ",ii
@@ -117,10 +123,49 @@ def generate_sampling(filename,param_file=None,total_picks=100):
 
       toc = timeit.default_timer()
       print "timer = %1.14e"%(toc-tic)
+      fp.close()
 
     else:
       raise Exception("sampling type unknown")
 
+
+def remap_parameters(file_in,file_out,param_dict_map={}):
+  """ param_dict_map -- param_dict_map[i] is a function from 
+                        an n-dimensional vector of parameter values
+                        to the new ith parameter.
+      file_in --  file where each row is P=(p[0],p[1],...,p[n-1])
+      file_out -- each row is now 
+                  (param_dict_map["0"](P),...,param_dict_map["n-1"](P)"""
+
+
+  old_params = np.loadtxt(file_in)
+
+  total_params  = old_params.shape[0]
+  parameter_dim = old_params.shape[1]
+
+  print "parameter dimensionality = ",parameter_dim
+  print "total parameters = ",total_params
+
+  fp = open(file_out,'w')
+
+  for ii in range(total_params):
+
+    pii = old_params[ii,:]
+
+    for jj in range(parameter_dim):
+
+      # apply parameter mapping if requested
+      if param_dict_map.has_key(str(jj)):
+        p_jj = param_dict_map[str(jj)](pii)
+      else:
+        p_jj = pii[jj]
+
+      if(jj == parameter_dim-1):
+        fp.write('%1.15e\n' % p_jj)
+      else:
+        fp.write('%1.15e\t' % p_jj)
+
+  fp.close()
 
 
 if __name__=="__main__":
