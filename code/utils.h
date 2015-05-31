@@ -1,6 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <stdlib.h>
+#include <fstream>
+
 // static c-style: these functions' scope are limited to file in which 
 // #include is used
 

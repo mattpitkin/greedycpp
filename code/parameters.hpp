@@ -8,7 +8,7 @@
 
 class Parameters {
   public:
-    Parameters();
+    //Parameters();
     Parameters(char **,bool);
     ~Parameters();
 

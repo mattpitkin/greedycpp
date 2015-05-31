@@ -4,8 +4,6 @@
 #include <fstream>
 #include <string.h>
 #include <cmath>
-//#include <time.h>
-//#include <vector>
 #include <sstream>
 
 #include "parameters.hpp"
@@ -208,10 +206,11 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
 
 std::ostream& operator<<(std::ostream& os, const Parameters& p)
 {
-  os << "Dimensionality of parameter space " 
+  os << "======= Parameter file info ========\n\n"
+     << "Dimensionality of parameter space " 
      << p.param_dim() << " sampled by " << p.ts_size() 
      << " training set points.\n"
-     << "Using waveform model " << p.model_name() << std::endl;
+     << "Using waveform model " << p.model_name() << "\n\n";
   return os;
 }
 
