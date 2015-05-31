@@ -40,10 +40,19 @@ OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 #OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
 
 ### Source and headers ###
-SOURCES = $(SRCDIR)/training_set.cpp $(SRCDIR)/parameters.cpp
-HEADERS = $(SRCDIR)/training_set.hpp $(SRCDIR)/parameters.hpp \
-          $(SRCDIR)/gsl_helper_functions.h $(SRCDIR)/my_models.h $(SRCDIR)/utils.h
+SOURCES = $(SRCDIR)/training_set.cpp \
+	$(SRCDIR)/parameters.cpp \
+	$(SRCDIR)/gsl_helper_functions.cpp \
+	$(SRCDIR)/quadratures.cpp \
+	$(SRCDIR)/load_simulation_data.cpp
 
+HEADERS = $(SRCDIR)/training_set.hpp \
+	$(SRCDIR)/parameters.hpp \
+	$(SRCDIR)/gsl_helper_functions.hpp \
+	$(SRCDIR)/quadratures.hpp \
+	$(SRCDIR)/load_simulation_data.hpp \
+	$(SRCDIR)/my_models.h \
+	$(SRCDIR)/utils.h
 
 all: $(BINDIR)/greedy_mpi $(BINDIR)/greedyOMP_mpi $(BINDIR)/verifyOMP $(BINDIR)/greedy $(BINDIR)/greedyOMP
 

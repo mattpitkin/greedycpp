@@ -15,8 +15,8 @@ class TrainingSetClass {
     TrainingSetClass();
 
     // overload constructors
-    TrainingSetClass(Parameters *, int);
-    TrainingSetClass(Parameters *, std::string); // random sampling. samples in file 
+    TrainingSetClass(const Parameters *, int);
+    TrainingSetClass(const Parameters *, std::string); // random sampling. samples in file 
 
     // explicit destructor - constructor allocates memory on the heap
     ~TrainingSetClass();

@@ -30,23 +30,19 @@
 #include <gsl/gsl_vector_complex.h>
 #include <gsl/gsl_block_complex_float.h>
 
+#include "load_simulation_data.hpp"
 #include "parameters.hpp"
-#include "gsl_helper_functions.h"
-#include "quadratures.h"
+#include "gsl_helper_functions.hpp"
+#include "quadratures.hpp"
 #include "training_set.hpp"
 #include "my_models.h"
-#include "utils.h"
-
-
-#include <assert.h>
 
 int main (int argc, char **argv) {
-
-  // TODO: code contains a terrible mix of c char and c++ string
 
 
   // -- record parameters with errors above tolerance to separate file -- //
   double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
+
 
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc != 5) {
@@ -71,65 +67,21 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
+  //--- Load greedy data from previous simulation -- //
+  LoadData *data = new LoadData(argv);
+  const Parameters& params_from_file = data->params_from_file();
+  const gsl_matrix_complex RB_space = data->RB_space();
+  const gsl_vector_complex wQuad = data->wQuad();
+  const gsl_vector xQuad = data->xQuad();
 
-  //--- Read input file argv[1]. If there is an error, report and exit.
-  //--- Parameters class contains relevant information about parameters 
-  Parameters *params_from_file = new Parameters(argv,true);
-  std::cout << *params_from_file;
-
-  gsl_matrix_complex *RB_space, *model_evaluations;
-  gsl_vector_complex *wQuad;
-  gsl_vector *xQuad;
+  gsl_matrix_complex *model_evaluations;
   double * errors;
   char err_filename[200];
   char bad_param_filename[200];
   char shell_command[200];
   FILE *err_data, *bad_param;
   clock_t start, end;
-  char rb_filename[200];
 
-  // -- Deduce quadrature and basis sizes -- //
-  //int rb_size   = fcount_pts(argv[2],"/ApproxErrors.txt");
-  int rb_size   = fcount_pts(argv[2],"/GreedyPoints.txt");
-  int quad_size;
-  if(params_from_file->quad_type() == 0 || params_from_file->quad_type() == 1){
-    quad_size = params_from_file->quad_points();
-  } else {
-    quad_size = fcount_pts(argv[2],"/quad_rule.txt");
-  }
-
-
-  RB_space = gsl_matrix_complex_alloc(rb_size,quad_size);
-
-  // read in basis from a binary file //
-  std::cout << "reading basis from file...\n";
-  strcpy(rb_filename,argv[2]);
-  if (strcmp(argv[4],"gsl") == 0) {
-
-    strcat(rb_filename,"/Basis.bin");
-    FILE *pBASIS;
-    pBASIS = fopen(rb_filename,"rb");
-    if (pBASIS==NULL) {
-      std::cerr << "could not open basis file\n";
-      exit(1);
-    }
-    gsl_matrix_complex_fread(pBASIS,RB_space);
-    fclose(pBASIS);
-
-  }
-  else if (strcmp(argv[4],"npy") == 0) {
-    strcat(rb_filename,"/Basis.npy");
-    mygsl::gsl_matrix_complex_npy_load(rb_filename,RB_space);
-  }
-  else {
-    std::cerr << "file type not supported\n";
-    exit(1);
-  }
-
-  // reconstruct quadrature rule used in greedy //
-  SetupQuadratureRule(&wQuad,&xQuad,params_from_file);
-
-  assert(quad_size==xQuad->size && quad_size==params_from_file->quad_points());
 
   // If basis is orthogonal (but not normalized) carry out normalization //
   // NOTE: validation studies assume the basis satisfies <ei,ej> = \delta_{ij}
@@ -139,7 +91,7 @@ int main (int argc, char **argv) {
   // this is useful sanity check (looks at TS waveform errors) //
   //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
   TrainingSetClass *random_samples = 
-    new TrainingSetClass(params_from_file,random_sample_file);
+    new TrainingSetClass(&params_from_file,random_sample_file);
 
   // Creating Run Directory //
   strcpy(shell_command, "mkdir -p -m700 ");
@@ -166,8 +118,8 @@ int main (int argc, char **argv) {
 
     // every variable declared here is thread private (thread-safe)
     gsl_vector_complex *model_eval, *r_tmp;
-    model_eval = gsl_vector_complex_alloc(params_from_file->quad_points());  
-    r_tmp      = gsl_vector_complex_alloc(rb_size);
+    model_eval = gsl_vector_complex_alloc(params_from_file.quad_points());  
+    r_tmp      = gsl_vector_complex_alloc(data->rb_size());
     double *params;
     params     = new double[random_samples->param_dim()]; //
 
@@ -179,11 +131,11 @@ int main (int argc, char **argv) {
 
       // Use this if model evalutions are done on-the-fly //
       random_samples->GetParameterValue(params,0,ii);
-      mymodel::EvaluateModel(model_eval,xQuad,params,*random_samples);
-      mygsl::NormalizeVector(model_eval,wQuad);
+      mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
+      mygsl::NormalizeVector(model_eval,&wQuad);
 
-      mygsl::MGS(r_tmp,model_eval,RB_space,wQuad,rb_size-1);
-      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,rb_size-1));
+      mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size()-1);
+      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()-1));
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
     }
 
@@ -244,15 +196,8 @@ int main (int argc, char **argv) {
   fclose(bad_param);
   fclose(err_data);
 
-
-  gsl_matrix_complex_free(RB_space);
-  gsl_vector_complex_free(wQuad);
-  gsl_vector_free(xQuad);
-  //gsl_matrix_complex_free(model_evaluations);
-
   delete [] errors;
-
-  delete params_from_file;
-  params_from_file = NULL;
+  delete data;
+  data = NULL;
 }
 

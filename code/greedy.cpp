@@ -39,8 +39,8 @@
 #include <gsl/gsl_block_complex_float.h>
 
 #include "training_set.hpp"
-#include "gsl_helper_functions.h"
-#include "quadratures.h"
+#include "gsl_helper_functions.hpp"
+#include "quadratures.hpp"
 #include "parameters.hpp"
 #include "utils.h"
 #include "my_models.h"

@@ -39,7 +39,7 @@ TrainingSetClass::~TrainingSetClass() {
   delete [] param_scale_;
 }
 
-TrainingSetClass::TrainingSetClass(Parameters *p,std::string file_rand)
+TrainingSetClass::TrainingSetClass(const Parameters *p,std::string file_rand)
 {
 
   ts_size_ = fcount_pts(file_rand.c_str()); 
@@ -57,7 +57,7 @@ TrainingSetClass::TrainingSetClass(Parameters *p,std::string file_rand)
 }
 
 
-TrainingSetClass::TrainingSetClass(Parameters *p, int procs_size){
+TrainingSetClass::TrainingSetClass(const Parameters *p, int procs_size){
 
   strcpy(model_,p->model_name().c_str());
   param_scale_ = p->param_scale();

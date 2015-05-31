@@ -12,7 +12,7 @@
 #define my_models_h
 
 #include "training_set.hpp"
-#include "gsl_helper_functions.h"
+#include "gsl_helper_functions.hpp"
 
 // model specific header files //
 #include "../models/taylorf2/spa_waveforms.h"
