@@ -29,7 +29,7 @@ LAL=-DMODEL_LAL
 ### Needed for gsl, gsl's verion of blas and input file parser libconfig++ ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
 LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
-CXXFLAGS=
+CXXFLAGS=-g
 #CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
 
 ### Optimizations ###
@@ -44,17 +44,24 @@ SOURCES = $(SRCDIR)/training_set.cpp \
 	$(SRCDIR)/parameters.cpp \
 	$(SRCDIR)/gsl_helper_functions.cpp \
 	$(SRCDIR)/quadratures.cpp \
-	$(SRCDIR)/load_simulation_data.cpp
+	$(SRCDIR)/load_simulation_data.cpp \
+	$(SRCDIR)/eim.cpp
 
 HEADERS = $(SRCDIR)/training_set.hpp \
 	$(SRCDIR)/parameters.hpp \
 	$(SRCDIR)/gsl_helper_functions.hpp \
 	$(SRCDIR)/quadratures.hpp \
 	$(SRCDIR)/load_simulation_data.hpp \
+	$(SRCDIR)/eim.hpp \
 	$(SRCDIR)/my_models.h \
 	$(SRCDIR)/utils.h
 
-all: $(BINDIR)/greedy_mpi $(BINDIR)/greedyOMP_mpi $(BINDIR)/verifyOMP $(BINDIR)/greedy $(BINDIR)/greedyOMP
+all: $(BINDIR)/greedy_mpi \
+	$(BINDIR)/greedyOMP_mpi \
+	$(BINDIR)/verifyOMP \
+	$(BINDIR)/greedy \
+	$(BINDIR)/greedyOMP \
+	$(BINDIR)/eim
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) \
@@ -81,8 +88,13 @@ $(BINDIR)/verifyOMP: $(SRCDIR)/basis_validation.cpp $(SOURCES) $(HEADERS) $(MODE
 	$(NUMPYHEADERS) -o $(BINDIR)/verifyOMP $(SRCDIR)/basis_validation.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
+$(BINDIR)/eim: $(SRCDIR)/eim_driver.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
+	$(NUMPYHEADERS) -o $(BINDIR)/eim $(SRCDIR)/eim_driver.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
 .PHONY: clean
 clean:
-	rm -f bin/greedy bin/greedyOMP bin/greedy_mpi bin/greedyOMP_mpi bin/verifyOMP
+	rm -f bin/greedy bin/greedyOMP bin/greedy_mpi bin/greedyOMP_mpi bin/verifyOMP bin/eim
 
 
