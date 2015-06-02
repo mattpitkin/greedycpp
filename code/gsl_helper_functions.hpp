@@ -13,7 +13,13 @@
 #include <complex.h>
 #include "cnpy.h"
 #include <complex>
+#else
+#include <complex.h>
+#include <cassert>
+#include <iostream>
+#include <complex>
 #endif
+
 
 // stick common gsl headers here -- this will reduce boilerplate. These gsl
 // headers are used in every file which needed to include this hpp anyways.
