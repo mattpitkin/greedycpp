@@ -1,6 +1,7 @@
 
 #include "parameters.hpp"
 #include "quadratures.hpp"
+#include "gsl_helper_functions.hpp"
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n, const double &a, const double &b, double *SomeArray)

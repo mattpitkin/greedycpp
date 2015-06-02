@@ -7,12 +7,6 @@
 
 #include <assert.h>
 #include <string.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_complex.h>
-#include <gsl/gsl_complex_math.h>
-#include <gsl/gsl_vector_complex.h>
-#include <gsl/gsl_block_complex_float.h>
 
 #include "gsl_helper_functions.hpp"
 
@@ -135,6 +129,26 @@ void NormalizeMatrixRows(gsl_matrix_complex *A, const gsl_vector_complex *w)
 
 }
 
+int gsl_vector_complex_max_index(const gsl_vector_complex *u)
+{
+  int max_indx = -1;
+  double u_max = -1;
+
+  for(int i=0;i<u->size;++i) {
+    double ur = u->data[2*i];
+    double ui = u->data[2*i+1];
+    //std::cout << "ui = " << ui << " ur = " << ur << std::endl;
+    double u_abs = std::sqrt(ur*ur + ui*ui);
+    if(u_abs > u_max) {
+      max_indx = i;
+      u_max      = u_abs;
+      //std::cout << " indx max = " << max_indx << " max value " << u_max << std::endl;
+    }
+  }
+
+  return max_indx;
+}
+
 void gsl_vector_complex_parts(double *v_real,\
                               double *v_imag,\
                               const gsl_vector_complex * v_gsl)
@@ -174,7 +188,7 @@ void make_gsl_vector_complex_parts(const double *v_real,\
   }
 }
 
-/* write real or imaginary part of m_gsl to file */
+/* write real or imaginary part of m_gsl to file or stdout */
 void gsl_matrix_complex_fprintf_part(const char *data_filename,\
                                      const gsl_matrix_complex * m_gsl,\
                                      const char *part)
@@ -184,8 +198,12 @@ void gsl_matrix_complex_fprintf_part(const char *data_filename,\
   const int cols = m_gsl->size2;
   const int rows = m_gsl->size1;
 
-  FILE *pFILE;
-  pFILE = fopen(data_filename,"w");
+
+ FILE *pFILE;
+  if(strcmp(data_filename,"stdout")!=0)
+    pFILE = fopen(data_filename,"w");
+  else
+    pFILE = stdout;
 
   gsl_vector_complex *v_gsl;
   double *vec_real, *vec_imag;
@@ -216,7 +234,8 @@ void gsl_matrix_complex_fprintf_part(const char *data_filename,\
 
  }
 
-  fclose(pFILE);
+  if(strcmp(data_filename,"stdout")!=0)
+    fclose(pFILE);
 
   gsl_vector_complex_free(v_gsl);
   free(vec_real);
@@ -241,6 +260,34 @@ void gsl_matrix_complex_fprintf(const char *data_filename,\
   gsl_matrix_complex_fprintf_part(data_filename_i,m_gsl,"imag"); 
 }
 
+
+// Lower triangular version of gsl_linalg_R_solve
+int
+gsl_linalg_complex_L_solve(const gsl_matrix_complex* L,
+                           const gsl_vector_complex* b,
+                           gsl_vector_complex* x)
+{
+  if (L->size1 != L->size2) {
+    GSL_ERROR("L matrix must be square", GSL_ENOTSQR);
+  }
+  else if(L->size1 != b->size) {
+    GSL_ERROR("matrix size must match b size", GSL_EBADLEN);
+  }
+  else if(L->size2 != x->size) {
+    GSL_ERROR("matrix size must match solution size", GSL_EBADLEN);
+  }
+  else {
+    /* Copy x <- b */
+    gsl_vector_complex_memcpy (x, b);
+
+    /* Solve L x = b, storing x inplace in b */
+    gsl_blas_ztrsv(CblasLower,CblasNoTrans,CblasNonUnit,L,x);
+    //gsl_blas_dtrsv(CblasUpper, CblasNoTrans, CblasNonUnit, R, x);
+
+    return GSL_SUCCESS;
+  }
+
+}
 
 // sum first n rows of A's column i
 double SumColumn(const gsl_matrix_complex *A,

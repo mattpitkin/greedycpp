@@ -47,7 +47,7 @@ class Parameters {
     int seed_;                     // greedy algorithm seed
     double tol_;                   // greedy algorithm tolerance ( \| app \|^2)
     int max_RB_;                   // estimated number of RB (reasonable upper bound)
-    int param_dim_;                // number of paramteric dimensions
+    int param_dim_;                // number of parametric dimensions
     bool export_tspace_;           // if true, mpi_size must equal 1
     double* param_scale_;          // scale each params[j][i] so that model evaluated at param_scale[i] * params[j][i]
 
@@ -62,7 +62,7 @@ class Parameters {
     // run settings - MAY need to be set //
     double *params_low_, *params_high_; // this is required if load_from_file = false. lower/upper interval of each parameter 
     int *params_num_;                   // this is required if load_from_file = false. Number of samplings in the interval [param_low,param_high]
-    std::string model_name_;            // mame of model -- used to select the appropriate model in FillTrainingSet
+    std::string model_name_;            // name of model -- used to select the appropriate model in FillTrainingSet
     std::string output_dir_;            // folder to put all output files
     std::string output_data_format_;    // format of output files (text or gsl binary supported)
     std::string ts_file_name_;          // this is required if load_from_file = true

@@ -1,14 +1,12 @@
 #ifndef quadratures_hpp
 #define quadratures_hpp
 
-//#include "parameters.hpp"
 
 class Parameters;
 
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_complex.h>
-#include <gsl/gsl_complex_math.h>
 #include <gsl/gsl_vector_complex.h>
+#include <gsl/gsl_vector_complex_double.h>
+#include <gsl/gsl_matrix_complex_double.h>
 
 /* --- fill array with linear spacing --- */
 void Linspace(const int &n,const double &a,const double &b,double *SomeArray);

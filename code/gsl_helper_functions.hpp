@@ -15,7 +15,16 @@
 #include <complex>
 #endif
 
+// stick common gsl headers here -- this will reduce boilerplate. These gsl
+// headers are used in every file which needed to include this hpp anyways.
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
+#include <gsl/gsl_vector_complex.h>
 
 // Define OPTIMIZE_AVX with -D compiler flag // 
 // compiling with icc and -O3 -xHOST flags should be faster
@@ -51,6 +60,11 @@ void NormalizeVector(gsl_vector_complex *u,\
 // normalize row vectors of matrix A using weight w //
 void NormalizeMatrixRows(gsl_matrix_complex *A, const gsl_vector_complex *w);
 
+// Returns the index of the maximum value in the vector u.
+// When there are several equal maximum
+// elements then the lowest index is returned.
+int gsl_vector_complex_max_index(const gsl_vector_complex *u);
+
 void gsl_vector_complex_parts(double *v_real,\
                               double *v_imag,\
                               const gsl_vector_complex * v_gsl);
@@ -70,7 +84,12 @@ void gsl_matrix_complex_fprintf_part(const char *data_filename,\
 
 /* write complex matrix m_gsl to file */
 void gsl_matrix_complex_fprintf(const char *data_filename,\
-                                     const gsl_matrix_complex * m_gsl);
+                                const gsl_matrix_complex * m_gsl);
+
+// Lower triangular version of gsl_linalg_R_solve
+int gsl_linalg_complex_L_solve(const gsl_matrix_complex* L,
+                             const gsl_vector_complex* b,
+                             gsl_vector_complex* x);
 
 // sum first n rows of A's column i
 double SumColumn(const gsl_matrix_complex *A,
