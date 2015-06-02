@@ -6,26 +6,27 @@
 
 // Implementation of the the empirical interpolation method (EIM) as described in
 // appendix C of "Two-Step Greedy Algorithm for Reduced Order Quadratures"
-// by Antil et al. which modifies the tradition EIM algorithm of Maday XXX: add citation here
+// by Antil et al.
 //
 // A notationally useful reference upon which this code is based can be found in
 // "Gravitational wave parameter estimation with compressed
-// likelihood evaluations" by Canizares et al. Their appendix B, however,
-// uses the basis e_i as opposed to the residual r_i. This leads to 
-// worst algorithmic scaling as discussed in both references.
+// likelihood evaluations" by Canizares et al. Appendix B, however,
+// uses the basis e_i as opposed to the residual r_i. This leads to a
+// worst algorithmic complexity as discussed in both references.
 
 
 class EIM {
   public:
 
-    //EIM();
     EIM(const int basis_dim, const int full_dim, bool err_bounds);
+
     ~EIM();
 
     // While finding the empirical interpolation points and vandermonde matrix,
-    // the matrix RB_space will be modified in place to the hold eim residuals
-    // this allows N eim points to be found with O(N^3) complexity, which
-    // should be compared to the naive O(N^4) complexity
+    // the matrix RB_space is modified inplace to the hold eim residuals.
+    // This allows N eim points to be found with O(N^3) complexity, which
+    // should be compared to the naive O(N^4) complexity.
+    // However, the basis must be reloaded to compute the interpolation matrix
     void build_eim_data(gsl_matrix_complex* RB_space);
 
     // Constructs an N-vector, a subvector of u, by evaluating u at the first
@@ -41,10 +42,9 @@ class EIM {
                                         const gsl_matrix_complex *RB_space,
                                         const int N);
 
-    // builds Vandermonde matrix V_ from basis + eim points p_
-    // why "re"-build? in fast EIM the vandermonde built via 
-    // calls to update_vandermonde are evaluations of the residual
-    // and not the basis e_i
+    // re-builds the Vandermonde matrix V_ from basis + eim points p_.
+    // Why "re"-build? The fast EIM fills V_ with residuals and not the 
+    // basis e_i. See aforementioned refs.
     void rebuild_vandermonde(const gsl_matrix_complex *RB_space);
 
     // compute the inverse of V_. Must be called after rebuild_vandermonde
@@ -57,32 +57,32 @@ class EIM {
     inline const int eim_size() const { return eim_size_; }
 
   private:
+    // -- These three methods are only used when finding the EIM nodes -- //
 
-    // When building the EIM approximation, this routine will extend the
-    // the Vandermonde matrix V_ from (i-1)-by-(i-1) to i-by-i using
-    // the EIM index p_[i].
+    // This routine will extend the the Vandermonde matrix V_ from 
+    // (i-1)-by-(i-1) to i-by-i using the EIM index p_[i]
     void update_vandermonde(const gsl_matrix_complex* RB_space,
                             const int current_eim_index);
 
-    // compute p_[i] and rho_[i] from v
+    // Compute p_[i] and rho_[i] from v
     void compute_ith_eim_node(const gsl_vector_complex* v, const int i);
 
-    // replace ith basis e_i with scaled residual res/res[res_indx]
+    // Replace ith basis e_i with scaled residual res/res[res_indx]
     void replace_basis_with_residual(gsl_vector_complex* res,
                                      const int res_indx,
                                      const int basis_indx,
                                      gsl_matrix_complex *RB_space);
 
 
-    double *rho_; // the maximum value of the residual EIM vector. vector of size basis_dim
-    int *p_;   // EIM indexes. vector of size basis_dim
-    double *lebesgue_; // error bound constant(s). vector of size basis_dim
-    gsl_matrix_complex *V_;        // vandermonde matrix. matrix of size basis_dim-by-basis_dim
-    gsl_matrix_complex *invV_;     // V^{-1}
-    const int basis_dim_;
-    const int full_dim_;
-    const bool err_bounds_;
-    int eim_size_; // when finding the eim points, this will count the current size
+    double *rho_;              // Maximum value of the i^th residual EIM vector
+    int *p_;                   // EIM indexes. Vector of size basis_dim
+    double *lebesgue_;         // error bound constant(s)
+    gsl_matrix_complex *V_;    // Square Vandermonde matrix of size basis_dim_
+    gsl_matrix_complex *invV_; // V^{-1}
+    const int basis_dim_;      // Size of approximation space 
+    const int full_dim_;       // Size of full space
+    const bool err_bounds_;    // whether to compute error bounds 
+    int eim_size_;             // Internal counter used by build_eim_data
 };
 
 #endif /* eim.hpp */
