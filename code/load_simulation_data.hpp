@@ -1,9 +1,9 @@
 #ifndef LOADDATA_hpp
 #define LOADDATA_hpp
 
-#include <gsl/gsl_complex.h>
-#include <gsl/gsl_matrix.h>
-
+#include <gsl/gsl_matrix_complex_double.h>
+#include <gsl/gsl_vector_double.h>
+#include <gsl/gsl_vector_complex_double.h>
 class Parameters;
 
 class LoadData {
@@ -19,6 +19,7 @@ class LoadData {
     inline const int rb_size() const { return rb_size_; }
     inline const int quad_size() const { return quad_size_; }
     inline const gsl_matrix_complex& RB_space() const { return *RB_space_; }
+    inline gsl_matrix_complex& RB_space() { return *RB_space_; } 
     inline const gsl_vector_complex& wQuad() const { return *wQuad_; }
     inline const gsl_vector& xQuad() const { return *xQuad_; }
 

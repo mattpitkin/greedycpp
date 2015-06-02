@@ -38,7 +38,7 @@ LoadData::LoadData(char** argv) {
   std::cout << "reading basis from file...\n";
   strcpy(rb_filename,argv[2]);
 
-  if (strcmp(argv[4],"gsl") == 0) {
+  if (strcmp(argv[3],"gsl") == 0) {
 
     strcat(rb_filename,"/Basis.bin");
     FILE *pBASIS;
@@ -51,7 +51,7 @@ LoadData::LoadData(char** argv) {
     fclose(pBASIS);
 
   }
-  else if (strcmp(argv[4],"npy") == 0) {
+  else if (strcmp(argv[3],"npy") == 0) {
     strcat(rb_filename,"/Basis.npy");
     mygsl::gsl_matrix_complex_npy_load(rb_filename,RB_space_);
   }

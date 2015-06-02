@@ -8,9 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
-#include <math.h>
 #include <string.h>
-#include <cmath>
 
 #ifdef USE_NUMPY
 #include <complex.h>
@@ -22,18 +20,9 @@
 #include <omp.h>
 #endif
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_complex.h>
-#include <gsl/gsl_complex_math.h>
-#include <gsl/gsl_vector_complex.h>
-#include <gsl/gsl_block_complex_float.h>
-
+#include "gsl_helper_functions.hpp"
 #include "load_simulation_data.hpp"
 #include "parameters.hpp"
-#include "gsl_helper_functions.hpp"
-#include "quadratures.hpp"
 #include "training_set.hpp"
 #include "my_models.h"
 
@@ -50,17 +39,17 @@ int main (int argc, char **argv) {
          "Argument: 1. location of a cfg and parameter file" << std::endl;
     std::cerr << 
          "Argument: 2. directory (ending with /) with basis+quadrature info\n";
-    std::cerr << "Argument: 3. file containing random samples" << std::endl;
-    std::cerr << "Argument: 4. basis format (npy or gsl)" << std::endl;
+    std::cerr << "Argument: 3. basis format (npy or gsl)" << std::endl;
+    std::cerr << "Argument: 4. file containing random samples" << std::endl;
     return EXIT_FAILURE;
   }
   std::cout << "parameter file is: " << argv[1] << std::endl;
   std::cout << "basis folder is: " << argv[2] << std::endl;
-  std::cout << "random file is: " << argv[3] << std::endl;
-  std::cout << "basis format is: " << argv[4] << std::endl;
+  std::cout << "basis format is: " << argv[3] << std::endl;
+  std::cout << "random file is: " << argv[4] << std::endl;
 
   std::string basis_path         = std::string(argv[2]);
-  std::string random_sample_file = std::string(argv[3]);
+  std::string random_sample_file = std::string(argv[4]);
 
   if(basis_path.at(basis_path.length()-1) != '/') {
     std::cerr << "directory with basis file must end with '/' " << std::endl;
