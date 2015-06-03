@@ -45,6 +45,8 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     PhenP_Waveform(model_eval, xQuad, params, ts.model());
   else if (strcmp(ts.model(),"PhenomP_hphc") == 0)
     PhenP_Waveform(model_eval, xQuad, params, ts.model());
+  else if (strcmp(ts.model(),"PhenomP_all_parts") == 0)
+    PhenP_Waveform_All_Parts(model_eval, xQuad, params);
   #endif
   else {
     std::cerr << "Approximant not supported!" << std::endl;

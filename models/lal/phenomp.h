@@ -23,7 +23,10 @@ extern "C"{
  -----------------------------------------------------------------------------*/
 
 
-void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, const double *params, const char *plus_cross_flag)
+void PhenP_Waveform(gsl_vector_complex *wv,
+                    const gsl_vector *fnodes,
+                    const double *params,
+                    const char *plus_cross_flag)
 {
 
 	COMPLEX16FrequencySeries *hptilde = NULL;
@@ -113,6 +116,28 @@ void PhenP_Waveform(gsl_vector_complex *wv, const gsl_vector *fnodes, const doub
 
   	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+}
+
+
+// 7th parameter params[6] 0 or 1 for plus or cross mode
+// Note: this is a *distinct* model of higher dimension (i.e. the
+// 7th describes the "part") and it needs its own model tag
+void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
+                              const gsl_vector *fnodes,
+                              const double *params)
+{
+  // TODO: check this agrees with rory's convention
+  if(params[7] == 0) {
+    PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
+  }
+  else if(params[7] == 1) {
+    PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
+  }
+  else {
+    std::cerr << "PhenomP all parts -- unknown part" << std::endl;
+    exit(1);
+  }
+
 }
 
 
