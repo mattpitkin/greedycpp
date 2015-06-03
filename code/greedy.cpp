@@ -685,6 +685,7 @@ int main (int argc, char **argv) {
     strcat(shell_command, params_from_file->output_dir().c_str());
     system(shell_command);
 
+    // Copy basis building cfg file to the output folder //
     std::string copy_filename(params_from_file->output_dir());
     copy_filename.append("/run_settings.cfg");
     std::ifstream src(argv[1],std::ios::binary);
@@ -693,6 +694,14 @@ int main (int argc, char **argv) {
     src.close();
     dst.close();
 
+    // Create cfg file to be modified/used for validation studies //
+    std::string validation_cfg(params_from_file->output_dir());
+    validation_cfg.append("/validations_setup.cfg");
+    std::ifstream src1(argv[1],std::ios::binary);
+    std::ofstream dst1(validation_cfg.c_str(),std::ios::binary);
+    dst1 << src1.rdbuf();
+    src1.close();
+    dst1.close();
 
     if(high_verbosity) {
       #ifdef USE_OPENMP

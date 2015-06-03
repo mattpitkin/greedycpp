@@ -34,25 +34,38 @@ int main (int argc, char **argv) {
 
 
   //----- Checking the number of Variables passed to the Executable -----//
-  if (argc != 5) {
+  if (argc < 5 || argc > 6) {
     std::cerr << 
-         "Argument: 1. location of a cfg and parameter file" << std::endl;
+         "Argument: 1. location of a validation configuration (cfg) file\n";
     std::cerr << 
          "Argument: 2. directory (ending with /) with basis+quadrature info\n";
     std::cerr << "Argument: 3. basis format (npy or gsl)" << std::endl;
     std::cerr << "Argument: 4. file containing random samples" << std::endl;
+    std::cerr << "Argument: 5. (Optional, without /) Local output directory [default=validations]\n";
     return EXIT_FAILURE;
   }
-  std::cout << "parameter file is: " << argv[1] << std::endl;
-  std::cout << "basis folder is: " << argv[2] << std::endl;
-  std::cout << "basis format is: " << argv[3] << std::endl;
-  std::cout << "random file is: " << argv[4] << std::endl;
+
+  std::string loc_dir("validations");
+  if (argc == 6)
+    loc_dir.assign(argv[5]);
+
+  std::cout << "parameter file is: "      << argv[1] << std::endl;
+  std::cout << "basis folder is: "        << argv[2] << std::endl;
+  std::cout << "basis format is: "        << argv[3] << std::endl;
+  std::cout << "random file is: "         << argv[4] << std::endl;
+  std::cout << "local output directory: " << loc_dir << std::endl;
+
 
   std::string basis_path         = std::string(argv[2]);
   std::string random_sample_file = std::string(argv[4]);
 
   if(basis_path.at(basis_path.length()-1) != '/') {
     std::cerr << "directory with basis file must end with '/' " << std::endl;
+    exit(1);
+  }
+
+  if(loc_dir.at(loc_dir.length()-1) == '/') {
+    std::cerr << "output directory cannot end with '/' " << std::endl;
     exit(1);
   }
 
@@ -83,10 +96,23 @@ int main (int argc, char **argv) {
     new TrainingSetClass(&params_from_file,random_sample_file);
 
   // Creating Run Directory //
+  loc_dir.append("/");
+  loc_dir.insert(0,"/");
+  std::cout << "loc dir is = " << loc_dir << std::endl;
   strcpy(shell_command, "mkdir -p -m700 ");
   strcat(shell_command, argv[2]);
-  strcat(shell_command, "/validations/");
+  strcat(shell_command, loc_dir.c_str());
   system(shell_command);
+
+  // Copy validation run cfg file to the output folder //
+  std::string validation_cfg(argv[2]);
+  validation_cfg.append(loc_dir).append("validation_run.cfg");
+  std::ifstream src(argv[1],std::ios::binary);
+  std::ofstream dst(validation_cfg.c_str(),std::ios::binary);
+  dst << src.rdbuf();
+  src.close();
+  dst.close();
+  std::cout << "parameter file is: " << argv[1] << std::endl;
 
   // Use this if filling up matrix upfront (faster for smaller studies) 
   /*model_evaluations = 
@@ -148,10 +174,10 @@ int main (int argc, char **argv) {
           alg_time,omp_time);
 
   strcpy(err_filename,argv[2]);
-  strcat(err_filename,"validations/");
+  strcat(err_filename,loc_dir.c_str());
 
   strcpy(bad_param_filename,err_filename);
-  strcat(bad_param_filename,"points_");
+  strcat(bad_param_filename,"bad_points_");
 
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
