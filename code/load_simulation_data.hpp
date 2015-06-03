@@ -1,6 +1,8 @@
 #ifndef LOADDATA_hpp
 #define LOADDATA_hpp
 
+#include <cassert>
+
 #include <gsl/gsl_matrix_complex_double.h>
 #include <gsl/gsl_vector_double.h>
 #include <gsl/gsl_vector_complex_double.h>
