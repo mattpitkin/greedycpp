@@ -8,6 +8,8 @@
 #ifndef gsl_helper_functions_h
 #define gsl_helper_functions_h
 
+#include <cmath>
+#include <iostream>
 
 #ifdef USE_NUMPY
 #include <complex.h>
