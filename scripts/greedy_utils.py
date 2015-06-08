@@ -56,6 +56,35 @@ def load_basis(outdir):
     except IOError:
       print 'No valid basis files could be found'
 
+def load_eim(outdir):
+
+  ### load the EIM point information ###
+  eim_indx  = np.loadtxt(outdir+'/EIM_indices.txt').astype(int)
+  eim_nodes = np.loadtxt(outdir+'/EIM_nodes.txt')
+
+  ### load the EIM inverse matrix ###
+  try:
+
+    invV = np.zeros((len(eim_indx),len(eim_indx)), dtype=np.complex)
+
+    invV_real      = np.loadtxt(outdir+'/invV_real.txt')
+    invV_imag      = np.loadtxt(outdir+'/invV_imag.txt')
+    invV[:,:].real = invV_real
+    invV[:,:].imag = invV_imag
+
+    print 'Found eim invV in a text file'
+
+  except IOError:
+    try:
+      invV = np.load(outdir+'/invV.npy')
+      print 'Found eim invV in a numpy file'
+
+    except IOError:
+      print 'No valid basis files could be found'
+      raise IOError
+
+  return invV, eim_indx, eim_nodes
+
 def load_info(outdir,xmin=None,xmax=None,quad_points=None):
   ''' if outdir is supplied, the quadrature rule is loaded.
       otherwise x=np.linspace(xmin,xmax,quad_points) is used'''
