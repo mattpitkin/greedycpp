@@ -5,19 +5,45 @@
 
 EIM::~EIM() {
 
-  delete[] lebesgue_;
-  delete[] p_;
-  delete[] rho_;
-  gsl_matrix_complex_free(V_);
-  gsl_matrix_complex_free(invV_);
+
+  if(mode_.compare("build")==0) { 
+    delete[] lebesgue_;
+    delete[] p_;
+    delete[] rho_;
+    gsl_matrix_complex_free(V_);
+    gsl_matrix_complex_free(invV_);
+  }
+  else if(mode_.compare("evaluation")==0) {
+    // TODO: indices and invV should be moved from loadData... with c++11 unique pointers
+    std::cout << "EIM class: LoadData is responsible for free'ing memory"
+              << std::endl;
+  }
+  else {
+    std::cerr << "unknown eim class mode" << std::endl;
+    exit(1);
+  }
+
 }
 
+EIM::EIM(const int basis_dim, const int full_dim,
+         gsl_matrix_complex *invV, int *indices) :
+  err_bounds_(false),
+  basis_dim_(basis_dim),
+  full_dim_(full_dim),
+  mode_("evaluation"),
+  p_(indices),
+  eim_size_(basis_dim),
+  invV_(invV)
+{
+  assert(invV_->size1 == basis_dim);
+}
 
 EIM::EIM(const int basis_dim, const int full_dim, bool err_bounds) :
   basis_dim_(basis_dim),
   full_dim_(full_dim),
   err_bounds_(err_bounds),
-  eim_size_(0)
+  eim_size_(0),
+  mode_("build")
 {
   rho_      = new double[basis_dim_];
   p_        = new int[basis_dim_];
@@ -26,54 +52,69 @@ EIM::EIM(const int basis_dim, const int full_dim, bool err_bounds) :
   invV_     = gsl_matrix_complex_alloc(basis_dim_,basis_dim_);
 }
 
-//TODO: dangerous to allocated in routine.
+// allocation must be freed by calling routine
 gsl_vector_complex* 
 EIM::eim_sub_vector(const gsl_vector_complex *u, const int N) {
 
   // cannot request eim vector larger than current approximation space
   assert(N<=eim_size_);
 
-  // memory should be freed by the calling routine
   gsl_vector_complex *u_eim = gsl_vector_complex_alloc(N);
-
-  for(int i=0;i<N;++i)
+  for(int i=0;i<N;++i) {
     gsl_vector_complex_set(u_eim,i,gsl_vector_complex_get(u,p_[i]));
+  }
 
   return u_eim;
 }
 
-// TODO: this routine is really 3 separate things: when building EIM points,
-// use the L-version with V updated on the fly.
-// when called for validation studies, use precomputed invV or LU+P to get c_eim
+void EIM::compute_eim_coeffs(const gsl_vector_complex *u_sub_eim,const int N,
+                             gsl_vector_complex *c_eim) {
+
+  if(mode_.compare("build")==0) {
+    int s;
+    gsl_permutation* perm      = gsl_permutation_alloc(N);
+    gsl_matrix_complex_view mv = gsl_matrix_complex_submatrix(V_,0,0,N,N);
+    gsl_matrix_complex* m      = gsl_matrix_complex_alloc(N,N);
+    gsl_matrix_complex_memcpy(m, &mv.matrix);
+    mygsl::gsl_linalg_complex_L_solve(m,u_sub_eim,c_eim);
+
+    // slow way: use this when V_ = e_i[p[:]]
+    //gsl_linalg_complex_LU_decomp (m,perm,&s);
+    //gsl_linalg_complex_LU_solve(m,perm,u_sub_eim,c_eim);
+
+    gsl_matrix_complex_free(m);
+    gsl_permutation_free(perm);
+  }
+  else if(mode_.compare("evaluation")==0) {
+    // c_eim = invV*u_sub (matrix-vector multiply)
+    gsl_blas_zgemv(CblasNoTrans,GSL_COMPLEX_ONE,invV_,
+                   u_sub_eim,GSL_COMPLEX_ZERO,c_eim);
+  }
+  else {
+    std::cerr << "EIM mode not recognized\n";
+    exit(1);
+  }
+}
+
 gsl_vector_complex* 
 EIM::eim_full_vector(const gsl_vector_complex *u,
                      const gsl_matrix_complex *RB_space,
                      const int N) {
 
   gsl_vector_complex* u_eim = gsl_vector_complex_alloc(full_dim_);
+  gsl_vector_complex* c_eim = gsl_vector_complex_alloc(N);
   gsl_vector_complex_set_zero(u_eim);
 
   // compute the small eim subvector through evaluation (interpolation data)
   gsl_vector_complex* u_sub_eim = eim_sub_vector(u,N);
 
   // solve for the basis expansion coefficients c_eim
-  int s;
-  gsl_vector_complex* c_eim  = gsl_vector_complex_alloc(N);
-  gsl_permutation* perm      = gsl_permutation_alloc(N);
-  gsl_matrix_complex_view mv = gsl_matrix_complex_submatrix(V_,0,0,N,N);
-  gsl_matrix_complex* m      = gsl_matrix_complex_alloc(N,N);
-  gsl_matrix_complex_memcpy(m, &mv.matrix);
-  mygsl::gsl_linalg_complex_L_solve(m,u_sub_eim,c_eim);
-
-  // slow way: use this when V_ = e_i[p[:]]
-  //gsl_linalg_complex_LU_decomp (m,perm,&s);
-  //gsl_linalg_complex_LU_solve(m,perm,u_sub_eim,c_eim);
+  compute_eim_coeffs(u_sub_eim,N,c_eim);
 
   // evaluate the interpolant on the full set of points
-  gsl_complex c_i;
+  // TODO: could use matrix-vector blas routine
   gsl_vector_complex* e_i = gsl_vector_complex_alloc(full_dim_);
   for (int i=0;i<N;++i) {
-    c_i = gsl_vector_complex_get(c_eim,i);
     gsl_matrix_complex_get_row(e_i,RB_space,i);
     gsl_vector_complex_scale(e_i,gsl_vector_complex_get(c_eim,i)); // c_i*e_i
     gsl_vector_complex_add(u_eim,e_i); // add c_i*e_i to empirical interpolant
@@ -82,8 +123,6 @@ EIM::eim_full_vector(const gsl_vector_complex *u,
   gsl_vector_complex_free(u_sub_eim);
   gsl_vector_complex_free(e_i);
   gsl_vector_complex_free(c_eim);
-  gsl_matrix_complex_free(m);
-  gsl_permutation_free(perm);
 
   return u_eim;
 

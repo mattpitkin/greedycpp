@@ -25,6 +25,7 @@
 #include "parameters.hpp"
 #include "training_set.hpp"
 #include "my_models.h"
+#include "eim.hpp"
 
 int main (int argc, char **argv) {
 
@@ -70,18 +71,20 @@ int main (int argc, char **argv) {
   }
 
   //--- Load greedy data from previous simulation -- //
-  LoadData *data = new LoadData(argv);
+  LoadData *data = new LoadData(argv,true);
+  EIM *eim       = new EIM(data->rb_size(),data->quad_size(),
+                           data->invV(),data->eim_indices());
+
   const Parameters& params_from_file = data->params_from_file();
   const gsl_matrix_complex RB_space = data->RB_space();
   const gsl_vector_complex wQuad = data->wQuad();
   const gsl_vector xQuad = data->xQuad();
 
   gsl_matrix_complex *model_evaluations;
-  double * errors;
+  double *errors, *errors_eim;
   char err_filename[200];
   char bad_param_filename[200];
   char shell_command[200];
-  FILE *err_data, *bad_param;
   clock_t start, end;
 
 
@@ -90,9 +93,11 @@ int main (int argc, char **argv) {
   //std::cout << "Normalizing the basis..." << std::endl;
   //mygsl::NormalizeMatrixRows(RB_space,wQuad);
 
-  // this is useful sanity check (looks at TS waveform errors) //
-  //TrainingSetClass *random_samples = new TrainingSetClass(params_from_file,1);
-  TrainingSetClass *random_samples = 
+  // -- this is useful sanity check (looks at TS waveform errors) -- //
+  //TrainingSetClass *random_samples=new TrainingSetClass(&params_from_file,1);
+
+  // -- use random samples file -- //
+  TrainingSetClass *random_samples =
     new TrainingSetClass(&params_from_file,random_sample_file);
 
   // Creating Run Directory //
@@ -116,10 +121,11 @@ int main (int argc, char **argv) {
 
   // Use this if filling up matrix upfront (faster for smaller studies) 
   /*model_evaluations = 
-   gsl_matrix_complex_alloc(random_samples->ts_size(),xQuad->size);
-  mymodel::FillTrainingSet(model_evaluations,xQuad,wQuad,*random_samples,0);*/
+   gsl_matrix_complex_alloc(random_samples->ts_size(),params_from_file.quad_points());
+  mymodel::FillTrainingSet(model_evaluations,&xQuad,&wQuad,*random_samples,0);*/
 
-  errors            = new double[random_samples->ts_size()];
+  errors     = new double[random_samples->ts_size()];
+  errors_eim = new double[random_samples->ts_size()];
 
 
   // error reported will be \sqrt(h - Ph) //
@@ -149,8 +155,18 @@ int main (int argc, char **argv) {
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
       mygsl::NormalizeVector(model_eval,&wQuad);
 
+      // Compute empirical interpolation errors //
+      // mygsl::MGS modifies model_eval; so EIM errors must be computed first
+      gsl_vector_complex *eim_eval =
+        eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
+      gsl_vector_complex_sub(eim_eval,model_eval);
+      errors_eim[ii] = mygsl::GetNorm_double(eim_eval,&wQuad);
+      gsl_vector_complex_free(eim_eval);
+
+      // Compute errors by projecting onto the basis //
       mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size()-1);
       errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()-1));
+
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
     }
 
@@ -185,14 +201,14 @@ int main (int argc, char **argv) {
   strcat(bad_param_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
-  err_data  = fopen(err_filename,"w");
+  FILE *err_data  = fopen(err_filename,"w");
   if (err_data==NULL) {
     std::cerr << "Could not open error report file\n";
     std::cerr << "with file name = " << err_filename << std::endl;
     exit(1);
   }
 
-  bad_param = fopen(bad_param_filename,"w");
+  FILE *bad_param = fopen(bad_param_filename,"w");
   if (bad_param==NULL) {
     std::cerr << "could not open bad param file\n";
     std::cerr << "with file name = " << bad_param_filename << std::endl;
@@ -201,6 +217,7 @@ int main (int argc, char **argv) {
 
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
+    fprintf(err_data," %1.15e",errors_eim[i]);
     fprintf(err_data," %1.15e\n",errors[i]);
     if(errors[i]>err_tol) {
       random_samples->fprintf_ith(bad_param,i);
@@ -212,7 +229,11 @@ int main (int argc, char **argv) {
   fclose(err_data);
 
   delete [] errors;
+  delete [] errors_eim;
   delete data;
   data = NULL;
+  delete eim;
+  eim = NULL;
+
 }
 

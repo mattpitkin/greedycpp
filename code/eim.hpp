@@ -1,6 +1,8 @@
 #ifndef EIM_hpp
 #define EIM_hpp
 
+#include <string>
+
 #include <gsl/gsl_matrix_complex_double.h>
 #include <gsl/gsl_vector_double.h>
 
@@ -18,7 +20,12 @@
 class EIM {
   public:
 
+    // use this constructor when *finding* eim points
     EIM(const int basis_dim, const int full_dim, bool err_bounds);
+
+    // use this constructor when loading data needed for eim evaluations
+    EIM(const int basis_dim, const int full_dim,
+        gsl_matrix_complex *invV, int *indices);
 
     ~EIM();
 
@@ -35,9 +42,12 @@ class EIM {
     gsl_vector_complex* eim_sub_vector(const gsl_vector_complex *u, const int N);
 
 
-    // build the full_dim_ sized EIM vector from the N-dimensional approximation 
-    // space.
-    // TODO: if generating multiple eim vectors, use a precomputed invV_ for speed
+    // Compute the eim cofficients for the first N basis in RB_space
+    void compute_eim_coeffs(const gsl_vector_complex *u_sub_eim,
+                            const int N, gsl_vector_complex *c_eim);
+
+
+    // build full_dim_ sized EIM vector from the N-dim approximation space.
     gsl_vector_complex* eim_full_vector(const gsl_vector_complex *u,
                                         const gsl_matrix_complex *RB_space,
                                         const int N);
@@ -74,6 +84,7 @@ class EIM {
                                      gsl_matrix_complex *RB_space);
 
 
+    std::string mode_;         // whether class created in "build" or "evaluation" mode
     double *rho_;              // Maximum value of the i^th residual EIM vector
     int *p_;                   // EIM indexes. Vector of size basis_dim
     double *lebesgue_;         // error bound constant(s)

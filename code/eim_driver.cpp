@@ -39,7 +39,7 @@ int main (int argc, char **argv) {
   }
 
   //--- Load greedy data from previous simulation -- //
-  LoadData *data = new LoadData(argv);
+  LoadData *data = new LoadData(argv,false);
 
   // -- build EIM information -- //
   EIM *eim = new EIM(data->rb_size(),data->quad_size(),false);
@@ -47,7 +47,7 @@ int main (int argc, char **argv) {
 
   // -- reload the data -- eim has modifed RB_space inplace -- //
   delete data;
-  data = new LoadData(argv);
+  data = new LoadData(argv,false);
 
   // -- compute the interpolation matrix -- //
   eim->rebuild_vandermonde(&data->RB_space());
