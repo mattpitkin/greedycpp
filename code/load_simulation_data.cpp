@@ -50,7 +50,7 @@ LoadData::LoadData(char** argv, bool load_eim) :
     eim_ind_path.append("EIM_indices.txt");
     FILE *fp_ind = fopen(eim_ind_path.c_str(), "r");
     if (fp_ind==NULL) {
-      fprintf(stderr,"Could not open eim idices file.\n");
+      fprintf(stderr,"Could not open eim indices file.\n");
       exit(1);
     }
     int counter = 0;
