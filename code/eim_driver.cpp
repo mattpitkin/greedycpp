@@ -54,7 +54,7 @@ int main (int argc, char **argv) {
   eim->compute_vandermonde_inverse();
 
   // --- save data to file --- //
-  // ...eim indices
+  // ...eim indices (txt only)
   std::string eim_indices_path(basis_path);
   eim_indices_path.append("EIM_indices.txt");
   FILE *eim_indices_file = fopen(eim_indices_path.c_str(),"w");
@@ -62,7 +62,7 @@ int main (int argc, char **argv) {
     fprintf(eim_indices_file,"%i\n",eim->p()[i]);
   fclose(eim_indices_file);
 
-  // ...eim nodes
+  // ...eim nodes (txt only)
   const gsl_vector xQuad = data->xQuad();
   std::string eim_nodes_path(basis_path);
   eim_nodes_path.append("EIM_nodes.txt");
@@ -71,24 +71,34 @@ int main (int argc, char **argv) {
     fprintf(eim_nodes_file,"%f\n", gsl_vector_get(&xQuad,eim->p()[i]) );
   fclose(eim_indices_file);
 
-  // ...inverse Vandermonde matrix
-  std::string invV_path_txt(basis_path);
-  std::string invV_path_gsl(basis_path);
-  std::string invV_path_npy(basis_path);
+  // ...inverse Vandermonde matrix (txt, numpy or gsl)
+  bool wrote = false;
+  std::string datatype(data->params_from_file().output_data_format());
 
-  // save to txt file
-  invV_path_txt.append("invV");
-  mygsl::gsl_matrix_complex_fprintf(invV_path_txt.c_str(),&eim->invV());
-
-  // save to gsl binary file 
-  invV_path_gsl.append("invV.bin");
-  FILE *invV_data = fopen(invV_path_gsl.c_str(),"wb");
-  gsl_matrix_complex_fwrite(invV_data,&eim->invV());
-  fclose(invV_data);
-
-  // save to numpy binary file
-  invV_path_npy.append("invV.npy");
-  mygsl::gsl_matrix_complex_npy_save(invV_path_npy.c_str(),&eim->invV());
+  if(datatype.compare("txt")==0 || datatype.compare("both")==0) {
+    std::string invV_path_txt(basis_path);
+    invV_path_txt.append("invV");
+    mygsl::gsl_matrix_complex_fprintf(invV_path_txt.c_str(),&eim->invV());
+    wrote = true;
+  }
+  if(datatype.compare("bin")==0 || datatype.compare("both")==0) {
+    std::string invV_path_gsl(basis_path);
+    invV_path_gsl.append("invV.bin");
+    FILE *invV_data = fopen(invV_path_gsl.c_str(),"wb");
+    gsl_matrix_complex_fwrite(invV_data,&eim->invV());
+    fclose(invV_data);
+    wrote = true;
+  }
+  if(datatype.compare("npy")==0){
+    std::string invV_path_npy(basis_path);
+    invV_path_npy.append("invV.npy");
+    mygsl::gsl_matrix_complex_npy_save(invV_path_npy.c_str(),&eim->invV());
+    wrote = true;
+  }
+  if(!wrote){
+    fprintf(stderr,"file type not supported");
+    exit(1);
+  }
 
   delete data;
   data = NULL;
