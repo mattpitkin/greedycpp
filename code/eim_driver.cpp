@@ -56,6 +56,8 @@ int main (int argc, char **argv) {
 
   // --- save data to file --- //
   // ...eim indices (txt only)
+  clock_t start, end;
+  start = clock();
   std::cout << "Saving EIM indices and nodes...\n";
   std::string eim_indices_path(basis_path);
   eim_indices_path.append("EIM_indices.txt");
@@ -73,8 +75,14 @@ int main (int argc, char **argv) {
     fprintf(eim_nodes_file,"%f\n", gsl_vector_get(&xQuad,eim->p()[i]) );
   fclose(eim_indices_file);
 
+  end = clock();
+  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"Saving EIM indices and nodes took %f seconds\n",alg_time);
+
+
   // ...inverse Vandermonde matrix (txt, numpy or gsl)
   std::cout << "Saving EIM inverse interpolation matrix...\n";
+  start = clock();  
   bool wrote = false;
   std::string datatype(data->params_from_file().output_data_format());
 
@@ -102,6 +110,9 @@ int main (int argc, char **argv) {
     fprintf(stderr,"file type not supported");
     exit(1);
   }
+  end = clock();
+  alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"Saving EIM matrix took %f seconds\n",alg_time);
 
   delete data;
   data = NULL;

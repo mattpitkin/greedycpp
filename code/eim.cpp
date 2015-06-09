@@ -174,7 +174,9 @@ void EIM::replace_basis_with_residual(gsl_vector_complex* res,
 
 void EIM::rebuild_vandermonde(const gsl_matrix_complex *RB_space)
 {
+  clock_t start, end;
   std::cout << "Building the interpolation matrix.\n";
+  start = clock();
 
   gsl_vector_complex *e_i = gsl_vector_complex_alloc(full_dim_);
 
@@ -190,13 +192,16 @@ void EIM::rebuild_vandermonde(const gsl_matrix_complex *RB_space)
 
   gsl_vector_complex_free(e_i);
 
-  std::cout << "Finished building the interpolation matrix.\n";
+  end = clock();
+  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"EIM interpolation matrix took %f seconds\n",alg_time);
 }
 
 void EIM::compute_vandermonde_inverse() {
 
+  clock_t start, end;
   std::cout << "Computing the interpolation matrix's inverse.\n";
-
+  start = clock();
   // Put V into LU form and check that no permutations occurred (sanity check)
   gsl_matrix_complex *V_LU = gsl_matrix_complex_alloc(eim_size_,eim_size_);
   gsl_matrix_complex_memcpy(V_LU,V_);
@@ -217,7 +222,9 @@ void EIM::compute_vandermonde_inverse() {
   gsl_matrix_complex_free(V_LU);
   gsl_permutation_free(perm);
 
-  std::cout << "Finished computing the interpolation matrix's inverse.\n";
+  end = clock();
+  double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
+  fprintf(stdout,"Computing the inverse took %f seconds\n",alg_time);
 
 }
 
