@@ -174,6 +174,7 @@ void EIM::replace_basis_with_residual(gsl_vector_complex* res,
 
 void EIM::rebuild_vandermonde(const gsl_matrix_complex *RB_space)
 {
+  std::cout << "Building the interpolation matrix.\n";
 
   gsl_vector_complex *e_i = gsl_vector_complex_alloc(full_dim_);
 
@@ -189,9 +190,12 @@ void EIM::rebuild_vandermonde(const gsl_matrix_complex *RB_space)
 
   gsl_vector_complex_free(e_i);
 
+  std::cout << "Finished building the interpolation matrix.\n";
 }
 
 void EIM::compute_vandermonde_inverse() {
+
+  std::cout << "Computing the interpolation matrix's inverse.\n";
 
   // Put V into LU form and check that no permutations occurred (sanity check)
   gsl_matrix_complex *V_LU = gsl_matrix_complex_alloc(eim_size_,eim_size_);
@@ -212,6 +216,8 @@ void EIM::compute_vandermonde_inverse() {
 
   gsl_matrix_complex_free(V_LU);
   gsl_permutation_free(perm);
+
+  std::cout << "Finished computing the interpolation matrix's inverse.\n";
 
 }
 

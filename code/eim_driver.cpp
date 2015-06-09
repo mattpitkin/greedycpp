@@ -48,6 +48,7 @@ int main (int argc, char **argv) {
   // -- reload the data -- eim has modifed RB_space inplace -- //
   delete data;
   data = new LoadData(argv,false);
+  std::cout << "Finished loading basis.\n";
 
   // -- compute the interpolation matrix -- //
   eim->rebuild_vandermonde(&data->RB_space());
@@ -55,6 +56,7 @@ int main (int argc, char **argv) {
 
   // --- save data to file --- //
   // ...eim indices (txt only)
+  std::cout << "Saving EIM indices and nodes...\n";
   std::string eim_indices_path(basis_path);
   eim_indices_path.append("EIM_indices.txt");
   FILE *eim_indices_file = fopen(eim_indices_path.c_str(),"w");
@@ -72,6 +74,7 @@ int main (int argc, char **argv) {
   fclose(eim_indices_file);
 
   // ...inverse Vandermonde matrix (txt, numpy or gsl)
+  std::cout << "Saving EIM inverse interpolation matrix...\n";
   bool wrote = false;
   std::string datatype(data->params_from_file().output_data_format());
 
