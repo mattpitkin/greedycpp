@@ -112,16 +112,28 @@ EIM::eim_full_vector(const gsl_vector_complex *u,
   compute_eim_coeffs(u_sub_eim,N,c_eim);
 
   // evaluate the interpolant on the full set of points
-  // TODO: could use matrix-vector blas routine
-  gsl_vector_complex* e_i = gsl_vector_complex_alloc(full_dim_);
+  /*gsl_vector_complex* e_i = gsl_vector_complex_alloc(full_dim_);
   for (int i=0;i<N;++i) {
     gsl_matrix_complex_get_row(e_i,RB_space,i);
     gsl_vector_complex_scale(e_i,gsl_vector_complex_get(c_eim,i)); // c_i*e_i
     gsl_vector_complex_add(u_eim,e_i); // add c_i*e_i to empirical interpolant
   }
+  gsl_vector_complex_free(e_i);*/
+  if(N==eim_size_) {
+    gsl_blas_zgemv(CblasTrans,GSL_COMPLEX_ONE,RB_space,
+                   c_eim,GSL_COMPLEX_ZERO,u_eim);
+  }
+  else { // should use matrix view and blas here too
+    gsl_vector_complex* e_i = gsl_vector_complex_alloc(full_dim_);
+    for (int i=0;i<N;++i) {
+      gsl_matrix_complex_get_row(e_i,RB_space,i);
+      gsl_vector_complex_scale(e_i,gsl_vector_complex_get(c_eim,i)); // c_i*e_i
+      gsl_vector_complex_add(u_eim,e_i); // add c_i*e_i to empirical interpolant
+    }
+    gsl_vector_complex_free(e_i);
+  }
 
   gsl_vector_complex_free(u_sub_eim);
-  gsl_vector_complex_free(e_i);
   gsl_vector_complex_free(c_eim);
 
   return u_eim;

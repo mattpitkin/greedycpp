@@ -73,6 +73,8 @@ void NormalizeMatrixRows(gsl_matrix_complex *A, const gsl_vector_complex *w);
 // elements then the lowest index is returned.
 int gsl_vector_complex_max_index(const gsl_vector_complex *u);
 
+void gsl_vector_complex_conj(gsl_vector_complex *u);
+
 void gsl_vector_complex_parts(double *v_real,\
                               double *v_imag,\
                               const gsl_vector_complex * v_gsl);

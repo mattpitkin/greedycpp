@@ -130,6 +130,8 @@ int main (int argc, char **argv) {
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
+  clock_t start1, end1;
+  
   #ifdef USE_OPENMP
   double omp_start = omp_get_wtime();
   #endif
@@ -143,7 +145,7 @@ int main (int argc, char **argv) {
     r_tmp      = gsl_vector_complex_alloc(data->rb_size());
     double *params;
     params     = new double[random_samples->param_dim()]; //
-
+    double alg_time1;
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
 
@@ -151,22 +153,45 @@ int main (int argc, char **argv) {
       //gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
 
       // Use this if model evalutions are done on-the-fly //
+      start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
       mygsl::NormalizeVector(model_eval,&wQuad);
+      end1 = clock();
+      alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+      fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);
 
-      // Compute empirical interpolation errors //
-      // mygsl::MGS modifies model_eval; so EIM errors must be computed first
+      // -- Compute empirical interpolation errors -- //
+      // projection error valiadtion modifies model_eval; 
+      // so EIM errors must be computed first
+      start1 = clock();
       gsl_vector_complex *eim_eval =
         eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
       gsl_vector_complex_sub(eim_eval,model_eval);
       errors_eim[ii] = mygsl::GetNorm_double(eim_eval,&wQuad);
       gsl_vector_complex_free(eim_eval);
+      end1 = clock();
+      alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+      fprintf(stdout,"eim took %f seconds\n",alg_time1);
 
-      // Compute errors by projecting onto the basis //
-      mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size()-1);
-      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()-1));
+      // -- Compute errors by projecting onto the basis -- //
+      // NOTE: slow and fast way agree to about 1 sig fig
+      //       MGS takes a more "stable" projection
+      start1 = clock();
+      // slow way (older)
+      //mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size()-1);
+      //errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()-1));
+      // fast way (newer -- 6/15)
+      gsl_vector_complex_mul(model_eval,&wQuad);
+      mygsl::gsl_vector_complex_conj(model_eval);
+      gsl_blas_zgemv(CblasNoTrans,GSL_COMPLEX_ONE,&RB_space,
+                 model_eval,GSL_COMPLEX_ZERO,r_tmp); 
+      double r_tmp_nrm = gsl_blas_dznrm2(r_tmp);
+      errors[ii] = sqrt(1.0 - r_tmp_nrm*r_tmp_nrm);
+      end1 = clock();
 
+      alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+      fprintf(stdout,"MGS took %f seconds\n",alg_time1);
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
     }
 
@@ -234,6 +259,8 @@ int main (int argc, char **argv) {
   data = NULL;
   delete eim;
   eim = NULL;
+
+  return 0;
 
 }
 
