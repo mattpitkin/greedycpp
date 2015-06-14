@@ -141,10 +141,16 @@ int main (int argc, char **argv) {
 
     // every variable declared here is thread private (thread-safe)
     gsl_vector_complex *model_eval, *r_tmp;
-    model_eval = gsl_vector_complex_alloc(params_from_file.quad_points());  
+    model_eval = gsl_vector_complex_alloc(params_from_file.quad_points());
+
+    // r_tmp is rb_size+1... in MGS routine this entry is ||ortho||
+    // use this r_tmp for older way (see below)
+    //r_tmp      = gsl_vector_complex_alloc(data->rb_size()+1);
+    //gsl_vector_complex_set_zero(r_tmp);
     r_tmp      = gsl_vector_complex_alloc(data->rb_size());
+
     double *params;
-    params     = new double[random_samples->param_dim()]; //
+    params     = new double[random_samples->param_dim()];
     double alg_time1;
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
@@ -179,15 +185,25 @@ int main (int argc, char **argv) {
       //       MGS takes a more "stable" projection
       start1 = clock();
       // slow way (older)
-      //mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size()-1);
-      //errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()-1));
+      //mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
+      //errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()));
       // fast way (newer -- 6/15)
       gsl_vector_complex_mul(model_eval,&wQuad);
       mygsl::gsl_vector_complex_conj(model_eval);
       gsl_blas_zgemv(CblasNoTrans,GSL_COMPLEX_ONE,&RB_space,
-                 model_eval,GSL_COMPLEX_ZERO,r_tmp); 
+                 model_eval,GSL_COMPLEX_ZERO,r_tmp);
+      // to inspect projection coefficients
+      /*for(int jj=0;jj<data->rb_size()+1;++jj) {
+        std::cout << "size of r_tmp[jj] with jj = " << jj << " is = "
+                  << gsl_complex_abs(gsl_vector_complex_get(r_tmp,jj)) 
+                  << std::endl;
+      }*/
       double r_tmp_nrm = gsl_blas_dznrm2(r_tmp);
-      errors[ii] = sqrt(1.0 - r_tmp_nrm*r_tmp_nrm);
+      double err_sqrd = 1.0 - r_tmp_nrm*r_tmp_nrm;
+      if(err_sqrd < 0.0) // floating point error can trigger this
+        errors[ii] = 1.0e-8;
+      else
+        errors[ii] = sqrt(err_sqrd);
       end1 = clock();
 
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
