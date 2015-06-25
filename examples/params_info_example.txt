@@ -1,0 +1,4 @@
+1.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0
+3.0 3.0 0.0 0.0 1.0 0.0 0.0 1.0
+50 50 1 1 20 1 1 1
+det_lin det_lin none none rand_lin none none none
