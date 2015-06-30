@@ -231,7 +231,7 @@ def main():
     if not opts.quad_size:
       exit("Error in estimating memory: Must provide --max-rb,--num-workers and --quad-size for memory estimate")
 
-  memory.estimate_memory(ts_size,1,opts.max_rb,opts.num_workers,opts.quad_size)
+    memory.estimate_memory(ts_size,1,opts.max_rb,opts.num_workers,opts.quad_size)
 #    num_workers = opts.num_workers
 #    max_rb = opts.max_rb
 #    quad_size = opts.quad_size
