@@ -340,7 +340,7 @@ void gsl_matrix_complex_npy_save(const char *data_filename,\
   for(int ii=0;ii<rows;ii++) {
     gsl_matrix_complex_get_row(row_vec,m_gsl,ii);
     for(int jj=0;jj<cols;jj++) {
-      data[cols*ii+jj] =  std::complex<double>(row_vec->data[2*jj]   + I*row_vec->data[2*jj+1]);
+      data[cols*ii+jj] =  std::complex<double>(row_vec->data[2*jj], row_vec->data[2*jj+1]);
     }
   }
 
