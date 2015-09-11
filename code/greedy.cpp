@@ -642,7 +642,7 @@ int main (int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "Pass only location of configuration file (ends in .cfg)" 
               << std::endl;
-    exit(0);
+    exit(1);
   }
   if(high_verbosity) {
     std::cout << "parameter file is: " << argv[1] << std::endl;
@@ -683,7 +683,11 @@ int main (int argc, char **argv) {
 
     strcpy(shell_command, "mkdir -p -m700 ");
     strcat(shell_command, params_from_file->output_dir().c_str());
-    system(shell_command);
+    int ret = system(shell_command);
+    if(ret == -1) {
+      std::cerr << "Could not make a run directory" << std::endl;
+      exit(1);
+    }
 
     // Copy basis building cfg file to the output folder //
     std::string copy_filename(params_from_file->output_dir());

@@ -101,7 +101,9 @@ void PhenP_Waveform(gsl_vector_complex *wv,
 	  exit(1);
 	}
 
+
   	// Copy products of polarizations into output buffer
+	// OLD CODE SHOWING ON PRODUCTS WERE DONE (WRONG WAY)
 	/*gsl_complex zM;
 
 	else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0){
@@ -132,6 +134,15 @@ void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
   }
   else if(params[7] == 1) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
+  }
+  else if(params[7] == 2) {
+    PhenP_Waveform(wv,fnodes,params,"PhenomP_hphp");
+  }
+  else if(params[7] == 3) {
+    PhenP_Waveform(wv,fnodes,params,"PhenomP_hchc");
+  }
+  else if(params[7] == 4) {
+    PhenP_Waveform(wv,fnodes,params,"PhenomP_hphc");
   }
   else {
     std::cerr << "PhenomP all parts -- unknown part" << std::endl;
