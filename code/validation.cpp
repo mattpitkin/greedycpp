@@ -159,31 +159,31 @@ int main (int argc, char **argv) {
       //gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
 
       // Use this if model evalutions are done on-the-fly //
-      start1 = clock();
+      //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
       mygsl::NormalizeVector(model_eval,&wQuad);
-      end1 = clock();
+      /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-      fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);
+      fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);*/
 
       // -- Compute empirical interpolation errors -- //
       // projection error valiadtion modifies model_eval; 
       // so EIM errors must be computed first
-      start1 = clock();
+      //start1 = clock();
       gsl_vector_complex *eim_eval =
         eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
       gsl_vector_complex_sub(eim_eval,model_eval);
       errors_eim[ii] = mygsl::GetNorm_double(eim_eval,&wQuad);
       gsl_vector_complex_free(eim_eval);
-      end1 = clock();
+      /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-      fprintf(stdout,"eim took %f seconds\n",alg_time1);
+      fprintf(stdout,"eim took %f seconds\n",alg_time1);*/
 
       // -- Compute errors by projecting onto the basis -- //
       // NOTE: slow and fast way agree to about 1 sig fig
       //       MGS takes a more "stable" projection
-      start1 = clock();
+      //start1 = clock();
       // slow way (older)
       //mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
       //errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()));
@@ -204,10 +204,10 @@ int main (int argc, char **argv) {
         errors[ii] = 1.0e-8;
       else
         errors[ii] = sqrt(err_sqrd);
-      end1 = clock();
 
+      /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-      fprintf(stdout,"MGS took %f seconds\n",alg_time1);
+      fprintf(stdout,"MGS took %f seconds\n",alg_time1);*/
       fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
     }
 
