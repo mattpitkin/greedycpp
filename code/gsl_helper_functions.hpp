@@ -12,11 +12,11 @@
 #include <iostream>
 
 #ifdef USE_NUMPY
-#include <complex.h>
+//#include <complex.h>
 #include "cnpy.h"
 #include <complex>
 #else
-#include <complex.h>
+//#include <complex.h>
 #include <cassert>
 #include <iostream>
 #include <complex>

@@ -256,6 +256,20 @@ Repeat the above process until your basis has converged (i.e.
 it passes the verification step with no bad points).
 
 
+Scripts
+-------
+
+The script generate_trainingpoints.py will generate a trainingpoints file that can be directly used in the greedycpp config file. It requires an input textfile where each column represents a parameter and each row sets a property:
+ p1  p2  p3  p4
+ min  min  min  min
+ max  max  max  max
+ dim  dim  dim  dim
+ type type type type
+An example can be run using the following command from the base directory:
+ python scripts/generate_trainingpoints.py examples/params_info_example.txt --out examples/trainingpoints.txt
+This will create a file trainingpoints.txt that can be passed on to the config file.
+Use --help for more info and options.
+
 
 Acknowledgements
 ----------------
