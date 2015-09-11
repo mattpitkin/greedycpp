@@ -645,6 +645,8 @@ int main (int argc, char **argv) {
     exit(1);
   }
   if(high_verbosity) {
+    // GIT_SHA1 is passed through compiler flags
+    std::cout << "Compiled code git hash is " << GIT_SHA1 << std::endl;
     std::cout << "parameter file is: " << argv[1] << std::endl;
   }
 
