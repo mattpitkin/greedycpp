@@ -91,10 +91,13 @@ void PhenP_Waveform(gsl_vector_complex *wv,
               gsl_complex_mul((hctilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
   	}
   	else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0) {
-    	  std::cerr << "Double check notes for correct expression" << std::endl;
-	  exit(1);
-	  //for (int i=0; i<n; i++)
-      	  //  gsl_vector_complex_set(wv, i, gsl_complex_mul((hptilde->data->data)[i], (hctilde->data->data)[i]));
+  	  gsl_complex wv_i_real;
+  	  for (int i=0; i<n; i++) {
+  	    const gsl_complex wv_i = gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ) ;
+  	    double x = GSL_REAL(wv_i);
+  	    GSL_SET_COMPLEX(&wv_i_real, x, 0.0);
+  	    gsl_vector_complex_set(wv, i, wv_i_real);
+  	  }
   	}
 	else {
 	  std::cerr << "Approximant not supported!" << std::endl;
@@ -128,7 +131,6 @@ void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
                               const gsl_vector *fnodes,
                               const double *params)
 {
-  // TODO: check this agrees with rory's convention
   if(params[7] == 0) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
   }
