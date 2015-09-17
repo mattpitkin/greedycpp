@@ -29,95 +29,89 @@ void PhenP_Waveform(gsl_vector_complex *wv,
                     const char *plus_cross_flag)
 {
 
-	COMPLEX16FrequencySeries *hptilde = NULL;
-	COMPLEX16FrequencySeries *hctilde = NULL;
+  COMPLEX16FrequencySeries *hptilde = NULL;
+  COMPLEX16FrequencySeries *hctilde = NULL;
 
-	int n = fnodes->size;
-	const REAL8 Mtot_Msun = params[0];
-	const REAL8 eta = params[1];
-	const REAL8 Mtot_SI = Mtot_Msun * LAL_MSUN_SI; 
-	const REAL8 chi_eff = params[2];
-	const REAL8 chip = params[3];
-	const REAL8 thetaJ = params[4];
-	const REAL8 distance = 1;
-	const REAL8 phic = 0;
-	const REAL8 f_ref = 40;
-	const REAL8 alpha0 = params[5];
-
-
-	// use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
-        const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
-	for (int i=0; i<n; i++)
-    	  freqs->data[i] = gsl_vector_get(fnodes, i);
-
-        int ret = XLALSimIMRPhenomPFrequencySequence(
-          &hptilde,   //< Output: Frequency-domain waveform h+ //
-          &hctilde,   //< Output: Frequency-domain waveform hx //
-          freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
-          chi_eff,                  //< Effective aligned spin //
-          chip,                     //< Effective spin in the orbital plane //
-          eta,                      //< Symmetric mass-ratio //
-          thetaJ,                   //< Angle between J0 and line of sight (z-direction) //
-          Mtot_SI,                  //< Total mass of binary (kg) //
-          distance,                 //< Distance of source (m) //
-          alpha0,                   //< Initial value of alpha angle (azimuthal precession angle) //
-          phic,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
-          f_ref);                    //< Reference frequency //
-
-	if (ret != XLAL_SUCCESS) {
-    	  fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
-    	  exit(-1);
-  	}
-  	XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+  int n = fnodes->size;
+  const REAL8 Mtot_Msun = params[0];
+  const REAL8 eta = params[1];
+  const REAL8 Mtot_SI = Mtot_Msun * LAL_MSUN_SI; 
+  const REAL8 chi_eff = params[2];
+  const REAL8 chip = params[3];
+  const REAL8 thetaJ = params[4];
+  const REAL8 distance = 1;
+  const REAL8 phic = 0;
+  const REAL8 f_ref = 40;
+  const REAL8 alpha0 = params[5];
 
 
-  	// Copy polarization into output buffer
-	if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
-    	  for (int i=0; i<n; i++)
-	    gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
-	}
-  	else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0) {
-    	  for (int i=0; i<n; i++)
-      	    gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
-  	}
-  	else if(strcmp(plus_cross_flag,"PhenomP_hphp") == 0) {
-    	  for (int i=0; i<n; i++)
-      	    gsl_vector_complex_set(wv, i,
-              gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hptilde->data->data)[i] ) ));
-  	}
-  	else if(strcmp(plus_cross_flag,"PhenomP_hchc") == 0) {
-    	  for (int i=0; i<n; i++)
-      	    gsl_vector_complex_set(wv, i,
-              gsl_complex_mul((hctilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
-  	}
-  	else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0) {
-    	  std::cerr << "Double check notes for correct expression" << std::endl;
-	  exit(1);
-	  //for (int i=0; i<n; i++)
-      	  //  gsl_vector_complex_set(wv, i, gsl_complex_mul((hptilde->data->data)[i], (hctilde->data->data)[i]));
-  	}
-	else {
-	  std::cerr << "Approximant not supported!" << std::endl;
-	  exit(1);
-	}
+  // use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
+  const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
+  for (int i=0; i<n; i++) {
+    freqs->data[i] = gsl_vector_get(fnodes, i);
+  }
+
+  int ret = XLALSimIMRPhenomPFrequencySequence(
+    &hptilde,   //< Output: Frequency-domain waveform h+ //
+    &hctilde,   //< Output: Frequency-domain waveform hx //
+    freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
+    chi_eff,                  //< Effective aligned spin //
+    chip,                     //< Effective spin in the orbital plane //
+    eta,                      //< Symmetric mass-ratio //
+    thetaJ,                   //< Angle between J0 and line of sight (z-direction) //
+    Mtot_SI,                  //< Total mass of binary (kg) //
+    distance,                 //< Distance of source (m) //
+    alpha0,                   //< Initial value of alpha angle (azimuthal precession angle) //
+    phic,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
+    f_ref);                    //< Reference frequency //
+
+  if (ret != XLAL_SUCCESS) {
+    fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
+    exit(-1);
+  }
+  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
 
 
-  	// Copy products of polarizations into output buffer
-	// OLD CODE SHOWING ON PRODUCTS WERE DONE (WRONG WAY)
-	/*gsl_complex zM;
+  // Copy polarization into output buffer
+  if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
+    }
+  }
+  else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0) {
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
+    }
+  }
+  else if(strcmp(plus_cross_flag,"PhenomP_hphp") == 0) {
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(wv, i,
+        gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hptilde->data->data)[i] ) ));
+    }
+  }
+  else if(strcmp(plus_cross_flag,"PhenomP_hchc") == 0) {
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(wv, i,
+        gsl_complex_mul((hctilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
+    }
+  }
+  else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0) {
+    gsl_complex wv_i_real;
+    for (int i=0; i<n; i++) {
+      const gsl_complex wv_i = gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ) ;
+      double x = GSL_REAL(wv_i);
+      GSL_SET_COMPLEX(&wv_i_real, x, 0.0);
+      gsl_vector_complex_set(wv, i, wv_i_real);
+    }
+  }
+  else {
+    std::cerr << "Approximant not supported!" << std::endl;
+    exit(1);
+  }
 
-	else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0){
 
-                for(int cols = 0; cols < fnodes->size; cols++)
-                {
-                        GSL_SET_COMPLEX(&zM, creal(hptilde->data->data[cols])*creal(hctilde->data->data[cols]) + cimag(hptilde->data->data[cols])*cimag(hctilde->data->data[cols]), 0.);
-                        gsl_vector_complex_set(wv,cols,zM);
-                }
-        }*/
-
-
-  	XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-  	XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+  XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
 
 
@@ -128,7 +122,6 @@ void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
                               const gsl_vector *fnodes,
                               const double *params)
 {
-  // TODO: check this agrees with rory's convention
   if(params[7] == 0) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
   }
