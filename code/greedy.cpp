@@ -612,6 +612,8 @@ int main (int argc, char **argv) {
   int size_mpi = 1;  // needed for serial mode too
   bool high_verbosity; // controls output based on rank
 
+  std::string cfg_file(argv[1]);
+
   #ifndef COMPILE_WITHOUT_MPI
   // --- setup MPI info ---//
   MPI::Init(argc, argv);
@@ -627,8 +629,8 @@ int main (int argc, char **argv) {
   MPI::Get_processor_name(name,len);
   memset(name+len,0,MPI_MAX_PROCESSOR_NAME-len);
 
-  std::cout << "Procs = " << size_mpi << " My rank = " << rank 
-            << " My name = " << name << "." << std::endl;
+  printf("Procs = %i, My rank = %i, My name = %s\n",size_mpi,rank,name);
+  MPI_Barrier(MPI_COMM_WORLD);
   #endif
 
   if( rank==0 ) {
@@ -647,10 +649,14 @@ int main (int argc, char **argv) {
   if(high_verbosity) {
     // GIT_SHA1 is passed through compiler flags
     std::cout << "Compiled code git hash is " << GIT_SHA1 << std::endl;
-    std::cout << "parameter file is: " << argv[1] << std::endl;
+    std::cout << "parameter file is: " << cfg_file << std::endl;
   }
 
-  //--- Read input file argv[1]. If there is an error, report and exit.
+  #ifndef COMPILE_WITHOUT_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  #endif
+
+  //--- Read input file. If there is an error, report and exit.
   //--- Parameters class contains relevant information about parameters 
   Parameters *params_from_file = new Parameters(argv,high_verbosity);
   if( rank==0 ) {
@@ -692,18 +698,30 @@ int main (int argc, char **argv) {
     }
 
     // Copy basis building cfg file to the output folder //
+    // TODO: next two tasks should be a single routine
     std::string copy_filename(params_from_file->output_dir());
     copy_filename.append("/run_settings.cfg");
-    std::ifstream src(argv[1],std::ios::binary);
-    std::ofstream dst(copy_filename.c_str(),std::ios::binary);
-    dst << src.rdbuf();
-    src.close();
-    dst.close();
+    if(copy_filename.compare(cfg_file) != 0) {
+      std::cout << "Input config " << cfg_file
+                << " does not exist at the location " << copy_filename
+                << " ... Copying now." << std::endl;
+
+      std::ifstream src(cfg_file.c_str(),std::ios::binary);
+      std::ofstream dst(copy_filename.c_str(),std::ios::binary);
+      dst << src.rdbuf();
+      src.close();
+      dst.close();
+    }
+    else {
+      std::cout << "Input config " << cfg_file
+                << " exists at the location " << copy_filename
+                << " ... No copy made." << std::endl;
+    }
 
     // Create cfg file to be modified/used for validation studies //
     std::string validation_cfg(params_from_file->output_dir());
     validation_cfg.append("/validations_setup.cfg");
-    std::ifstream src1(argv[1],std::ios::binary);
+    std::ifstream src1(cfg_file.c_str(),std::ios::binary);
     std::ofstream dst1(validation_cfg.c_str(),std::ios::binary);
     dst1 << src1.rdbuf();
     src1.close();

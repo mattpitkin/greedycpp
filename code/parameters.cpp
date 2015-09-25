@@ -5,6 +5,7 @@
 #include <string.h>
 #include <cmath>
 #include <sstream>
+#include <cassert>
 
 #include "parameters.hpp"
 #include "utils.h"
@@ -52,23 +53,95 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
     fprintf(stdout,"Loading seed, tol, max_RB, weighted_inner, param_dim, "
                     "export_ts, load_from_file, quad_type...\n");
   }
-  load_from_file_ = cfg.lookup("load_from_file");
-  quad_type_      = cfg.lookup("quad_type");
-  seed_           = cfg.lookup("seed");
-  tol_            = cfg.lookup("tol");
-  max_RB_         = cfg.lookup("max_RB");
-  weighted_inner_ = cfg.lookup("weighted_inner");
-  param_dim_      = cfg.lookup("param_dim");
-  export_tspace_  = cfg.lookup("export_tspace");
+
+  try{
+    load_from_file_ = cfg.lookup("load_from_file");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting load_from_file not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    quad_type_      = cfg.lookup("quad_type");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting quad_type not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    seed_           = cfg.lookup("seed");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting seed not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    tol_            = cfg.lookup("tol");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting tol not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    max_RB_         = cfg.lookup("max_RB");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting max_rb not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    weighted_inner_ = cfg.lookup("weighted_inner");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting weighted_inner not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    param_dim_      = cfg.lookup("param_dim");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting param_dim not found." <<std::endl;
+    exit(1);
+  }
+
+  try{
+    export_tspace_  = cfg.lookup("export_tspace");
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting export_tspace not found." <<std::endl;
+    exit(1);
+  }
 
   if(high_verbosity) {
     fprintf(stdout,"Loading param_scale...\n");
   }
+
   param_scale_ = new double[param_dim_];
   char scale_str[20];
-  for(int i = 0; i < param_dim_; i++){
-    snprintf(scale_str, 20, "p%d_scale", i+1);
-    param_scale_[i] =  cfg.lookup(scale_str);
+
+  try{
+    for(int i = 0; i < param_dim_; i++){
+      snprintf(scale_str, 20, "p%d_scale", i+1);
+      param_scale_[i] =  cfg.lookup(scale_str);
+    }
+  }
+  catch(const libconfig::SettingNotFoundException &sex)
+  {
+    std::cerr << "Required setting param_scale not found" << std::endl;
   }
 
   if(high_verbosity) {
@@ -96,12 +169,10 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
     }
     cfg_status = cfg.lookupValue("ts_file", ts_file_name_);
     if (!cfg_status){
-
+      // TODO: would be better to have separate building/validation cfg reads
       fprintf(stderr, "ts_file not found in config file. Hopefully this a validation run...\n");
       ts_file_exists_ = false;
       ts_size_ = -1;
-      //exit(1);
-
     }
     else {
 
@@ -201,6 +272,11 @@ Parameters::Parameters(char ** argv, bool high_verbosity){
       exit(1);
     }
   }
+
+
+  // --- Basic parameter validation there --- //
+  // TODO: other checks throughout the code should be moved here if possible
+  assert(max_RB_ > 1);
 
 }
 
