@@ -152,6 +152,20 @@ int main (int argc, char **argv) {
     double *params;
     params     = new double[random_samples->param_dim()];
     double alg_time1;
+
+    // estimate the size of loop allocated to each thread
+    int size_per_thread =
+      std::floor(random_samples->ts_size()/omp_get_num_threads());
+    //int one_percent_finished = std::floor(size_per_thread/100);
+    int one_percent_finished = std::ceil(size_per_thread/100);
+    int percent_completed = 0;
+    int thread_id = omp_get_thread_num();
+    fprintf(stdout,"Thread %i, esimates %i of %i total work\n",
+            thread_id, size_per_thread,random_samples->ts_size());
+    fprintf(stdout,"%i for thread to finish one percent\n",
+            one_percent_finished);
+ 
+
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
 
@@ -208,7 +222,13 @@ int main (int argc, char **argv) {
       /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
       fprintf(stdout,"MGS took %f seconds\n",alg_time1);*/
-      fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
+      //fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
+
+      if( ii % one_percent_finished == 0) {
+        percent_completed +=1;
+        fprintf(stdout,"Thread %i %i percent finished\n",thread_id, percent_completed);
+      }
+
     }
 
     gsl_vector_complex_free(r_tmp);
@@ -230,17 +250,16 @@ int main (int argc, char **argv) {
   fprintf(stdout,"validation took %f cpu secs and %f wall secs \n",
           alg_time,omp_time);
 
+  // set err_filename and bad_param_filename //
   strcpy(err_filename,argv[2]);
   strcat(err_filename,loc_dir.c_str());
-
   strcpy(bad_param_filename,err_filename);
   strcat(bad_param_filename,"bad_points_");
-
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
-
   strcat(bad_param_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
+
 
   FILE *err_data  = fopen(err_filename,"w");
   if (err_data==NULL) {

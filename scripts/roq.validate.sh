@@ -25,8 +25,9 @@ run_dir='/home/sfield/greedycpp/bin'
 PathToValidations=${outdir}${randdir}
 
 echo ${PathToValidations}
-#PBS -l nodes=
-#PBS -l walltime=00:10:00
+
+#PBS -l nodes=1
+#PBS -l walltime=00:30:00
 #PBS -A sxs
 #PBS -o ${PathToValidations}/val.out
 #PBS -e ${PathToValidations}/val.err
@@ -45,8 +46,13 @@ randfile="/panfs/ds06/sxs/sfield/tmp/test.txt"
 #randfile="Rand_phenom_GP_cross_or_plus_10_20_1e6.txt"
 #randfile="Rand_phenom_GP_full_parameter_range_1e6.txt"
 
+
+cat $PE_HOSTFILE > hostfile.txt
+awk '{$1=$1; print $1}' hostfile.txt > machfile
+
+
 ## run the sampler ##
-/home/sfield/misc_notebooks_codes/phenomP_cfg_scripts/helper_scripts/sample_phenomP.py --p 10 --f ${randfile}
+/home/sfield/misc_notebooks_codes/phenomP_cfg_scripts/helper_scripts/sample_phenomP.py --p 1100 --f ${randfile}
 
 ## add modes if model is "all parts" ##
 /home/sfield/misc_notebooks_codes/phenomP_cfg_scripts/helper_scripts/AddModeDimension.py --f ${randfile} --m + x
@@ -61,7 +67,7 @@ echo Starting execution at `date`
 cd $run_dir
 
 # NOTE: comment out APP with three "###"
-APP="./verifyOMP ${outdir}${valcfg} ${outdir} gsl ${randfile} $randdir"
+APP="mpirun -np 1 ./verifyOMP ${outdir}${valcfg} ${outdir} gsl ${randfile} ${randdir}"
 echo " "
 echo $APP
 echo " "
