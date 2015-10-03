@@ -1,2 +1,0 @@
-tar -cf greedy.tar greedy.cpp gauss_wgts.h Makefile nr3.h README spa_waveforms.h training_set.* parameters.* mpiGreedyQsub quadratures.h examples/* gsl_helper_functions.h training_space.* scripts/* utils.h
-
