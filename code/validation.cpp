@@ -175,6 +175,8 @@ int main (int argc, char **argv) {
       // Use this if model evalutions are done on-the-fly //
       //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
+      //fprintf(stdout,"param %f, %f, %f, %f, %f, %f, %f\n",
+      //params[0],params[1],params[2],params[3],params[4],params[5],params[6]);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
       mygsl::NormalizeVector(model_eval,&wQuad);
       /*end1 = clock();
@@ -222,11 +224,13 @@ int main (int argc, char **argv) {
       /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
       fprintf(stdout,"MGS took %f seconds\n",alg_time1);*/
-      //fprintf(stdout,"Random point index %i with error %1.3e\n",ii,errors[ii]);
+      //fprintf(stdout,"Random point index %i with error %1.3e\n",
+      //  ii,errors[ii]);
 
       if( ii % one_percent_finished == 0) {
         percent_completed +=1;
-        fprintf(stdout,"Thread %i %i percent finished\n",thread_id, percent_completed);
+        fprintf(stdout,"Thread %i %i percent finished\n",
+                       thread_id, percent_completed);
       }
 
     }

@@ -74,11 +74,13 @@ void PhenP_Waveform(gsl_vector_complex *wv,
 
   // Copy polarization into output buffer
   if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
+    //fprintf(stdout,"Im plus\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
     }
   }
   else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0) {
+    //fprintf(stdout,"Im cross\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
     }
@@ -122,19 +124,21 @@ void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
                               const gsl_vector *fnodes,
                               const double *params)
 {
-  if(params[7] == 0) {
+  if( std::abs( params[6] - 0) < 1.e-10) {
+    //fprintf(stdout,"Plus with 7th param %f\n",params[6]);
     PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
   }
-  else if(params[7] == 1) {
+  else if( std::abs( params[6] - 1) < 1.e-10) {
+    //fprintf(stdout,"cross with 7th param %f\n",params[6]);
     PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
   }
-  else if(params[7] == 2) {
+  else if( std::abs( params[6] - 2) < 1.e-10) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_hphp");
   }
-  else if(params[7] == 3) {
+  else if( std::abs( params[6] - 3) < 1.e-10) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_hchc");
   }
-  else if(params[7] == 4) {
+  else if( std::abs( params[6] - 4) < 1.e-10) {
     PhenP_Waveform(wv,fnodes,params,"PhenomP_hphc");
   }
   else {
