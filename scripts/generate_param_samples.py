@@ -4,7 +4,7 @@
 
 import numpy as np
 import math
-import sys
+import sys, os
 import timeit
 
 # determine max/min of each parameter range (e.g. by running
@@ -21,7 +21,7 @@ def get_param_max_min(filename):
   return param_range
 
 def generate_sampling(filename,param_list=None,total_picks=100,\
-                      sample_type="rand",seed=None):
+                      sample_type="rand",seed=None,return_picks=False):
     """ filename     -- name of output file
         param_list   -- optional. If an input file, a min/max range
                         of parameters is deduced. Otherwise, a vector 
@@ -90,6 +90,9 @@ def generate_sampling(filename,param_list=None,total_picks=100,\
       for i in range(1,len(p1)):
           if p1[i]-p1[i-1]<=0: raise Exception("samples not monotonic!")
 
+      if(return_picks):
+        raise ValueError('Not coded yet')
+
       ### output MyTS.txt here -- tensor product parameter grid ###
       fp = open(filename,'w')
       for ii in range(np.size(p1)):
@@ -124,6 +127,12 @@ def generate_sampling(filename,param_list=None,total_picks=100,\
       toc = timeit.default_timer()
       print "timer = %1.14e"%(toc-tic)
       fp.close()
+
+    if(return_picks):
+      # TODO: hack: better to never create file, or have file generation be a separte routine
+      picks = np.loadtxt(filename)
+      os.remove(filename)
+      return picks
 
     else:
       raise Exception("sampling type unknown")
