@@ -45,10 +45,10 @@ void WriteGreedyInfo(const int dim_RB,
 {
   FILE *err_data, *pts_data;
   FILE *rb_data, *r_data;
-  char err_filename[100];
-  char pts_filename[100];
-  char rb_filename[100];
-  char r_filename[100];
+  char err_filename[200];
+  char pts_filename[200];
+  char rb_filename[200];
+  char r_filename[200];
 
   // directly resize matrix so only non-zero basis are output //
   // (undo this before leaving routine) //

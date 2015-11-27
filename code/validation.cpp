@@ -31,6 +31,7 @@ int main (int argc, char **argv) {
 
 
   // -- record parameters with errors above tolerance to separate file -- //
+  // TODO: read in tol from *.cfg file (should be fudge_factor*tol)
   double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
 
 
@@ -158,11 +159,13 @@ int main (int argc, char **argv) {
       std::floor(random_samples->ts_size()/omp_get_num_threads());
     //int one_percent_finished = std::floor(size_per_thread/100);
     int one_percent_finished = std::ceil(size_per_thread/100);
+    if (one_percent_finished == 0) { // needs to be > 0
+      one_percent_finished = 1;
+    }
     int percent_completed = 0;
     int thread_id = omp_get_thread_num();
-    fprintf(stdout,"Thread %i, esimates %i of %i total work\n",
-            thread_id, size_per_thread,random_samples->ts_size());
-    fprintf(stdout,"%i for thread to finish one percent\n",
+    fprintf(stdout,"Thread %i, estimates %i of %i total. %i for one percent\n",
+            thread_id,size_per_thread,random_samples->ts_size(),
             one_percent_finished);
  
 
@@ -229,8 +232,8 @@ int main (int argc, char **argv) {
 
       if( ii % one_percent_finished == 0) {
         percent_completed +=1;
-        fprintf(stdout,"Thread %i %i percent finished\n",
-                       thread_id, percent_completed);
+        fprintf(stdout,"Thread %i %i percent finished\n",thread_id,
+                percent_completed);
       }
 
     }
