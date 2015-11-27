@@ -13,23 +13,13 @@ CXX_MPI=mpicxx
 SRCDIR=code
 BINDIR=bin
 
-### model specific flags, headers, sources ###
-MODELFLAGS=$(shell pkg-config --cflags lalsimulation)
-MODELSOURCES=
-MODELHEADERS=models/taylorf2/spa_waveforms.h models/lal/phenomp.h
-MODELLIBS=$(shell pkg-config --libs lalsimulation)
-
 ### OpenMP flags ###
 OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYHEADERS=-I/home/scott/pool/cnpy/include
-NUMPYLIBS=-L/home/scott/pool/cnpy/lib -lcnpy
-
-### LIGO Analysis Library (LAL) flags 
-## set "LAL=" if you do not have LAL installed) ###
-LAL=-DMODEL_LAL
+NUMPYHEADERS=-I/home/balzani57/pool/include
+NUMPYLIBS=-L/home/balzani57/pool/lib -lcnpy
 
 ### Needed for gsl, gsl's verion of blas and input file parser libconfig++ ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
@@ -43,6 +33,23 @@ CXXFLAGS=-g
 OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 # icc optimizations (see README) #
 #OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
+
+
+### model specific flags, headers, sources ###
+MODELFLAGS=
+MODELSOURCES=
+MODELHEADERS=models/taylorf2/spa_waveforms.h
+MODELLIBS=
+
+## LIGO Analysis Library (LAL) flags for LAL models ##
+LAL=  # if you do not have LAL installed
+#LAL=-DMODEL_LAL 
+#MODELHEADERS=$(MODELHEADERS) models/lal/phenomp.h
+#MODELFLAGS=$(MODELFLAGS) $(shell pkg-config --cflags lalsimulation)
+#MODELLIBS=$(MODELLIBS) $(shell pkg-config --libs lalsimulation)
+
+
+
 
 ### Source and headers ###
 SOURCES = $(SRCDIR)/training_set.cpp \

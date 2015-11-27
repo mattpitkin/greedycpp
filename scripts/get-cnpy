@@ -6,19 +6,14 @@ then
     exit 65
 fi
 
+# install into this directory prevfix
 prefix=$1
 
 echo -e "\n\n*****************************\nINSTALLING CNPY in path ${prefix}/CNPY....\n\n"
 
-#mkdir cnpy
-#cd cnpy
-#wget http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz
 git clone https://github.com/rogersce/cnpy.git
 mkdir build_cnpy
 cd build_cnpy
-#tar -xf libconfig-1.4.9.tar.gz
-#cd libconfig-1.4.9
-#./configure --prefix=${prefix}/libconfig
 cmake -DCMAKE_INSTALL_PREFIX=${prefix} ../cnpy
 make
 
