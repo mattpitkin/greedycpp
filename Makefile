@@ -115,4 +115,67 @@ $(BINDIR)/eim: $(SRCDIR)/eim_driver.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(
 clean:
 	rm -f bin/greedy bin/greedyOMP bin/greedy_mpi bin/greedyOMP_mpi bin/verifyOMP bin/eim
 
+test: test1 test2 test3 test4
 
+test1:
+	mkdir -p Temporary
+	./bin/greedy examples/example1/test1.cfg > Temporary/Test1.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test2:
+	mkdir -p Temporary
+	mpirun -np 3 bin/greedy_mpi examples/example1/test1.cfg > Temporary/Test2.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test3:
+	mkdir -p Temporary
+	./bin/greedyOMP examples/example1/test1.cfg > Temporary/Test3.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test4:
+	mkdir -p Temporary
+	mpirun -np 1 bin/greedyOMP_mpi examples/example1/test1.cfg > Temporary/Test4.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/test: test1 test2 test3 test4
+
+test1:
+	mkdir -p Temporary
+	./bin/greedy examples/example1/test1.cfg > Temporary/Test1.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test2:
+	mkdir -p Temporary
+	mpirun -np 3 bin/greedy_mpi examples/example1/test1.cfg > Temporary/Test2.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test3:
+	mkdir -p Temporary
+	./bin/greedyOMP examples/example1/test1.cfg > Temporary/Test3.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test4:
+	mkdir -p Temporary
+	mpirun -np 1 bin/greedyOMP_mpi examples/example1/test1.cfg > Temporary/Test4.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/test: test1 test2 test3 test4
+
+test1:
+	mkdir -p Temporary
+	./bin/greedy examples/example1/test1.cfg > Temporary/Test1.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test2:
+	mkdir -p Temporary
+	mpirun -np 3 bin/greedy_mpi examples/example1/test1.cfg > Temporary/Test2.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test3:
+	mkdir -p Temporary
+	./bin/greedyOMP examples/example1/test1.cfg > Temporary/Test3.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/
+test4:
+	mkdir -p Temporary
+	mpirun -np 1 bin/greedyOMP_mpi examples/example1/test1.cfg > Temporary/Test4.txt
+	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
+	rm -rf MyOutputTest1/

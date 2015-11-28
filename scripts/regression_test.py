@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Module to do regression test of output directory against a version
 that has been archived.  
