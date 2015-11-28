@@ -18,14 +18,20 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYHEADERS=-I/home/balzani57/pool/include
-NUMPYLIBS=-L/home/balzani57/pool/lib -lcnpy
+NUMPYHEADERS=-I/home/sfield/pool/cnpy/include
+NUMPYLIBS=-L/home/sfield/pool/cnpy/lib -lcnpy
 
-### Needed for gsl, gsl's verion of blas and input file parser libconfig++ ###
+### GSL and GSL's verion of blas  ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
-LDLIBS = `gsl-config --libs` -L/opt/local/lib -lconfig++
-CXXFLAGS=-g
+LDLIBS = `gsl-config --libs` -L/opt/local/lib
+CXXFLAGS=`gsl-config --cflags`
 #CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
+
+### Input file parser libconfig++ ###
+LDLIBS+=-L/home/sfield/pool/libconfig/lib -lconfig++
+CXXFLAGS+=-I/home/sfield/pool/libconfig/include
+#CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
+
 
 ### Optimizations ###
 # gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) #
@@ -42,11 +48,11 @@ MODELHEADERS=models/taylorf2/spa_waveforms.h
 MODELLIBS=
 
 ## LIGO Analysis Library (LAL) flags for LAL models ##
-LAL=  # if you do not have LAL installed
-#LAL=-DMODEL_LAL 
-#MODELHEADERS=$(MODELHEADERS) models/lal/phenomp.h
-#MODELFLAGS=$(MODELFLAGS) $(shell pkg-config --cflags lalsimulation)
-#MODELLIBS=$(MODELLIBS) $(shell pkg-config --libs lalsimulation)
+#LAL=  # if you do not have LAL installed
+LAL=-DMODEL_LAL 
+MODELHEADERS+=models/lal/phenomp.h
+MODELFLAGS+=$(shell pkg-config --cflags lalsimulation)
+MODELLIBS+=$(shell pkg-config --libs lalsimulation)
 
 
 
