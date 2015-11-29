@@ -52,8 +52,6 @@ gsl_complex WeightedInner(const gsl_vector_complex *weights,\
 
 #else
 
-// --- compute <u,v> = \sum_i (u_i^* v_i)*w_i ... weights w --- //
-// TODO: this routine can be made faster by fixing code!!
 gsl_complex WeightedInner(const gsl_vector_complex *weights,\
                           const gsl_vector_complex *u,\
                           const gsl_vector_complex *v)
@@ -74,7 +72,6 @@ gsl_complex WeightedInner(const gsl_vector_complex *weights,\
 
 #endif
 
-// --- compute <u,v> = \sum_i u_i^* v_i --- //
 gsl_complex EuclideanInner(const gsl_vector_complex *u,\
                            const gsl_vector_complex *v)
 {
@@ -84,11 +81,40 @@ gsl_complex EuclideanInner(const gsl_vector_complex *u,\
   return ans;
 }
 
-// --- returns WeightedInner(wQuad,u,u) as type double --- //
+gsl_complex InnerProduct(const gsl_vector_complex *weights,\
+                         const gsl_vector_complex *u,\
+                         const gsl_vector_complex *v,
+                         const bool euclidean)
+{
+
+  if(euclidean) {
+    gsl_complex dx = gsl_vector_complex_get(weights,0);
+    return gsl_complex_mul(EuclideanInner(u,v),dx);
+  }
+  else {
+    return WeightedInner(weights,u,v);
+  }
+
+}
+
+bool IsConstantVector(const gsl_vector_complex *u) {
+
+  const size_t N = u->size;
+  bool constant = true;
+
+  for(size_t j=0; j<N; ++j) {
+    if(!GSL_COMPLEX_EQ(gsl_vector_complex_get(u,0),
+                       gsl_vector_complex_get(u,j))){
+      constant = false;
+    }
+  }
+  return constant;
+}
+
 double GetNorm_double(const gsl_vector_complex *u,\
                       const gsl_vector_complex *wQuad)
 {
-  gsl_complex nrmc = WeightedInner(wQuad,u,u);
+  gsl_complex nrmc = InnerProduct(wQuad,u,u,false); //TODO: control from outside
   double nrm = gsl_complex_abs(nrmc);
   nrm = sqrt(nrm);
   return nrm;
@@ -418,7 +444,7 @@ void MGS(gsl_vector_complex *ru,\
     gsl_matrix_complex_get_row(basis,RB_space,i);
 
     /* --- ortho_basis = ortho_basis - L2_proj*basis; --- */
-    L2_proj = WeightedInner(wQuad,basis,ortho_basis);
+    L2_proj = InnerProduct(wQuad,basis,ortho_basis,false); //TODO: control from outside
     gsl_vector_complex_set(ru,i,L2_proj);
     gsl_vector_complex_scale(basis,L2_proj); // basis <- basis*L2_proj
     gsl_vector_complex_sub(ortho_basis,basis); // ortho <- ortho - basis

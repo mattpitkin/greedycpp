@@ -163,6 +163,9 @@ void GreedyWorker(const int rank,
   int *worst_workers_mpi = NULL;
   double *worst_errs_mpi = NULL;
 
+  //bool useEuc = mygsl::IsConstantVector( wQuad );
+  bool useEuc = false;
+
   fprintf(stdout,"Worker %i was given %i matrix elements from %i to %i\n",\
           rank,\
           ts.matrix_sub_size()[rank],\
@@ -206,7 +209,7 @@ void GreedyWorker(const int rank,
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                               mygsl::WeightedInner(wQuad,last_rb,ts_el_omp));
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
         errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
@@ -217,7 +220,7 @@ void GreedyWorker(const int rank,
     {
       gsl_matrix_complex_get_row(row_vec,A,i);
       gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                             mygsl::WeightedInner(wQuad,last_rb,row_vec));
+                         mygsl::InnerProduct(wQuad,last_rb,row_vec,useEuc));
       errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
     #endif
@@ -453,6 +456,9 @@ void Greedy(const Parameters &params,
 
   fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
+  //bool useEuc = mygsl::IsConstantVector( wQuad );
+  bool useEuc = false;
+
   // -- unpack parameter class here -- //
   const int seed                 = params.seed();
   const int max_RB               = params.max_RB();
@@ -533,7 +539,7 @@ void Greedy(const Parameters &params,
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                               mygsl::WeightedInner(wQuad,last_rb,ts_el_omp));
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
         errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
@@ -544,7 +550,7 @@ void Greedy(const Parameters &params,
     {
         gsl_matrix_complex_get_row(ts_el,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                              mygsl::WeightedInner(wQuad,last_rb,ts_el));
+                              mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
         errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
     #endif
