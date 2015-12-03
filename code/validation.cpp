@@ -82,7 +82,12 @@ int main (int argc, char **argv) {
   strcpy(shell_command, "mkdir -p -m700 ");
   strcat(shell_command, argv[2]);
   strcat(shell_command, loc_dir.c_str());
-  system(shell_command);
+  int ret = system(shell_command);
+  if(ret == -1) {
+    std::cerr << "Could not make a run directory" << std::endl;
+    exit(1);
+  }
+
 
   // Copy validation run cfg file to the output folder //
   std::string validation_cfg(argv[2]);
