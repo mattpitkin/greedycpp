@@ -39,10 +39,6 @@ struct errorDouble_rankInt {
   int rank; 
 }; 
 
-struct rankInt_workingInt { 
-  int rank; 
-  int working; 
-}; 
 
 void WriteGreedyInfo(const int dim_RB,
                      gsl_matrix_complex *RB_space, // "const": need to resize
@@ -149,12 +145,13 @@ void GreedyWorker(const int rank,
 // worker routine for computing computationally intensive part of greedy //
 
   // -- unpack params class --//
-  const int max_RB = params.max_RB();
+  const int max_RB      = params.max_RB();
   const int seed_global = params.seed();
-  const double tol = params.tol();
+  const double tol      = params.tol();
 
-  int dim_RB = 1;
-  int cols = wQuad->size;
+  int dim_RB  = 1;
+  int cols    = wQuad->size;
+  bool continue_work = true;
   int worst_global, worst_local, worst_rank;
   double rb_inc_r, rb_inc_i, tmp;
   double *errors, *vec_real, *vec_imag;
@@ -169,11 +166,8 @@ void GreedyWorker(const int rank,
   vec_real      = new double[cols];
   vec_imag      = new double[cols];
 
-
   errorDouble_rankInt reduce_data; 
   errorDouble_rankInt global_reduce_data;
-  rankInt_workingInt global_rank_work_bcast;
-  global_rank_work_bcast.working = 1;
 
   int *worst_workers_mpi = NULL;
   double *worst_errs_mpi = NULL;
@@ -199,7 +193,7 @@ void GreedyWorker(const int rank,
       MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
   }
 
-  while(global_rank_work_bcast.working == 1)
+  while(continue_work)
   {
     // -- wait for new basis and start next sweep -- //
     MPI_Barrier(MPI_COMM_WORLD);
@@ -247,13 +241,17 @@ void GreedyWorker(const int rank,
 
     reduce_data.error = tmp;
     reduce_data.rank  = rank;
-    MPI_Reduce(&reduce_data,&global_reduce_data,1,
-               MPI_DOUBLE_INT,MPI_MAXLOC,0,MPI_COMM_WORLD);
 
-    // -- which worker proc has next basis? continue work? -- //
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&global_rank_work_bcast,1,MPI_2INT,0,MPI_COMM_WORLD);
-    worst_rank = global_rank_work_bcast.rank;
+    MPI_Allreduce(&reduce_data,&global_reduce_data,1,
+                  MPI_DOUBLE_INT,MPI_MAXLOC,MPI_COMM_WORLD);
+
+    worst_rank       = global_reduce_data.rank+1;
+    double worst_err = global_reduce_data.error;
+
+    // -- decide if another greedy sweep will be needed -- //
+    if( (dim_RB+1 == max_RB) || worst_err < tol) {
+      continue_work = false;
+    }
 
     // -- return basis to master -- //
     if( (worst_rank-1) == rank) {
@@ -315,21 +313,19 @@ void GreedyMaster(const int size,
   int *worst_workers_mpi;
   double *worst_errs_mpi;
   gsl_complex tmpc;
-  int dummy_mpi_int        = -1;
-  double dummy_mpi_double  = -1.0;
-  int dim_RB       = 1;
+  int dummy_mpi_int       = -1;
+  double dummy_mpi_double = -1.0;
+  int dim_RB              = 1;
   double total_ortho_time = 0.0;
   double total_sweep_time = 0.0;
+  bool continue_work = true;
 
   errorDouble_rankInt dummy_reduce_data;
   dummy_reduce_data.error = -1;
   dummy_reduce_data.rank  = -2;
   errorDouble_rankInt global_reduce_err_index_data;
-  rankInt_workingInt  global_rank_work_bcast;
   gsl_vector_complex *ortho_basis, *ru;
   gsl_matrix_complex *RB_space, *R_matrix;
-
-  global_rank_work_bcast.working = 1;
 
   // --- this memory should be freed here --- //
   ortho_basis       = gsl_vector_complex_alloc(cols);
@@ -367,7 +363,7 @@ void GreedyMaster(const int size,
 
   // --- Continue approximation until tolerance satisfied --- //
   start = clock();
-  while(global_rank_work_bcast.working == 1)
+  while(continue_work)
   {
 
     start1 = clock();
@@ -381,22 +377,16 @@ void GreedyMaster(const int size,
 
     // -- gather worst (local) info from workers -- //
     start_sw = clock();
-    MPI_Reduce(&dummy_reduce_data,&global_reduce_err_index_data,1,
-               MPI_DOUBLE_INT,MPI_MAXLOC,0,MPI_COMM_WORLD);
+    MPI_Allreduce(&dummy_reduce_data,&global_reduce_err_index_data,1,
+               MPI_DOUBLE_INT,MPI_MAXLOC,MPI_COMM_WORLD);
     worst_rank = global_reduce_err_index_data.rank + 1;
     worst_err  = global_reduce_err_index_data.error;
+    end_sw = clock();
 
     // -- decide if another greedy sweep will be needed -- //
     if( (dim_RB+1 == max_RB) || worst_err < tol){
-      global_rank_work_bcast.working = 0;
+      continue_work = false;
     }
-
-    // -- tell workers which one has largest error, continue working? -- //
-    global_rank_work_bcast.rank = worst_rank;
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&global_rank_work_bcast,1,MPI_2INT,0,MPI_COMM_WORLD);
-    end_sw = clock();
-
 
     // -- receive row basis from worker proc worst_rank -- //
     MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
@@ -406,17 +396,11 @@ void GreedyMaster(const int size,
     MPI_Recv(&worst_app, 1, MPI_INT, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-    //fprintf(stdout,"pivot from  rec   = %i\n",worst_app);
-    //fprintf(stdout,"max error from reduction = %1.3e\n",global_error);
-    //fprintf(stdout,"max error from maxloc   = %1.3e\n",global_reduce_data.error);
-    //fprintf(stdout,"the rank  from maxloc   = %i\n",global_reduce_data.rank+1);
-    //fprintf(stdout,"the rank  from oldway   = %i\n",worst_rank);
-
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
     // --- record worst approximated row element (basis) --- //
     greedy_points[dim_RB] = worst_app;
-    greedy_err[dim_RB] = worst_err;
+    greedy_err[dim_RB]    = worst_err;
 
     // --- add worst approximated solution/row to basis set --- //
     start_or = clock();
