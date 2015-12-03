@@ -304,6 +304,8 @@ void GreedyMaster(const int size,
   double dummy_mpi_double  = -1.0;
   int continue_work = 1;
   int dim_RB       = 1;
+  double total_ortho_time = 0.0;
+  double total_sweep_time = 0.0;
 
   gsl_vector_complex *ortho_basis, *ru;
   gsl_matrix_complex *RB_space, *R_matrix;
@@ -362,7 +364,6 @@ void GreedyMaster(const int size,
                1,MPI_INT,0,MPI_COMM_WORLD);
     MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,\
                1,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    end_sw = clock();
 
     // -- find worst rb amongst all workers -- //
     worst_err = 0.0;
@@ -378,6 +379,7 @@ void GreedyMaster(const int size,
     // -- tell all workers which one has largest error -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
+    end_sw = clock();
 
     // -- receive row basis from worker proc worst_rank -- //
     MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
@@ -410,6 +412,8 @@ void GreedyMaster(const int size,
     or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
     sw_t     = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
     alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+    total_ortho_time += or_t;
+    total_sweep_time += sw_t;
 
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                    "| sweep time %1.3e | total time %1.3e\n",\
@@ -420,6 +424,9 @@ void GreedyMaster(const int size,
 
   alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
   fprintf(stdout,"Greedy routine took %f seconds\n",alg_time);
+  fprintf(stdout,"GS routine took %f seconds\n",total_ortho_time);
+  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_time-total_ortho_time);
+  fprintf(stdout,"Greedy sweeps took %f seconds\n",total_sweep_time);
   dim_RB = dim_RB - 1;
 
   // -- output relevant information -- //
