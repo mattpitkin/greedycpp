@@ -71,35 +71,9 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
-  //--- Load greedy data from previous simulation -- //
-  LoadData *data = new LoadData(argv,true);
-  EIM *eim       = new EIM(data->rb_size(),data->quad_size(),
-                           data->invV(),data->eim_indices());
-
-  const Parameters& params_from_file = data->params_from_file();
-  const gsl_matrix_complex RB_space = data->RB_space();
-  const gsl_vector_complex wQuad = data->wQuad();
-  const gsl_vector xQuad = data->xQuad();
-
-  gsl_matrix_complex *model_evaluations;
-  double *errors, *errors_eim;
   char err_filename[200];
   char bad_param_filename[200];
   char shell_command[200];
-  clock_t start, end;
-
-
-  // If basis is orthogonal (but not normalized) carry out normalization //
-  // NOTE: validation studies assume the basis satisfies <ei,ej> = \delta_{ij}
-  //std::cout << "Normalizing the basis..." << std::endl;
-  //mygsl::NormalizeMatrixRows(RB_space,wQuad);
-
-  // -- this is useful sanity check (looks at TS waveform errors) -- //
-  //TrainingSetClass *random_samples=new TrainingSetClass(&params_from_file,1);
-
-  // -- use random samples file -- //
-  TrainingSetClass *random_samples =
-    new TrainingSetClass(&params_from_file,random_sample_file);
 
   // Creating Run Directory //
   loc_dir.append("/");
@@ -119,6 +93,33 @@ int main (int argc, char **argv) {
   src.close();
   dst.close();
   std::cout << "parameter file is: " << argv[1] << std::endl;
+
+  //--- Load greedy data from previous simulation -- //
+  LoadData *data = new LoadData(argv,true);
+  EIM *eim       = new EIM(data->rb_size(),data->quad_size(),
+                           data->invV(),data->eim_indices());
+
+  const Parameters& params_from_file = data->params_from_file();
+  const gsl_matrix_complex RB_space = data->RB_space();
+  const gsl_vector_complex wQuad = data->wQuad();
+  const gsl_vector xQuad = data->xQuad();
+
+  gsl_matrix_complex *model_evaluations;
+  double *errors, *errors_eim;
+  clock_t start, end;
+
+
+  // If basis is orthogonal (but not normalized) carry out normalization //
+  // NOTE: validation studies assume the basis satisfies <ei,ej> = \delta_{ij}
+  //std::cout << "Normalizing the basis..." << std::endl;
+  //mygsl::NormalizeMatrixRows(RB_space,wQuad);
+
+  // -- this is useful sanity check (looks at TS waveform errors) -- //
+  //TrainingSetClass *random_samples=new TrainingSetClass(&params_from_file,1);
+
+  // -- use random samples file -- //
+  TrainingSetClass *random_samples =
+    new TrainingSetClass(&params_from_file,random_sample_file);
 
   // Use this if filling up matrix upfront (faster for smaller studies) 
   /*model_evaluations = 
