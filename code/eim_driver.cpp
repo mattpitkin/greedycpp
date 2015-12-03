@@ -56,25 +56,25 @@ int main (int argc, char **argv) {
 
   // --- save data to file --- //
   // ...eim indices (txt only)
+  // ...eim nodes (txt only)
   clock_t start, end;
   start = clock();
+  const gsl_vector xQuad = data->xQuad();
   std::cout << "Saving EIM indices and nodes...\n";
   std::string eim_indices_path(basis_path);
-  eim_indices_path.append("EIM_indices.txt");
-  FILE *eim_indices_file = fopen(eim_indices_path.c_str(),"w");
-  for(int i=0;i<eim->eim_size();++i)
-    fprintf(eim_indices_file,"%i\n",eim->p()[i]);
-  fclose(eim_indices_file);
-
-  // ...eim nodes (txt only)
-  const gsl_vector xQuad = data->xQuad();
   std::string eim_nodes_path(basis_path);
+  eim_indices_path.append("EIM_indices.txt");
   eim_nodes_path.append("EIM_nodes.txt");
-  FILE *eim_nodes_file = fopen(eim_nodes_path.c_str(),"w");
+  FILE *eim_indices_file = fopen(eim_indices_path.c_str(),"w");
+  FILE *eim_nodes_file   = fopen(eim_nodes_path.c_str(),"w");
   for(int i=0;i<eim->eim_size();++i)
-    fprintf(eim_nodes_file,"%f\n", gsl_vector_get(&xQuad,eim->p()[i]) );
+  {
+    const int p_eim = eim->p()[i];
+    fprintf(eim_indices_file,"%i\n",p_eim);
+    fprintf(eim_nodes_file,"%f\n", gsl_vector_get(&xQuad,p_eim) );
+  }
   fclose(eim_indices_file);
-
+  fclose(eim_nodes_file);
   end = clock();
   double alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
   fprintf(stdout,"Saving EIM indices and nodes took %f seconds\n",alg_time);
@@ -95,7 +95,12 @@ int main (int argc, char **argv) {
   if(datatype.compare("bin")==0 || datatype.compare("both")==0) {
     std::string invV_path_gsl(basis_path);
     invV_path_gsl.append("invV.bin");
+    std::cout << "Saving file to " << invV_path_gsl << " ...\n";
     FILE *invV_data = fopen(invV_path_gsl.c_str(),"wb");
+    if (invV_data==NULL) 
+    {
+      std::cout << "ERROR: could not open file\n";
+    }
     gsl_matrix_complex_fwrite(invV_data,&eim->invV());
     fclose(invV_data);
     wrote = true;
