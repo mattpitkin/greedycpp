@@ -34,6 +34,11 @@
 #include "utils.h"
 #include "my_models.h"
 
+struct err_index_reduction { 
+  double error; 
+  int rank; 
+}; 
+
 void WriteGreedyInfo(const int dim_RB,
                      gsl_matrix_complex *RB_space, // "const": need to resize
                      gsl_matrix_complex *R_matrix, // same "const"
@@ -160,6 +165,9 @@ void GreedyWorker(const int rank,
   vec_real      = new double[cols];
   vec_imag      = new double[cols];
 
+  err_index_reduction reduce_data;
+  err_index_reduction global_reduce_data;
+
   int *worst_workers_mpi = NULL;
   double *worst_errs_mpi = NULL;
 
@@ -215,6 +223,7 @@ void GreedyWorker(const int rank,
       gsl_vector_complex_free(ts_el_omp);
     }
     #else
+
     // Compute overlaps of pieces of A with rb_new //
     for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
     {
@@ -229,26 +238,24 @@ void GreedyWorker(const int rank,
     FindMax2(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
     worst_global = ts.mystart()[rank] + worst_local; // global row index
 
-    // -- pass worst error and index to master --//
-    MPI_Gather(&worst_global,1,MPI_INT,worst_workers_mpi,\
-               1,MPI_INT,0,MPI_COMM_WORLD);
-    MPI_Gather(&tmp,1,MPI_DOUBLE,worst_errs_mpi,1,MPI_DOUBLE,\
-               0,MPI_COMM_WORLD);
+    reduce_data.error = tmp;
+    reduce_data.rank  = rank;
+    MPI_Reduce(&reduce_data,&global_reduce_data,1,MPI_DOUBLE_INT,MPI_MAXLOC,0,MPI_COMM_WORLD);
 
-    // -- recieve info about which worker proc has next basis -- //
+    // -- recieve info about which worker proc has next basis, continue work? -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Bcast(&continue_work, 1, MPI_INT,0,MPI_COMM_WORLD);
  
     // -- return basis to master -- //
-    if( (worst_rank-1) == rank){
+    if( (worst_rank-1) == rank) {
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
         mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
         MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(&worst_global, 1, MPI_INT, 0, 0,MPI_COMM_WORLD);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&continue_work, 1, MPI_INT,0,MPI_COMM_WORLD);
     dim_RB = dim_RB + 1;
   }
 
@@ -305,6 +312,11 @@ void GreedyMaster(const int size,
   int continue_work = 1;
   int dim_RB       = 1;
 
+  err_index_reduction dummy_reduce_data;
+  dummy_reduce_data.error = -1;
+  dummy_reduce_data.rank  = -2;
+  err_index_reduction global_reduce_data;
+
   gsl_vector_complex *ortho_basis, *ru;
   gsl_matrix_complex *RB_space, *R_matrix;
 
@@ -358,40 +370,37 @@ void GreedyMaster(const int size,
 
     // -- gather worst (local) info from workers -- //
     start_sw = clock();
-    MPI_Gather(&dummy_mpi_int,1,MPI_INT,worst_workers_mpi,\
-               1,MPI_INT,0,MPI_COMM_WORLD);
-    MPI_Gather(&dummy_mpi_double,1,MPI_DOUBLE,worst_errs_mpi,\
-               1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    MPI_Reduce(&dummy_reduce_data,&global_reduce_data,1,MPI_DOUBLE_INT,MPI_MAXLOC,0,MPI_COMM_WORLD);
+    worst_rank = global_reduce_data.rank + 1;
+    worst_err  = global_reduce_data.error;
+
     end_sw = clock();
 
-    // -- find worst rb amongst all workers -- //
-    worst_err = 0.0;
-    for(int i = 0; i < size - 1; i++){
-      if(worst_err < worst_errs_mpi[i+1])
-      {
-        worst_err  = worst_errs_mpi[i+1];
-        worst_app  = worst_workers_mpi[i+1];
-        worst_rank = i+1;
-      }
+    // -- decide if another greedy sweep will be needed -- //
+    if( (dim_RB+1 == max_RB) || worst_err < tol){
+      continue_work = 0;
     }
 
-    // -- tell all workers which one has largest error -- //
+    // -- tell all workers which one has largest error, whether to continue working -- //
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&worst_rank, 1, MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Bcast(&continue_work, 1, MPI_INT,0,MPI_COMM_WORLD);
 
     // -- receive row basis from worker proc worst_rank -- //
     MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     MPI_Recv(vec_imag, cols, MPI_DOUBLE, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+    MPI_Recv(&worst_app, 1, MPI_INT, worst_rank, 0,\
+             MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-    // -- decide if another greedy sweep is needed, alert workers -- //
-    if( (dim_RB+1 == max_RB) || worst_err < tol){
-      continue_work = 0;
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&continue_work, 1, MPI_INT,0,MPI_COMM_WORLD);
+    //fprintf(stdout,"pivot from  rec   = %i\n",worst_app);
+    //fprintf(stdout,"max error from reduction = %1.3e\n",global_error);
+    //fprintf(stdout,"max error from maxloc   = %1.3e\n",global_reduce_data.error);
+    //fprintf(stdout,"the rank  from maxloc   = %i\n",global_reduce_data.rank+1);
+    //fprintf(stdout,"the rank  from oldway   = %i\n",worst_rank);
+
+    mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
     // --- record worst approximated row element (basis) --- //
     greedy_points[dim_RB] = worst_app;
