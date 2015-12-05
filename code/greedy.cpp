@@ -196,7 +196,7 @@ void GreedyWorker(const int rank,
   while(continue_work)
   {
     // -- wait for new basis and start next sweep -- //
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
 
     // -- receive new rb -- //
     MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -355,6 +355,11 @@ void GreedyMaster(const int size,
   mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
   gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
 
+  // -- send first basis to all workers -- // 
+  mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+  //MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+  MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
   GSL_SET_COMPLEX(&tmpc,1.0,0.0); // assumes normalized solutions
   gsl_matrix_complex_set(R_matrix,0,0,tmpc);
@@ -368,12 +373,6 @@ void GreedyMaster(const int size,
   {
 
     start1 = clock();
-
-    // -- send last orthonormal rb to work procs -- //
-    mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-    MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
     // -- gather worst (local) info from workers -- //
     start_sw = clock();
@@ -396,19 +395,32 @@ void GreedyMaster(const int size,
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
-    // --- add worst approximated solution/row to basis set --- //
+    // --- orthogonalize solution/vector --- //
     start_or = clock();
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
     end_or = clock();
-    gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
-    gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
-    ++dim_RB;
 
     // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB == max_RB) || worst_err < tol){
+    if( (dim_RB+1 == max_RB) || worst_err < tol){
       continue_work = false;
     }
+    else {
+
+      // -- send last orthonormal rb to work procs -- //
+      mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+      //MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+      MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+    }
+
+    // -- update basis matrix RB_space and R matrix -- //
+    gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
+    gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
+
+
+    ++dim_RB;
 
     // --- update timers and output info --- //
     end1     = clock();
