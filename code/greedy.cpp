@@ -248,11 +248,6 @@ void GreedyWorker(const int rank,
     worst_rank       = global_reduce_data.rank+1;
     double worst_err = global_reduce_data.error;
 
-    // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB+1 == max_RB) || worst_err < tol) {
-      continue_work = false;
-    }
-
     // -- return basis to master -- //
     if( (worst_rank-1) == rank) {
         gsl_matrix_complex_get_row(row_vec,A,worst_local);
@@ -262,7 +257,13 @@ void GreedyWorker(const int rank,
         MPI_Send(&worst_global, 1, MPI_INT, 0, 0,MPI_COMM_WORLD);
     }
 
-    dim_RB = dim_RB + 1;
+    ++dim_RB;
+
+    // -- decide if another greedy sweep will be needed -- //
+    if( (dim_RB == max_RB) || worst_err < tol) {
+      continue_work = false;
+    }
+
   }
 
   free(worst_workers_mpi); // free NULL pointers?
@@ -368,9 +369,8 @@ void GreedyMaster(const int size,
 
     start1 = clock();
 
-    mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
-
     // -- send last orthonormal rb to work procs -- //
+    mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
     MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -383,11 +383,6 @@ void GreedyMaster(const int size,
     worst_err  = global_reduce_err_index_data.error;
     end_sw = clock();
 
-    // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB+1 == max_RB) || worst_err < tol){
-      continue_work = false;
-    }
-
     // -- receive row basis from worker proc worst_rank -- //
     MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -395,7 +390,6 @@ void GreedyMaster(const int size,
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     MPI_Recv(&worst_app, 1, MPI_INT, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
     // --- record worst approximated row element (basis) --- //
@@ -409,15 +403,20 @@ void GreedyMaster(const int size,
     end_or = clock();
     gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
     gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
-    dim_RB = dim_RB + 1;
+    ++dim_RB;
 
-    end1 = clock();
+    // -- decide if another greedy sweep will be needed -- //
+    if( (dim_RB == max_RB) || worst_err < tol){
+      continue_work = false;
+    }
+
+    // --- update timers and output info --- //
+    end1     = clock();
     or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
     sw_t     = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
     alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
     total_ortho_time += or_t;
     total_sweep_time += sw_t;
-
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                    "| sweep time %1.3e | total time %1.3e\n",\
             dim_RB,worst_app,worst_err,or_t,sw_t,alg_time);
