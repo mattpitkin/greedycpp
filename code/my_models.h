@@ -13,6 +13,7 @@
 
 #include "training_set.hpp"
 #include "gsl_helper_functions.hpp"
+//#include <utmpx.h>
 
 // model specific header files //
 #include "../models/taylorf2/spa_waveforms.h"
@@ -79,6 +80,15 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
   #pragma omp parallel
   {
+    #pragma omp master
+    {
+      std::cout<<"threads (Fill TS matrix) = "<<omp_get_num_threads()<<std::endl;
+    }
+
+    //std::ostringstream os;
+    //std::cout <<"\nThread "<<omp_get_thread_num()<<" on cpu "<<getcpu()<<std::endl;
+    //std::cout<<os.str()<<std::flush;
+    //std::cout<<num;
 
     double *params;
     gsl_vector_complex *model_eval;

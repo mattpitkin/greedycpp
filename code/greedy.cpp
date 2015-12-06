@@ -204,10 +204,14 @@ void GreedyWorker(const int rank,
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
     #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
-    //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+    //std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
     #pragma omp parallel
     {
-      //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+
+      #pragma omp master
+      {
+        std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
+      }
 
       // every variable declared here is thread private (thread-safe)
       gsl_vector_complex *ts_el_omp;
@@ -546,10 +550,13 @@ void Greedy(const Parameters &params,
 
     // --- Loop over training set ---//
     #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
-    //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
     #pragma omp parallel
     {
-      //std::cout<<"threads="<<omp_get_num_threads()<<std::endl;
+
+      #pragma omp master
+      {
+        std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
+      }
 
       // every variable declared here is thread private (thread-safe)
       gsl_vector_complex *ts_el_omp;
@@ -756,8 +763,8 @@ int main (int argc, char **argv) {
 
     if(high_verbosity) {
       #ifdef USE_OPENMP
-      fprintf(stdout,"openMP enabled. Each mpi (or serial) process will sweep "
-                     "over training space chunks using openMP par for\n");
+      fprintf(stdout,"openMP enabled. Max threads = %i and num procs = %i\n",
+             omp_get_max_threads(), omp_get_num_procs());
       #else
       fprintf(stdout,"openMP disabled\n");
       #endif
@@ -776,6 +783,8 @@ int main (int argc, char **argv) {
   #else
   start = clock();
   #endif  
+
+  std::cout << "MPI size = " << size_mpi << std::endl;
 
   if(size_mpi == 1) {
     TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
