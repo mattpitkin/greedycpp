@@ -71,14 +71,37 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
   fprintf(stdout,"Populating training set on proc %i...\n",rank);
   fprintf(stdout,"Using the model %s\n",ts.model());
 
-  gsl_vector_complex *model_eval;
-  double *params;
   int proc_ts_size;
-
-  params     = new double[ts.param_dim()]; // TF2 model param (mass 1, mass 2)
-  model_eval = gsl_vector_complex_alloc(xQuad->size);
-
   ts.LocalTrainingSetSize(proc_ts_size,rank);
+
+
+
+  #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
+  #pragma omp parallel
+  {
+
+    double *params;
+    gsl_vector_complex *model_eval;
+    params     = new double[ts.param_dim()];
+    model_eval = gsl_vector_complex_alloc(xQuad->size);
+ 
+    #pragma omp for
+    for(int i = 0; i < proc_ts_size; i++){
+      ts.GetParameterValue(params,rank,i); //params [global_i][j] * (scale[j])
+      EvaluateModel(model_eval,xQuad,params,ts);
+      gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
+    }
+
+    delete[] params;
+    gsl_vector_complex_free(model_eval);
+
+  }
+  #else
+
+  double *params;
+  gsl_vector_complex *model_eval;
+  params     = new double[ts.param_dim()];
+  model_eval = gsl_vector_complex_alloc(xQuad->size);
 
   for(int i = 0; i < proc_ts_size; i++){
     ts.GetParameterValue(params,rank,i); //params [global_i][j] * (scale[j])
@@ -86,12 +109,15 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
     gsl_matrix_complex_set_row(TS_gsl,i,model_eval);
   }
 
+  delete[] params;
+  gsl_vector_complex_free(model_eval);
+
+  #endif
+
   // -- Normalize training space here -- //
   //fprintf(stdout,"Normalizing training set...\n");
   mygsl::NormalizeMatrixRows(TS_gsl,wQuad);
 
-  delete[] params;
-  gsl_vector_complex_free(model_eval);
 }
 
 };

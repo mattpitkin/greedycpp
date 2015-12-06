@@ -413,10 +413,10 @@ void gsl_matrix_complex_npy_load(const char *data_filename,\
 
 }
 
-void MGS(gsl_vector_complex *ru,\
-         gsl_vector_complex *ortho_basis,\
-         const gsl_matrix_complex *RB_space,\
-         const gsl_vector_complex *wQuad,\
+void MGS(gsl_vector_complex *ru,
+         gsl_vector_complex *ortho_basis,
+         const gsl_matrix_complex *RB_space,
+         const gsl_vector_complex *wQuad,
          const int dim_RB)
 {
 /*  Modified GS routine. 
