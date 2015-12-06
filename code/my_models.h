@@ -116,7 +116,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
 
   // -- Normalize training space here -- //
   //fprintf(stdout,"Normalizing training set...\n");
-  mygsl::NormalizeMatrixRows(TS_gsl,wQuad);
+  mygsl::NormalizeMatrixRows(TS_gsl,wQuad); //TODO: not parallelized for OpenMP
 
 }
 

@@ -771,12 +771,25 @@ int main (int argc, char **argv) {
   // TS_gsl filled by evaluating model at ptspace_class->params_ //
   // NOTE: GSL error handler will abort if too much memory requested
   // Ex: size = 1 (serial mode) => rank=0 for 5th argument of FillTrainingSet
+  #ifdef USE_OPENMP
+  double omp_start = omp_get_wtime();
+  #else
   start = clock();
+  #endif  
+
   if(size_mpi == 1) {
     TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);
     mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank);
+
+    #ifdef USE_OPENMP
+    double omp_end = omp_get_wtime();
+    double ts_time = omp_end - omp_start;
+    #else
     end = clock();
-    fprintf(stdout,"Filled TS in %f seconds\n",((double) (end - start)/CLOCKS_PER_SEC));
+    double ts_time = ((double) (end - start)/CLOCKS_PER_SEC);
+    #endif
+    fprintf(stdout,"Filled TS in %f seconds\n",ts_time);
+
     Greedy(*params_from_file,TS_gsl,wQuad,*ptspace_class);
   }
   else{
@@ -784,9 +797,16 @@ int main (int argc, char **argv) {
     if(rank != 0){
       TS_gsl = gsl_matrix_complex_alloc(ptspace_class->matrix_sub_size()[rank-1],xQuad->size);
       mymodel::FillTrainingSet(TS_gsl,xQuad,wQuad,*ptspace_class,rank-1);
-      end = clock();
-      fprintf(stdout,"Rank %i filled TS in %f seconds\n",
-                     rank,((double) (end - start)/CLOCKS_PER_SEC));
+
+      #ifdef USE_OPENMP
+      double omp_end = omp_get_wtime();
+      double ts_time = omp_end - omp_start;
+      #else
+      end = clock(); 
+      double ts_time = ((double) (end - start)/CLOCKS_PER_SEC);
+      #endif
+      fprintf(stdout,"Rank %i filled TS in %f seconds\n",rank,ts_time);
+
     }
 
     if(rank == 0) {
