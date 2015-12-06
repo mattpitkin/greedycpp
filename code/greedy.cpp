@@ -569,10 +569,10 @@ void Greedy(const Parameters &params,
     // Compute overlaps of pieces of A with rb_new //
     for(int i = 0; i < rows; i++)
     {
-        gsl_matrix_complex_get_row(ts_el,A,i);
-        gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                              mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
-        errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+      gsl_matrix_complex_get_row(ts_el,A,i);
+      gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                            mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
+      errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
     #endif
 
