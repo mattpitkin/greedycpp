@@ -204,14 +204,13 @@ void GreedyWorker(const int rank,
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
 
     #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
-    //std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
     #pragma omp parallel
     {
 
-      #pragma omp master
+      /*#pragma omp master
       {
         std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
-      }
+      }*/
 
       // every variable declared here is thread private (thread-safe)
       gsl_vector_complex *ts_el_omp;
@@ -472,8 +471,8 @@ void Greedy(const Parameters &params,
 {
 // Input: 
 //          A: matrix (each row is a "solution", cols are quadrature samples)
-//          seed: first greedy pick
-//          tol: approximation tolerance
+//          params: Parameters object (provides access to seed, tol, etc..)
+//          wQuad: gsl complex vector of quadrature points
 //
 // Output (written to file):
 //          sel_rows: row index defining reduced basis. sel_rows[0] = seed
@@ -481,6 +480,7 @@ void Greedy(const Parameters &params,
 
   fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
+  // -- Use Euclidean inner product via BLAS -- //
   //bool useEuc = mygsl::IsConstantVector( wQuad );
   bool useEuc = false;
 
@@ -783,8 +783,6 @@ int main (int argc, char **argv) {
   #else
   start = clock();
   #endif  
-
-  std::cout << "MPI size = " << size_mpi << std::endl;
 
   if(size_mpi == 1) {
     TS_gsl = gsl_matrix_complex_alloc(ptspace_class->ts_size(),xQuad->size);

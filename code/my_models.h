@@ -56,11 +56,12 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif
   else {
-    std::cerr << "my_models.h: Approximant not supported!" << std::endl;
+    std::cerr << "my_models.h: Model not supported! Add model tag."<<std::endl;
     exit(1);
   }
 }
 // *** END MODEL SPECIFIC SECTION *** //
+
 
 void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const gsl_vector *xQuad,
@@ -69,21 +70,20 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const int rank)
 {
 
-  fprintf(stdout,"Populating training set on proc %i...\n",rank);
-  fprintf(stdout,"Using the model %s\n",ts.model());
+  fprintf(stdout,"Populating training set on proc %i. Using model %s.\n",
+          rank,ts.model());
 
   int proc_ts_size;
   ts.LocalTrainingSetSize(proc_ts_size,rank);
 
 
-
   #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
   #pragma omp parallel
   {
-    #pragma omp master
+    /*#pragma omp master
     {
       std::cout<<"threads (Fill TS matrix) = "<<omp_get_num_threads()<<std::endl;
-    }
+    }*/
 
     //std::ostringstream os;
     fprintf(stdout, "\nThread %i on cpu %i\n",omp_get_thread_num(),sched_getcpu());

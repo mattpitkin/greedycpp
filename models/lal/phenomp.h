@@ -88,23 +88,60 @@ void PhenP_Waveform(gsl_vector_complex *wv,
   else if(strcmp(plus_cross_flag,"PhenomP_hphp") == 0) {
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
-        gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hptilde->data->data)[i] ) ));
+        gsl_complex_mul((hptilde->data->data)[i],
+                         gsl_complex_conjugate( (hptilde->data->data)[i] ) ));
     }
   }
   else if(strcmp(plus_cross_flag,"PhenomP_hchc") == 0) {
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
-        gsl_complex_mul((hctilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
+        gsl_complex_mul((hctilde->data->data)[i],
+                         gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
     }
   }
   else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0) {
     gsl_complex wv_i_real;
     for (int i=0; i<n; i++) {
-      const gsl_complex wv_i = gsl_complex_mul((hptilde->data->data)[i], gsl_complex_conjugate( (hctilde->data->data)[i] ) ) ;
+      const gsl_complex wv_i =
+        gsl_complex_mul((hptilde->data->data)[i], 
+                         gsl_complex_conjugate( (hctilde->data->data)[i] ) ) ;
       double x = GSL_REAL(wv_i);
       GSL_SET_COMPLEX(&wv_i_real, x, 0.0);
       gsl_vector_complex_set(wv, i, wv_i_real);
     }
+
+    // -- HpHc cross term could be very small. Set to zero if too small --//
+    gsl_complex size_hphc, size_hp, size_hc;
+    gsl_vector_complex *v_tmp;
+    v_tmp = gsl_vector_complex_alloc(wv->size);
+
+
+    // abs_hp, etc. are NOT the norm squared since quadrature weights 
+    // are neglected: Thats OK, as we just want a size estimate
+    size_hphc = mygsl::EuclideanInner(wv,wv);
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(v_tmp, i, (hctilde->data->data)[i]);
+    }
+    size_hc = mygsl::EuclideanInner(v_tmp,v_tmp);
+    for (int i=0; i<n; i++) {
+      gsl_vector_complex_set(v_tmp, i, (hptilde->data->data)[i]);
+    }
+    size_hp = mygsl::EuclideanInner(v_tmp,v_tmp);
+    const double abs_hp   = gsl_complex_abs(size_hp);
+    const double abs_hc   = gsl_complex_abs(size_hc);
+    const double abs_hphc = gsl_complex_abs(size_hphc);
+
+
+    if( (abs_hp + abs_hc) / abs_hphc > 1.e8 ) { // TODO: hardcoded tol is bad 
+      fprintf(stdout,"Size hp = %e, size hc = %e, size hphc = %e\n",
+              abs_hp, abs_hc, abs_hphc);
+      gsl_vector_complex_set_zero(wv);
+      size_hphc = mygsl::EuclideanInner(wv,wv);
+      fprintf(stdout,"New size hphc = %e\n",gsl_complex_abs(size_hphc));
+    }
+
+    gsl_vector_complex_free(v_tmp);
+
   }
   else {
     std::cerr << "Approximant not supported!" << std::endl;
