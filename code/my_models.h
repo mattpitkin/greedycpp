@@ -13,7 +13,7 @@
 
 #include "training_set.hpp"
 #include "gsl_helper_functions.hpp"
-//#include <utmpx.h>
+#include <utmpx.h>
 
 // model specific header files //
 #include "../models/taylorf2/spa_waveforms.h"
@@ -86,7 +86,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
     }
 
     //std::ostringstream os;
-    //std::cout <<"\nThread "<<omp_get_thread_num()<<" on cpu "<<getcpu()<<std::endl;
+    fprintf(stdout, "\nThread %i on cpu %i\n",omp_get_thread_num(),sched_getcpu());
     //std::cout<<os.str()<<std::flush;
     //std::cout<<num;
 
