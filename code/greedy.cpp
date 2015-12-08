@@ -133,7 +133,7 @@ void WriteGreedyInfo(const int dim_RB,
 
 }
 
-// --- GreedyWorker and Master are removed for serial builds --- //
+// --- GreedyWorker and Master are removed from serial builds --- //
 #ifndef COMPILE_WITHOUT_MPI
 void GreedyWorker(const int rank,
                   const Parameters &params,
@@ -142,27 +142,31 @@ void GreedyWorker(const int rank,
                   const TrainingSetClass &ts)
 {
 
-// worker routine for computing computationally intensive part of greedy //
+
+  //bool useEuc = mygsl::IsConstantVector( wQuad );
+  bool useEuc = false;
 
   // -- unpack params class --//
   const int max_RB      = params.max_RB();
   const int seed_global = params.seed();
   const double tol      = params.tol();
 
-  int dim_RB  = 1;
-  int cols    = wQuad->size;
+  int dim_RB               = 1;
+  const int cols           = wQuad->size;
+  const int local_rows    = ts.matrix_sub_size()[rank];
   bool continue_work = true;
   int worst_global, worst_local, worst_rank;
   double rb_inc_r, rb_inc_i, tmp;
-  double *errors, *vec_real, *vec_imag;
+  double *errors, *vec_real, *vec_imag, *A_row_norms2;
   gsl_complex tmpc;
   gsl_vector_complex *last_rb, *row_vec;
   gsl_matrix_complex *project_coeff;
 
   last_rb       = gsl_vector_complex_alloc(cols);
   row_vec       = gsl_vector_complex_alloc(cols);
-  project_coeff = gsl_matrix_complex_alloc(max_RB,ts.matrix_sub_size()[rank]);
-  errors        = new double[ts.matrix_sub_size()[rank]];
+  project_coeff = gsl_matrix_complex_alloc(max_RB,local_rows);
+  errors        = new double[local_rows];
+  A_row_norms2  = new double[local_rows];
   vec_real      = new double[cols];
   vec_imag      = new double[cols];
 
@@ -172,8 +176,12 @@ void GreedyWorker(const int rank,
   int *worst_workers_mpi = NULL;
   double *worst_errs_mpi = NULL;
 
-  //bool useEuc = mygsl::IsConstantVector( wQuad );
-  bool useEuc = false;
+  // --- compute squared norm of each training space element --- //
+  for(int ii=0;ii<local_rows;++ii) {
+    gsl_matrix_complex_get_row(row_vec,A,ii);
+    A_row_norms2[ii] = mygsl::GetNorm_double(row_vec,wQuad);
+    fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
+  }
 
   fprintf(stdout,"Worker %i was given %i matrix elements from %i to %i\n",
           rank,
@@ -217,24 +225,24 @@ void GreedyWorker(const int rank,
       ts_el_omp = gsl_vector_complex_alloc(cols);
 
       #pragma omp for
-      for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
+      for(int i = 0; i < local_rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                            mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
-        errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+        errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
     }
     #else
 
     // Compute overlaps of pieces of A with rb_new //
-    for(int i = 0; i < ts.matrix_sub_size()[rank]; i++)
+    for(int i = 0; i < local_rows; i++)
     {
       gsl_matrix_complex_get_row(row_vec,A,i);
       gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                          mygsl::InnerProduct(wQuad,last_rb,row_vec,useEuc));
-      errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+      errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
     #endif
 
@@ -278,6 +286,7 @@ void GreedyWorker(const int rank,
   delete [] vec_real;
   delete [] vec_imag;
   delete [] errors;
+  delete [] A_row_norms2;
 }
 
 void GreedyMaster(const int size,
@@ -480,6 +489,7 @@ void Greedy(const Parameters &params,
 
   fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
+
   // -- Use Euclidean inner product via BLAS -- //
   //bool useEuc = mygsl::IsConstantVector( wQuad );
   bool useEuc = false;
@@ -507,7 +517,8 @@ void Greedy(const Parameters &params,
 
   gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
   gsl_matrix_complex *RB_space, *R_matrix;
-  double *errors;                    // approximation errors vs dim_RB
+  double *A_row_norms2;              // || A(i,:) ||^2
+  double *errors;                    // approximation errors at i^{th} sweep
   gsl_matrix_complex *project_coeff; // h = coeff_i e_i
 
 
@@ -517,11 +528,19 @@ void Greedy(const Parameters &params,
   ortho_basis   = gsl_vector_complex_alloc(cols);
   ru            = gsl_vector_complex_alloc(max_RB);
   errors        = new double[rows];
+  A_row_norms2  = new double[rows];
   project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
   greedy_points = new int[max_RB];
   greedy_err    = new double[max_RB];
   RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
   R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
+
+  // --- compute norm of each training space element --- //
+  for(int ii=0;ii<rows;++ii) {
+    gsl_matrix_complex_get_row(ts_el,A,ii);
+    A_row_norms2[ii] = mygsl::GetNorm_double(ts_el,wQuad);
+    fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
+  }
 
   // --- initialize algorithm with seed --- //
   gsl_matrix_complex_get_row(ts_el,A,seed);
@@ -568,7 +587,7 @@ void Greedy(const Parameters &params,
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                            mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
-        errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+        errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
     }
@@ -579,7 +598,7 @@ void Greedy(const Parameters &params,
       gsl_matrix_complex_get_row(ts_el,A,i);
       gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                             mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
-      errors[i] = 1.0 - mygsl::SumColumn(project_coeff,i,dim_RB);
+      errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
     #endif
 
@@ -632,6 +651,7 @@ void Greedy(const Parameters &params,
   gsl_vector_complex_free(ortho_basis);
   gsl_vector_complex_free(ru);
   delete [] errors;
+  delete [] A_row_norms2;
   gsl_matrix_complex_free(project_coeff);
   delete [] greedy_points;
   delete [] greedy_err;
