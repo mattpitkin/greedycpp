@@ -125,8 +125,14 @@ void NormalizeVector(gsl_vector_complex *u,\
 {
   gsl_complex nrmc;
   double nrm = GetNorm_double(u,wQuad);
-  GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
-  gsl_vector_complex_scale(u,nrmc);
+
+  if(nrm != 0) {
+    GSL_SET_COMPLEX(&nrmc,1.0/nrm,0.0);
+    gsl_vector_complex_scale(u,nrmc);
+  }
+  else {
+    fprintf(stdout,"Cannot normalize a zero vector");
+  }
 }
 
 // normalize row vectors of matrix A using weight w //

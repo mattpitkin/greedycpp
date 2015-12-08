@@ -56,11 +56,12 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif
   else {
-    std::cerr << "my_models.h: Approximant not supported!" << std::endl;
+    std::cerr << "my_models.h: Model not supported! Add model tag."<<std::endl;
     exit(1);
   }
 }
 // *** END MODEL SPECIFIC SECTION *** //
+
 
 void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const gsl_vector *xQuad,

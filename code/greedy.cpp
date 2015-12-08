@@ -471,8 +471,8 @@ void Greedy(const Parameters &params,
 {
 // Input: 
 //          A: matrix (each row is a "solution", cols are quadrature samples)
-//          seed: first greedy pick
-//          tol: approximation tolerance
+//          params: Parameters object (provides access to seed, tol, etc..)
+//          wQuad: gsl complex vector of quadrature points
 //
 // Output (written to file):
 //          sel_rows: row index defining reduced basis. sel_rows[0] = seed
@@ -480,6 +480,7 @@ void Greedy(const Parameters &params,
 
   fprintf(stdout,"Starting greedy algorithm in serial mode...\n");
 
+  // -- Use Euclidean inner product via BLAS -- //
   //bool useEuc = mygsl::IsConstantVector( wQuad );
   bool useEuc = false;
 
