@@ -86,7 +86,7 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
     }*/
 
     //std::ostringstream os;
-    fprintf(stdout, "\nThread %i on cpu %i\n",omp_get_thread_num(),sched_getcpu());
+    //fprintf(stdout, "\nThread %i on cpu %i\n",omp_get_thread_num(),sched_getcpu());
     //std::cout<<os.str()<<std::flush;
     //std::cout<<num;
 

@@ -180,7 +180,7 @@ void GreedyWorker(const int rank,
   for(int ii=0;ii<local_rows;++ii) {
     gsl_matrix_complex_get_row(row_vec,A,ii);
     A_row_norms2[ii] = mygsl::GetNorm_double(row_vec,wQuad);
-    fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
+    //fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
   }
 
   fprintf(stdout,"Worker %i was given %i matrix elements from %i to %i\n",
@@ -539,7 +539,7 @@ void Greedy(const Parameters &params,
   for(int ii=0;ii<rows;++ii) {
     gsl_matrix_complex_get_row(ts_el,A,ii);
     A_row_norms2[ii] = mygsl::GetNorm_double(ts_el,wQuad);
-    fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
+    //fprintf(stdout,"ith row norm2 = %f\n",A_row_norms2[ii]);
   }
 
   // --- initialize algorithm with seed --- //
