@@ -69,21 +69,20 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const int rank)
 {
 
-  fprintf(stdout,"Populating training set on proc %i...\n",rank);
-  fprintf(stdout,"Using the model %s\n",ts.model());
+  fprintf(stdout,"Populating training set on proc %i. Using model %s.\n",
+          rank,ts.model());
 
   int proc_ts_size;
   ts.LocalTrainingSetSize(proc_ts_size,rank);
 
 
-
   #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
   #pragma omp parallel
   {
-    #pragma omp master
+    /*#pragma omp master
     {
       std::cout<<"threads (Fill TS matrix) = "<<omp_get_num_threads()<<std::endl;
-    }
+    }*/
 
     //std::ostringstream os;
     //std::cout <<"\nThread "<<omp_get_thread_num()<<" on cpu "<<getcpu()<<std::endl;
