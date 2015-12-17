@@ -13,7 +13,9 @@ Code's coordinates: https://sfield83@bitbucket.org/sfield83/greedycpp.git
 
 # Acknowledgements
 
-Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for careful error reporting, code improvements and testing of early versions of the code. Peter Diener for numerous performance optimizations. See contributors.txt for a complete list of people who have contributed to the code.
+Priscilla Canizares, Collin Capano, Michael Pürrer, and Rory Smith for careful error reporting, code improvements and testing of early versions of the code. Peter Diener for numerous performance optimizations.
+Michael Pürrer and Rory Smith for interfaces to the gravitational waveform models implemented in 
+[LALSimulation](http://software.ligo.org/docs/lalsuite/lalsimulation/index.html). See contributors.txt for a complete list of people who have contributed to the code.
 
 # Wiki
 View the project's Bitbucket [wiki](https://bitbucket.org/sfield83/greedycpp/wiki/Home) or clone it
