@@ -38,18 +38,15 @@ void EvaluateModel(gsl_vector_complex *model_eval,
   if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0)
     TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
   #ifdef MODEL_LAL
-  else if (strcmp(ts.model(),"PhenomP_plus") == 0)
-    PhenP_Waveform(model_eval, xQuad, params, ts.model());
-  else if (strcmp(ts.model(),"PhenomP_cross") == 0)
-    PhenP_Waveform(model_eval, xQuad, params, ts.model());
-  else if(strcmp(ts.model(),"PhenomP_hphp") == 0)
-    PhenP_Waveform(model_eval, xQuad, params, ts.model());
-  else if (strcmp(ts.model(),"PhenomP_hchc") == 0)
-    PhenP_Waveform(model_eval, xQuad, params, ts.model());
-  else if (strcmp(ts.model(),"PhenomP_hphc") == 0)
-    PhenP_Waveform(model_eval, xQuad, params, ts.model());
-  else if (strcmp(ts.model(),"PhenomP_all_parts") == 0)
-    PhenP_Waveform_All_Parts(model_eval, xQuad, params);
+  else if( strcmp(ts.model(),"PhenomP_plus")  == 0 ||
+           strcmp(ts.model(),"PhenomP_cross") == 0 ||
+           strcmp(ts.model(),"PhenomP_hphp")  == 0 ||
+           strcmp(ts.model(),"PhenomP_hchc")  == 0 ||
+           strcmp(ts.model(),"PhenomP_hphc")  == 0 ||
+           strcmp(ts.model(),"PhenomP_all_parts") == 0) {
+    std::string model_tag(ts.model());
+    PhenP_Waveform(model_eval, xQuad, params, model_tag);
+  }
   //else if (strcmp(ts.model(),"SEOBNRv2_ROM_SingleSpin") == 0)
   //  SEOBNRv2_ROM_SingleSpin_Waveform(model_eval, xQuad, params);
   else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
