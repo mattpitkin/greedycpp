@@ -154,7 +154,85 @@ void lal_waveform_part(gsl_vector_complex *wv,
   }
 }
 
+
+
 void PhenP_Waveform(gsl_vector_complex *wv,
+                    const gsl_vector *fnodes,
+                    const double *params,
+                    const std::string model_tag)
+{
+
+
+  // --- deduce the model_part tag --- //
+  std::string model_part;
+  // "all_parts" is a distinct model of higher dimension
+  if(model_tag.compare("PhenomP_all_parts") == 0) {
+    fprintf(stdout,"all parts model\n");
+    model_part = get_waveform_part_tag(params[7]);
+  }
+  else {
+    model_part = get_waveform_part_tag(model_tag);
+  }
+  fprintf(stdout,"model part tag %s\n",model_part.c_str());
+
+
+  COMPLEX16FrequencySeries *hptilde = NULL;
+  COMPLEX16FrequencySeries *hctilde = NULL;
+
+  int n = fnodes->size;
+  const REAL8 m1_Msun = params[0];
+  const REAL8 m2_Msun = params[1];
+  const REAL8 m1_SI = m1_Msun * LAL_MSUN_SI;
+  const REAL8 m2_SI = m2_Msun * LAL_MSUN_SI;
+  const REAL8 chi1L = params[2];
+  const REAL8 chi2L = params[3];
+  const REAL8 chip = params[4];
+  const REAL8 thetaJ = params[5];
+  const REAL8 distance = 1;
+  const REAL8 phic = 0;
+  const REAL8 f_ref = 40;
+  const REAL8 alpha0 = params[6];
+  IMRPhenomP_version_type version_flag = IMRPhenomPv2_V;
+
+  // use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
+  const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
+  for (int i=0; i<n; i++) {
+    freqs->data[i] = gsl_vector_get(fnodes, i);
+  }
+
+  int ret = XLALSimIMRPhenomPFrequencySequence(
+    &hptilde,   //< Output: Frequency-domain waveform h+ //
+    &hctilde,   //< Output: Frequency-domain waveform hx //
+    freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
+    chi1L,                  //< Effective aligned spin //
+    chi2L,
+    chip,                     //< Effective spin in the orbital plane //
+    thetaJ,
+    m1_SI,                      //< Symmetric mass-ratio //
+    m2_SI,                   //< Angle between J0 and line of sight (z-direction) //
+    distance,                  //< Total mass of binary (kg) //
+    alpha0,                 //< Distance of source (m) //
+    phic,                   //< Initial value of alpha angle (azimuthal precession angle) //
+    f_ref,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
+    version_flag);                    //< Reference frequency //
+
+  if (ret != XLAL_SUCCESS) {
+    fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
+    exit(-1);
+  }
+  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
+  lal_waveform_part(wv,model_part,hptilde,hctilde,n);
+
+  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+  XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+}
+
+
+
+// phenomP version 1 with older interface 
+// use LAL git hash a27aef328a77a5de5434c27d22f812bfe369c7a8
+/*void PhenP_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *fnodes,
                     const double *params,
                     const std::string model_tag)
@@ -223,7 +301,7 @@ void PhenP_Waveform(gsl_vector_complex *wv,
 
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-}
+}*/
 
 
 /*
