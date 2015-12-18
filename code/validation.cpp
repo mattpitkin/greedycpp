@@ -184,10 +184,9 @@ int main (int argc, char **argv) {
       // Use this if model evalutions are done on-the-fly //
       //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
-      //fprintf(stdout,"param %f, %f, %f, %f, %f, %f, %f\n",
-      //params[0],params[1],params[2],params[3],params[4],params[5],params[6]);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
       mygsl::NormalizeVector(model_eval,&wQuad);
+      const double nrm2 = mygsl::GetNorm_double(model_eval,&wQuad); // if model = 0, norm = 0, else 1
       /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
       fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);*/
@@ -223,8 +222,8 @@ int main (int argc, char **argv) {
                   << gsl_complex_abs(gsl_vector_complex_get(r_tmp,jj)) 
                   << std::endl;
       }*/
-      double r_tmp_nrm = gsl_blas_dznrm2(r_tmp);
-      double err_sqrd = 1.0 - r_tmp_nrm*r_tmp_nrm;
+      const double r_tmp_nrm = gsl_blas_dznrm2(r_tmp);
+      double err_sqrd = nrm2 - r_tmp_nrm*r_tmp_nrm;
       if(err_sqrd < 0.0) // floating point error can trigger this
         errors[ii] = 1.0e-8;
       else

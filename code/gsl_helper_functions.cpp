@@ -131,7 +131,7 @@ void NormalizeVector(gsl_vector_complex *u,\
     gsl_vector_complex_scale(u,nrmc);
   }
   else {
-    fprintf(stdout,"Cannot normalize a zero vector");
+    fprintf(stdout,"Cannot normalize a zero vector. Kept as zero.\n");
   }
 }
 
