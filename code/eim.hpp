@@ -64,7 +64,7 @@ class EIM {
     inline const int* p() const { return p_; }
     inline const gsl_matrix_complex& V() const { return *V_; }
     inline const gsl_matrix_complex& invV() const { return *invV_; }
-    inline const int eim_size() const { return eim_size_; }
+    inline int eim_size() const { return eim_size_; }
 
   private:
     // -- These three methods are only used when finding the EIM nodes -- //

@@ -203,8 +203,6 @@ void GreedyWorker(const int rank,
 
   while(continue_work)
   {
-    // -- wait for new basis and start next sweep -- //
-    //MPI_Barrier(MPI_COMM_WORLD);
 
     // -- receive new rb -- //
     MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -367,17 +365,20 @@ void GreedyMaster(const int size,
   mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
   gsl_matrix_complex_set_row(RB_space,0,ortho_basis);
 
-  // -- send first basis to all workers -- // 
-  mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
-  //MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-  MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-
   GSL_SET_COMPLEX(&tmpc,1.0,0.0); // assumes normalized solutions
   gsl_matrix_complex_set(R_matrix,0,0,tmpc);
   greedy_points[0] = seed;
   dim_RB           = 1;
   greedy_err[0]    = 1.0;
+
+  // start_sw: before orthonormal basis sent to workers
+  // end_sw: after basis recieved from workers
+
+  // -- send first basis to all workers -- // 
+  start_sw = clock();
+  mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+  MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+  MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
   // --- Continue approximation until tolerance satisfied --- //
   start = clock();
@@ -387,12 +388,10 @@ void GreedyMaster(const int size,
     start1 = clock();
 
     // -- gather worst (local) info from workers -- //
-    start_sw = clock();
     MPI_Allreduce(&dummy_reduce_data,&global_reduce_err_index_data,1,
                MPI_DOUBLE_INT,MPI_MAXLOC,MPI_COMM_WORLD);
     worst_rank = global_reduce_err_index_data.rank + 1;
     worst_err  = global_reduce_err_index_data.error;
-    end_sw = clock();
 
     // -- receive row basis from worker proc worst_rank -- //
     MPI_Recv(vec_real, cols, MPI_DOUBLE, worst_rank, 0,\
@@ -402,6 +401,8 @@ void GreedyMaster(const int size,
     MPI_Recv(&worst_app, 1, MPI_INT, worst_rank, 0,\
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
+    end_sw = clock();
+    sw_t   = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
 
     // --- record worst approximated row element (basis) --- //
     greedy_points[dim_RB] = worst_app;
@@ -420,8 +421,8 @@ void GreedyMaster(const int size,
     else {
 
       // -- send last orthonormal rb to work procs -- //
+      start_sw = clock();
       mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
-      //MPI_Barrier(MPI_COMM_WORLD);
       MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
       MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
@@ -437,7 +438,6 @@ void GreedyMaster(const int size,
     // --- update timers and output info --- //
     end1     = clock();
     or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
-    sw_t     = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
     alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
     total_ortho_time += or_t;
     total_sweep_time += sw_t;
