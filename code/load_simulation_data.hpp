@@ -19,8 +19,8 @@ class LoadData {
     // accessor functions
     inline const
     Parameters& params_from_file() const { return *params_from_file_; }
-    inline const int rb_size() const { return rb_size_; }
-    inline const int quad_size() const { return quad_size_; }
+    inline int rb_size() const { return rb_size_; }
+    inline int quad_size() const { return quad_size_; }
     inline const gsl_matrix_complex& RB_space() const { return *RB_space_; }
     inline gsl_matrix_complex& RB_space() { return *RB_space_; } 
     inline const gsl_vector_complex& wQuad() const { return *wQuad_; }

@@ -18,8 +18,9 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYHEADERS=-I/home/sfield/pool/cnpy/include
-NUMPYLIBS=-L/home/sfield/pool/cnpy/lib -lcnpy
+NUMPYROOT=/home/sfield/pool/cnpy/
+NUMPYHEADERS=-I${NUMPYROOT}include
+NUMPYLIBS=-L${NUMPYROOT}lib -lcnpy
 
 ### GSL and GSL's verion of blas  ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
@@ -28,8 +29,9 @@ CXXFLAGS=`gsl-config --cflags`
 #CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
 
 ### Input file parser libconfig++ ###
-LDLIBS+=-L/home/sfield/pool/libconfig/lib -lconfig++
-CXXFLAGS+=-I/home/sfield/pool/libconfig/include
+LIBCONFROOT=/home/sfield/pool/libconfig/
+LDLIBS+=-L${LIBCONFROOT}lib -lconfig++
+CXXFLAGS+=-I${LIBCONFROOT}include
 #CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
 
 

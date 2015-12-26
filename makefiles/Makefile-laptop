@@ -27,8 +27,9 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYHEADERS=-I/home/balzani57/pool/include
-NUMPYLIBS=-L/home/balzani57/pool/lib -lcnpy
+NUMPYROOT=/home/balzani57/pool/
+NUMPYHEADERS=-I${NUMPYROOT}include
+NUMPYLIBS=-L${NUMPYROOT}lib -lcnpy
 
 ### GSL and GSL's verion of blas  ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
@@ -150,4 +151,4 @@ test4:
 	mpirun -np 1 bin/greedyOMP_mpi examples/example1/test1.cfg > Temporary/Test4.txt
 	./scripts/regression_test.py MyOutputTest1/ examples/output_test1/
 	tail Temporary/Test4.txt --lines=1
-	rm -rf MyOutputTest1
+	rm -rf MyOutputTest1/
