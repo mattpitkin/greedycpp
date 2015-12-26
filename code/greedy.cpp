@@ -666,7 +666,6 @@ int main (int argc, char **argv) {
   int size_mpi = 1;  // needed for serial mode too
   bool high_verbosity; // controls output based on rank
 
-  std::string cfg_file(argv[1]);
 
   #ifndef COMPILE_WITHOUT_MPI
   // --- setup MPI info ---//
@@ -700,6 +699,8 @@ int main (int argc, char **argv) {
               << std::endl;
     exit(1);
   }
+  std::string cfg_file(argv[1]);
+
   if(high_verbosity) {
     // GIT_SHA1 is passed through compiler flags
     std::cout << "Compiled code git hash is " << GIT_SHA1 << std::endl;

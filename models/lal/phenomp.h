@@ -23,83 +23,88 @@ extern "C"{
  -----------------------------------------------------------------------------*/
 
 
-void PhenP_Waveform(gsl_vector_complex *wv,
-                    const gsl_vector *fnodes,
-                    const double *params,
-                    const char *plus_cross_flag)
+// deduce waveform part from full model tag's substring
+// Requires model tag to be of the form NAME_XXX
+// where XXX is plus, cross, hphp, hchc or hphc
+std::string get_waveform_part_tag(const std::string model_tag)
+{
+  std::size_t pos  = model_tag.find("_");
+  std::string part = model_tag.substr(pos+1);
+  return part;
+}
+
+// an "all_parts" model adds an extra parameter to denote the model
+// part. convert this value, model_type, into a model_part string id
+std::string get_waveform_part_tag(const double model_type)
+{
+  std::string model_part;
+  if( std::abs( model_type - 0) < 1.e-10) {
+    fprintf(stdout,"Plus with 7th param %f\n",model_type);
+    //PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
+    model_part = "plus";
+  }
+  else if( std::abs( model_type - 1) < 1.e-10) {
+    fprintf(stdout,"cross with 7th param %f\n",model_type);
+    //PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
+    model_part = "cross";
+  }
+  else if( std::abs( model_type - 2) < 1.e-10) {
+    //PhenP_Waveform(wv,fnodes,params,"PhenomP_hphp");
+    model_part = "hphp";
+  }
+  else if( std::abs( model_type - 3) < 1.e-10) {
+    //PhenP_Waveform(wv,fnodes,params,"PhenomP_hchc");
+    model_part = "hchc";
+  }
+  else if( std::abs( model_type - 4) < 1.e-10) {
+    //PhenP_Waveform(wv,fnodes,params,"PhenomP_hphc");
+    model_part = "hphc";
+  }
+  else {
+    std::cerr << "PhenomP all parts -- unknown part" << std::endl;
+    exit(1);
+  }
+  return model_part;
+}
+
+// Copy polarization into output buffer
+void lal_waveform_part(gsl_vector_complex *wv,
+                       const std::string model_part,
+                       const COMPLEX16FrequencySeries *hptilde,
+                       const COMPLEX16FrequencySeries *hctilde,
+                       const int n)
 {
 
-  COMPLEX16FrequencySeries *hptilde = NULL;
-  COMPLEX16FrequencySeries *hctilde = NULL;
-
-  int n = fnodes->size;
-  const REAL8 Mtot_Msun = params[0];
-  const REAL8 eta = params[1];
-  const REAL8 Mtot_SI = Mtot_Msun * LAL_MSUN_SI; 
-  const REAL8 chi_eff = params[2];
-  const REAL8 chip = params[3];
-  const REAL8 thetaJ = params[4];
-  const REAL8 distance = 1;
-  const REAL8 phic = 0;
-  const REAL8 f_ref = 40;
-  const REAL8 alpha0 = params[5];
-
-
-  // use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
-  const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
-  for (int i=0; i<n; i++) {
-    freqs->data[i] = gsl_vector_get(fnodes, i);
-  }
-
-  int ret = XLALSimIMRPhenomPFrequencySequence(
-    &hptilde,   //< Output: Frequency-domain waveform h+ //
-    &hctilde,   //< Output: Frequency-domain waveform hx //
-    freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
-    chi_eff,                  //< Effective aligned spin //
-    chip,                     //< Effective spin in the orbital plane //
-    eta,                      //< Symmetric mass-ratio //
-    thetaJ,                   //< Angle between J0 and line of sight (z-direction) //
-    Mtot_SI,                  //< Total mass of binary (kg) //
-    distance,                 //< Distance of source (m) //
-    alpha0,                   //< Initial value of alpha angle (azimuthal precession angle) //
-    phic,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
-    f_ref);                    //< Reference frequency //
-
-  if (ret != XLAL_SUCCESS) {
-    fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
-    exit(-1);
-  }
-  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
-
-
-  // Copy polarization into output buffer
-  if(strcmp(plus_cross_flag,"PhenomP_plus") == 0) {
-    //fprintf(stdout,"Im plus\n");
+  if(model_part.compare("plus") == 0) {
+    fprintf(stdout,"Im plus\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
     }
   }
-  else if(strcmp(plus_cross_flag,"PhenomP_cross") == 0) {
-    //fprintf(stdout,"Im cross\n");
+  else if(model_part.compare("cross") == 0) {
+    fprintf(stdout,"Im cross\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
     }
   }
-  else if(strcmp(plus_cross_flag,"PhenomP_hphp") == 0) {
+  else if(model_part.compare("hphp") == 0) {
+    fprintf(stdout,"Im hp hp\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
         gsl_complex_mul((hptilde->data->data)[i],
                          gsl_complex_conjugate( (hptilde->data->data)[i] ) ));
     }
   }
-  else if(strcmp(plus_cross_flag,"PhenomP_hchc") == 0) {
+  else if(model_part.compare("hchc") == 0) {
+    fprintf(stdout,"Im hc hc\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
         gsl_complex_mul((hctilde->data->data)[i],
                          gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
     }
   }
-  else if(strcmp(plus_cross_flag,"PhenomP_hphc") == 0) {
+  else if(model_part.compare("hphc") == 0) {
+    fprintf(stdout,"Im hp hc\n");
     gsl_complex wv_i_real;
     for (int i=0; i<n; i++) {
       const gsl_complex wv_i =
@@ -147,43 +152,156 @@ void PhenP_Waveform(gsl_vector_complex *wv,
     std::cerr << "Approximant not supported!" << std::endl;
     exit(1);
   }
+}
 
+
+
+void PhenP_Waveform(gsl_vector_complex *wv,
+                    const gsl_vector *fnodes,
+                    const double *params,
+                    const std::string model_tag)
+{
+
+
+  // --- deduce the model_part tag --- //
+  std::string model_part;
+  // "all_parts" is a distinct model of higher dimension
+  if(model_tag.compare("PhenomP_all_parts") == 0) {
+    fprintf(stdout,"all parts model\n");
+    model_part = get_waveform_part_tag(params[7]);
+  }
+  else {
+    model_part = get_waveform_part_tag(model_tag);
+  }
+  fprintf(stdout,"model part tag %s\n",model_part.c_str());
+
+
+  COMPLEX16FrequencySeries *hptilde = NULL;
+  COMPLEX16FrequencySeries *hctilde = NULL;
+
+  int n = fnodes->size;
+  const REAL8 m1_Msun = params[0];
+  const REAL8 m2_Msun = params[1];
+  const REAL8 m1_SI = m1_Msun * LAL_MSUN_SI;
+  const REAL8 m2_SI = m2_Msun * LAL_MSUN_SI;
+  const REAL8 chi1L = params[2];
+  const REAL8 chi2L = params[3];
+  const REAL8 chip = params[4];
+  const REAL8 thetaJ = params[5];
+  const REAL8 distance = 1;
+  const REAL8 phic = 0;
+  const REAL8 f_ref = 40;
+  const REAL8 alpha0 = params[6];
+  IMRPhenomP_version_type version_flag = IMRPhenomPv2_V;
+
+  // use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
+  const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
+  for (int i=0; i<n; i++) {
+    freqs->data[i] = gsl_vector_get(fnodes, i);
+  }
+
+  int ret = XLALSimIMRPhenomPFrequencySequence(
+    &hptilde,   //< Output: Frequency-domain waveform h+ //
+    &hctilde,   //< Output: Frequency-domain waveform hx //
+    freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
+    chi1L,                  //< Effective aligned spin //
+    chi2L,
+    chip,                     //< Effective spin in the orbital plane //
+    thetaJ,
+    m1_SI,                      //< Symmetric mass-ratio //
+    m2_SI,                   //< Angle between J0 and line of sight (z-direction) //
+    distance,                  //< Total mass of binary (kg) //
+    alpha0,                 //< Distance of source (m) //
+    phic,                   //< Initial value of alpha angle (azimuthal precession angle) //
+    f_ref,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
+    version_flag);                    //< Reference frequency //
+
+  if (ret != XLAL_SUCCESS) {
+    fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
+    exit(-1);
+  }
+  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
+  lal_waveform_part(wv,model_part,hptilde,hctilde,n);
 
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
 
 
-// 7th parameter params[6] 0 or 1 for plus or cross mode
-// Note: this is a *distinct* model of higher dimension (i.e. the
-// 7th describes the "part") and it needs its own model tag
-void PhenP_Waveform_All_Parts(gsl_vector_complex *wv,
-                              const gsl_vector *fnodes,
-                              const double *params)
+
+// phenomP version 1 with older interface 
+// use LAL git hash a27aef328a77a5de5434c27d22f812bfe369c7a8
+/*void PhenP_Waveform(gsl_vector_complex *wv,
+                    const gsl_vector *fnodes,
+                    const double *params,
+                    const std::string model_tag)
 {
-  if( std::abs( params[6] - 0) < 1.e-10) {
-    //fprintf(stdout,"Plus with 7th param %f\n",params[6]);
-    PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
-  }
-  else if( std::abs( params[6] - 1) < 1.e-10) {
-    //fprintf(stdout,"cross with 7th param %f\n",params[6]);
-    PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
-  }
-  else if( std::abs( params[6] - 2) < 1.e-10) {
-    PhenP_Waveform(wv,fnodes,params,"PhenomP_hphp");
-  }
-  else if( std::abs( params[6] - 3) < 1.e-10) {
-    PhenP_Waveform(wv,fnodes,params,"PhenomP_hchc");
-  }
-  else if( std::abs( params[6] - 4) < 1.e-10) {
-    PhenP_Waveform(wv,fnodes,params,"PhenomP_hphc");
+
+
+  // --- deduce the model_part tag --- //
+  std::string model_part;
+  // "all_parts" is a distinct model of higher dimension (i.e. the
+  // 7th describes the "part") and it needs its own model tag
+  if(model_tag.compare("PhenomP_all_parts") == 0) {
+    fprintf(stdout,"all parts model\n");
+    // 7th parameter params[6] 0 or 1 for plus or cross mode, 2-4 for quad part
+    model_part = get_waveform_part_tag(params[6]);
   }
   else {
-    std::cerr << "PhenomP all parts -- unknown part" << std::endl;
-    exit(1);
+    model_part = get_waveform_part_tag(model_tag);
+  }
+  fprintf(stdout,"model part tag %s\n",model_part.c_str());
+
+
+
+  COMPLEX16FrequencySeries *hptilde = NULL;
+  COMPLEX16FrequencySeries *hctilde = NULL;
+
+  int n = fnodes->size;
+  const REAL8 Mtot_Msun = params[0];
+  const REAL8 eta = params[1];
+  const REAL8 Mtot_SI = Mtot_Msun * LAL_MSUN_SI; 
+  const REAL8 chi_eff = params[2];
+  const REAL8 chip = params[3];
+  const REAL8 thetaJ = params[4];
+  const REAL8 distance = 1;
+  const REAL8 phic = 0;
+  const REAL8 f_ref = 40;
+  const REAL8 alpha0 = params[5];
+
+
+  // use XLALSimIMRPhenomPFrequencySequence with frequency sequence //
+  const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
+  for (int i=0; i<n; i++) {
+    freqs->data[i] = gsl_vector_get(fnodes, i);
   }
 
-}
+  int ret = XLALSimIMRPhenomPFrequencySequence(
+    &hptilde,   //< Output: Frequency-domain waveform h+ //
+    &hctilde,   //< Output: Frequency-domain waveform hx //
+    freqs,           //< Frequency points at which to evaluate the waveform (Hz) //
+    chi_eff,                  //< Effective aligned spin //
+    chip,                     //< Effective spin in the orbital plane //
+    eta,                      //< Symmetric mass-ratio //
+    thetaJ,                   //< Angle between J0 and line of sight (z-direction) //
+    Mtot_SI,                  //< Total mass of binary (kg) //
+    distance,                 //< Distance of source (m) //
+    alpha0,                   //< Initial value of alpha angle (azimuthal precession angle) //
+    phic,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
+    f_ref);                    //< Reference frequency //
+
+  if (ret != XLAL_SUCCESS) {
+    fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
+    exit(-1);
+  }
+  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
+  lal_waveform_part(wv,model_part,hptilde,hctilde,n);
+
+  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+  XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+}*/
 
 
 /*
