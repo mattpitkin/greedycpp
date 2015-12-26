@@ -180,7 +180,7 @@ void GreedyWorker(const int rank,
   const int local_rows    = ts.matrix_sub_size()[rank];
   bool continue_work = true;
   int worst_global, worst_local, worst_rank;
-  double rb_inc_r, rb_inc_i, tmp;
+  double rb_inc_r, rb_inc_i, tmp, worst_err;
   double *errors, *vec_real, *vec_imag, *A_row_norms2;
   gsl_complex tmpc;
   gsl_vector_complex *last_rb, *row_vec;
@@ -226,66 +226,83 @@ void GreedyWorker(const int rank,
   }
 
   #ifdef USE_OPENMP
-  while(continue_work)
+  #pragma omp parallel
   {
 
-    // -- receive new rb -- //
-    MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-    MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-    mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
+    // every variable declared here is thread private (thread-safe)
+    gsl_vector_complex *ts_el_omp, *last_rb_omp;
+    ts_el_omp = gsl_vector_complex_alloc(cols);
+    last_rb_omp = gsl_vector_complex_alloc(cols);
 
-    #pragma omp parallel
+    while(continue_work)
     {
+
+      // -- receive new rb -- //
+      #pragma omp master
+      {
+      MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+      MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
+      //mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
+      }
+      #pragma omp barrier
+      mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb_omp);
 
       /*#pragma omp master
       {
         std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
       }*/
 
-      // every variable declared here is thread private (thread-safe)
-      gsl_vector_complex *ts_el_omp;
-      ts_el_omp = gsl_vector_complex_alloc(cols);
-
       #pragma omp for
       for(int i = 0; i < local_rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
+        /*gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));*/
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+                           mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         // better conditioned to sum positive values, then subtract
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
+      } // implicit barrier here
+
+      #pragma omp master
+      {
+      // -- find worst error here (worst_local is worker's row index) -- //
+      FindMax2(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
+      worst_global = ts.mystart()[rank] + worst_local; // global row index
+
+      reduce_data.error = tmp;
+      reduce_data.rank  = rank;
+
+      MPI_Allreduce(&reduce_data,&global_reduce_data,1,
+                    MPI_DOUBLE_INT,MPI_MAXLOC,MPI_COMM_WORLD);
+
+      worst_rank = global_reduce_data.rank+1;
+      worst_err  = global_reduce_data.error;
+
+      // -- return basis to master -- //
+      if( (worst_rank-1) == rank) {
+          gsl_matrix_complex_get_row(row_vec,A,worst_local);
+          mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
+          MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+          MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+          MPI_Send(&worst_global, 1, MPI_INT, 0, 0,MPI_COMM_WORLD);
       }
-      gsl_vector_complex_free(ts_el_omp);
-    }
 
-    // -- find worst error here (worst_local is worker's row index) -- //
-    FindMax2(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
-    worst_global = ts.mystart()[rank] + worst_local; // global row index
+      ++dim_RB;
 
-    reduce_data.error = tmp;
-    reduce_data.rank  = rank;
+      }
 
-    MPI_Allreduce(&reduce_data,&global_reduce_data,1,
-                  MPI_DOUBLE_INT,MPI_MAXLOC,MPI_COMM_WORLD);
+      #pragma omp barrier
+      // -- decide if another greedy sweep will be needed -- //
+      if( (dim_RB == max_RB) || worst_err < tol) {
+        continue_work = false;
+      }
 
-    worst_rank       = global_reduce_data.rank+1;
-    double worst_err = global_reduce_data.error;
+    } // end while loop
 
-    // -- return basis to master -- //
-    if( (worst_rank-1) == rank) {
-        gsl_matrix_complex_get_row(row_vec,A,worst_local);
-        mygsl::gsl_vector_complex_parts(vec_real,vec_imag,row_vec);
-        MPI_Send(vec_real,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(vec_imag,cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&worst_global, 1, MPI_INT, 0, 0,MPI_COMM_WORLD);
-    }
+    gsl_vector_complex_free(ts_el_omp);
+    gsl_vector_complex_free(last_rb_omp);
 
-    ++dim_RB;
-
-    // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB == max_RB) || worst_err < tol) {
-      continue_work = false;
-    }
   }
   #else
   while(continue_work)
@@ -504,13 +521,13 @@ void GreedyMaster(const int size,
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
     #ifdef USE_OPENMP
-    end_search_cpu = clock();
     end_search_wtime = omp_get_wtime();
+    end_search_cpu   = clock();
     search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
     search_wtime = end_search_wtime - start_search_wtime;
     #else
     end_search_cpu = clock();
-    search_cpu   = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+    search_cpu  = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
     #endif
 
     // --- record worst approximated row element (basis) --- //
@@ -527,12 +544,12 @@ void GreedyMaster(const int size,
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
     #ifdef USE_OPENMP
-    end_or_cpu = clock();
     end_or_wtime = omp_get_wtime();
+    end_sweep_wtime = omp_get_wtime();
+    end_or_cpu = clock();
+    end_sweep_cpu = clock();
     or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
     or_wtime   = end_or_wtime - start_or_wtime;
-    end_sweep_cpu = clock();
-    end_sweep_wtime = omp_get_wtime();
     sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
     sweep_wtime = end_sweep_wtime - start_sweep_wtime;
 
@@ -542,8 +559,8 @@ void GreedyMaster(const int size,
     total_search_wtime += search_wtime;
     #else
     end_or_cpu = clock();
-    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
     end_sweep_cpu = clock();
+    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
     sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
 
     total_ortho_cpu  += or_cpu;
@@ -601,7 +618,6 @@ void GreedyMaster(const int size,
 
 
   }
-  //end = clock();
 
   #ifdef USE_OPENMP
   omp_end  = omp_get_wtime();
@@ -610,11 +626,6 @@ void GreedyMaster(const int size,
   end_cpu = clock();
   alg_cpu = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
 
-  /*alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
-  fprintf(stdout,"Greedy routine took %f seconds\n",alg_time);
-  fprintf(stdout,"GS routine took %f seconds\n",total_ortho_time);
-  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_time-total_ortho_time);
-  fprintf(stdout,"Greedy sweeps took %f seconds\n",total_sweep_time);*/
   print_timers(omp_time,total_ortho_wtime,total_search_wtime,alg_cpu,
                total_ortho_cpu,total_search_cpu);
   dim_RB = dim_RB - 1;
