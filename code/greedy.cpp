@@ -230,6 +230,7 @@ void GreedyWorker(const int rank,
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                            mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+        // better conditioned to sum positive values, then subtract
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
       gsl_vector_complex_free(ts_el_omp);
