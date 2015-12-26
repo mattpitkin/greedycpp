@@ -570,24 +570,13 @@ void Greedy(const Parameters &params,
   #ifdef USE_OPENMP
   double omp_start = omp_get_wtime();
  
-  //while(continue_work)
-  //{
-
-    //start_sweep_cpu  = clock();
-    //start_search_cpu = clock();
-    //start_sweep_wtime  = omp_get_wtime();
-    //start_search_wtime = omp_get_wtime();
-    //gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
-
-    // --- Loop over training set ---//
   #pragma omp parallel
   {
 
-    gsl_vector_complex *ts_el_omp;
-    ts_el_omp = gsl_vector_complex_alloc(cols);
-
-    gsl_vector_complex *last_rb_omp;
-    last_rb_omp = gsl_vector_complex_alloc(cols);
+    // TODO: Better to use views instead of allocs?
+    gsl_vector_complex *ts_el_omp, *last_rb_omp;
+    ts_el_omp   = gsl_vector_complex_alloc(cols);
+    //last_rb_omp = gsl_vector_complex_alloc(cols);
 
 
     while(continue_work)
@@ -600,33 +589,28 @@ void Greedy(const Parameters &params,
       start_search_wtime = omp_get_wtime();
       }
 
+      // Ensure RB_space has been updated
       #pragma omp barrier
-      gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // previous basis
-      //#pragma omp master
-      //{
-      //gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
-      //}
+      //gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // previous basis
+      #pragma omp master
+      {
+      gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
+      }
       /*#pragma omp master
       {
       std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
       }*/
-      //#pragma omp barrier
-
-      // every variable declared here is thread private (thread-safe)
-      //gsl_vector_complex *ts_el_omp;
-      //ts_el_omp = gsl_vector_complex_alloc(cols);
 
       #pragma omp for
       for(int i = 0; i < rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
+        //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+        //                   mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
-        /*gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));*/
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
-      //gsl_vector_complex_free(ts_el_omp);
 
       #pragma omp master
       {
@@ -640,10 +624,10 @@ void Greedy(const Parameters &params,
       search_cpu   = ((double) (end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
       search_wtime = end_search_wtime - start_search_wtime;
       }
-      #pragma omp barrier
 
       // -- decide if another greedy sweep is needed -- //
       // all threads need to execute this
+      #pragma omp barrier
       if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
         continue_work = false;
       }
@@ -686,7 +670,7 @@ void Greedy(const Parameters &params,
       }
     }
     gsl_vector_complex_free(ts_el_omp);
-    gsl_vector_complex_free(last_rb_omp);
+    //gsl_vector_complex_free(last_rb_omp);
   }
 
   double omp_end  = omp_get_wtime();
