@@ -506,17 +506,26 @@ void Greedy(const Parameters &params,
   const int cols = A->size2; // samples (for quadrature)
   int *greedy_points;        // selectted greedy points (row selection)
   double *greedy_err;        // approximate error
-  clock_t start, end;        // for algorithm timing experiments
-  clock_t start1, end1;      // for algorithm timing experiments
-  clock_t start_or, end_or;     // time between orthogonalizations
-  clock_t start_sw, end_sw;     // greedy sweep times
-  double alg_time,or_t,sw_t;    // for algorithm timing experiments
+
+  clock_t start_cpu, end_cpu;        // for algorithm timing experiments
+  clock_t start_sweep_cpu, end_sweep_cpu;      // for algorithm timing experiments
+  double start_sweep_wtime, end_sweep_wtime;
+  clock_t start_or_cpu, end_or_cpu;     // time between orthogonalizations
+  double start_or_wtime, end_or_wtime;
+  clock_t start_search_cpu, end_search_cpu;     // greedy sweep times
+  double start_search_wtime, end_search_wtime;
+  double alg_cpu,or_cpu,sweep_cpu,search_cpu;    // for algorithm timing experiments
+  double or_wtime,sweep_wtime,search_wtime;    // for algorithm timing experiments
+
   double worst_err;          // errors in greedy sweep
   int worst_app;             // worst error stored
   gsl_complex tmpc;          // worst error temp
   bool continue_work = true;
-  double total_ortho_time = 0.0;
-  double total_sweep_time = 0.0;
+
+  double total_ortho_cpu = 0.0;
+  double total_search_cpu = 0.0;
+  double total_ortho_wtime = 0.0;
+  double total_search_wtime = 0.0;
 
 
   gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
@@ -556,47 +565,144 @@ void Greedy(const Parameters &params,
   int dim_RB       = 1;
   greedy_err[0]    = 1.0;
 
-  // --- Continue approximation until tolerance satisfied --- //
-  start = clock();
+  start_cpu = clock();
 
   #ifdef USE_OPENMP
   double omp_start = omp_get_wtime();
-  #endif
  
-  while(continue_work)
-  {
+  //while(continue_work)
+  //{
 
-    start1 = clock();
-
-    start_sw = clock();
-    gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
-
+    //start_sweep_cpu  = clock();
+    //start_search_cpu = clock();
+    //start_sweep_wtime  = omp_get_wtime();
+    //start_search_wtime = omp_get_wtime();
+    //gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
 
     // --- Loop over training set ---//
-    #ifdef USE_OPENMP // due to extra allocs, avoid this code if not using omp
-    #pragma omp parallel
-    {
+  #pragma omp parallel
+  {
 
+    gsl_vector_complex *ts_el_omp;
+    ts_el_omp = gsl_vector_complex_alloc(cols);
+
+    gsl_vector_complex *last_rb_omp;
+    last_rb_omp = gsl_vector_complex_alloc(cols);
+
+
+    while(continue_work)
+    {
       #pragma omp master
       {
-        std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
+      start_sweep_cpu  = clock();
+      start_search_cpu = clock();
+      start_sweep_wtime  = omp_get_wtime();
+      start_search_wtime = omp_get_wtime();
       }
 
+      #pragma omp barrier
+      gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // previous basis
+      //#pragma omp master
+      //{
+      //gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
+      //}
+      /*#pragma omp master
+      {
+      std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
+      }*/
+      //#pragma omp barrier
+
       // every variable declared here is thread private (thread-safe)
-      gsl_vector_complex *ts_el_omp;
-      ts_el_omp = gsl_vector_complex_alloc(cols);
+      //gsl_vector_complex *ts_el_omp;
+      //ts_el_omp = gsl_vector_complex_alloc(cols);
 
       #pragma omp for
       for(int i = 0; i < rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+                           mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
+        /*gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));*/
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       }
-      gsl_vector_complex_free(ts_el_omp);
+      //gsl_vector_complex_free(ts_el_omp);
+
+      #pragma omp master
+      {
+      // --- find worst represented ts element, add to basis --- //
+      FindMax2(errors,rows,worst_err,worst_app);
+      greedy_points[dim_RB] = worst_app;
+      greedy_err[dim_RB]    = worst_err;
+
+      end_search_cpu = clock();
+      end_search_wtime = omp_get_wtime();
+      search_cpu   = ((double) (end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+      search_wtime = end_search_wtime - start_search_wtime;
+      }
+      #pragma omp barrier
+
+      // -- decide if another greedy sweep is needed -- //
+      // all threads need to execute this
+      if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
+        continue_work = false;
+      }
+
+      #pragma omp master
+      {
+      // --- add worst approximated solution to basis set --- //
+      start_or_cpu = clock();
+      start_or_wtime = omp_get_wtime();
+      gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
+      mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
+      //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
+      gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
+      gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
+
+      ++dim_RB;
+
+      end_or_cpu = clock();
+      end_or_wtime = omp_get_wtime();
+      or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
+      or_wtime   = end_or_wtime - start_or_wtime;
+      end_sweep_cpu = clock();
+      end_sweep_wtime = omp_get_wtime();
+      sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
+      sweep_wtime = end_sweep_wtime - start_sweep_wtime;
+
+      // --- update timers and output info --- //
+      total_ortho_cpu  += or_cpu;
+      total_search_cpu += search_cpu;
+      total_ortho_wtime  += or_wtime;
+      total_search_wtime += search_wtime;
+
+      //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+      //               "| search time %1.3e | sweep time %1.3e\n",\
+      //        dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
+      fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+                     "| search time %1.3e | sweep time %1.3e\n",\
+              dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
+
+      }
     }
-    #else
+    gsl_vector_complex_free(ts_el_omp);
+    gsl_vector_complex_free(last_rb_omp);
+  }
+
+  double omp_end  = omp_get_wtime();
+  double omp_time = omp_end - omp_start;
+
+  // without OpenMP //
+  #else
+
+  while(continue_work)
+  {
+
+    start_sweep_cpu  = clock();
+    start_search_cpu = clock();
+
+    gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
+
     // Compute overlaps of pieces of A with rb_new //
     for(int i = 0; i < rows; i++)
     {
@@ -605,8 +711,6 @@ void Greedy(const Parameters &params,
                             mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
       errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
-    #endif
-
 
     // --- find worst represented ts element, add to basis --- //
     FindMax2(errors,rows,worst_err,worst_app);
@@ -618,51 +722,52 @@ void Greedy(const Parameters &params,
       continue_work = false;
     }
 
-    end_sw = clock();
-    sw_t   = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
+    end_search_cpu = clock();
+    search_cpu   = ((double) (end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
 
     // --- add worst approximated solution to basis set --- //
-    start_or = clock();
+    start_or_cpu = clock();
     gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
     gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
     gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
-    end_or = clock();
 
     ++dim_RB;
 
-    end1 = clock();
-    alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+    end_or_cpu = clock();
+    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
+    end_sweep_cpu = clock();
+    sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
 
-    //fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
-    //        dim_RB,worst_app,worst_err,alg_time);
     // --- update timers and output info --- //
-    end1     = clock();
-    or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
-    alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-    total_ortho_time += or_t;
-    total_sweep_time += sw_t;
+    total_ortho_cpu += or_cpu;
+    total_search_cpu += search_cpu;
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-                   "| sweep time %1.3e | total time %1.3e\n",\
-            dim_RB,worst_app,worst_err,or_t,sw_t,alg_time);
+                   "| search time %1.3e | sweep time %1.3e\n",\
+            dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
 
   }
-  end = clock();
-  alg_time = ((double) (end - start)/CLOCKS_PER_SEC);
-
-  #ifdef USE_OPENMP
-  double omp_end  = omp_get_wtime();
-  double omp_time = omp_end - omp_start;
-  #else
-  double omp_time = alg_time;
   #endif
  
-  fprintf(stdout,"Greedy routine took %f seconds\n",alg_time);
-  fprintf(stdout,"GS routine took %f seconds\n",total_ortho_time);
-  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_time-total_ortho_time);
-  fprintf(stdout,"Greedy sweeps took %f seconds\n",total_sweep_time);
-  fprintf(stdout,"Building approximation space took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
+  end_cpu = clock();
+  alg_cpu = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
+
+  #ifdef USE_OPENMP
+  fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",omp_time);
+  fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_wtime);
+  fprintf(stdout,"Greedy - GS took %f seconds\n",omp_time-total_ortho_wtime);
+  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",total_search_wtime);
+  fprintf(stdout,"Building approximation space took %f cpu seconds and %f wall seconds \n",alg_cpu,omp_time);
+  fprintf(stdout,"GS took %f cpu seconds and %f wall seconds \n",total_ortho_cpu,total_ortho_wtime);
+  fprintf(stdout,"Search took %f cpu seconds and %f wall seconds \n",total_search_cpu,total_search_wtime);
+  #else
+  fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",alg_cpu);
+  fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_cpu);
+  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_cpu-total_ortho_cpu);
+  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",total_search_cpu);
+  #endif
+
   dim_RB = dim_RB - 1;
 
   // -- output relevant information -- //
@@ -928,4 +1033,3 @@ int main (int argc, char **argv) {
   MPI::Finalize();
   #endif
 }
-
