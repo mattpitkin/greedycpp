@@ -573,14 +573,16 @@ void Greedy(const Parameters &params,
   #pragma omp parallel
   {
 
-    // TODO: Better to use views instead of allocs?
     gsl_vector_complex *ts_el_omp, *last_rb_omp;
     ts_el_omp   = gsl_vector_complex_alloc(cols);
-    //last_rb_omp = gsl_vector_complex_alloc(cols);
+    last_rb_omp = gsl_vector_complex_alloc(cols);
 
 
     while(continue_work)
     {
+      // Ensure RB_space has been updated
+      #pragma omp barrier
+
       #pragma omp master
       {
       start_sweep_cpu  = clock();
@@ -589,28 +591,22 @@ void Greedy(const Parameters &params,
       start_search_wtime = omp_get_wtime();
       }
 
-      // Ensure RB_space has been updated
-      #pragma omp barrier
-      //gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // previous basis
+      gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // last basis
+
       #pragma omp master
       {
-      gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
-      }
-      /*#pragma omp master
-      {
       std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
-      }*/
+      }
+
 
       #pragma omp for
       for(int i = 0; i < rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
-        //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-        //                   mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+                      mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
-      }
+      } // implicit barrier here
 
       #pragma omp master
       {
@@ -621,7 +617,7 @@ void Greedy(const Parameters &params,
 
       end_search_cpu = clock();
       end_search_wtime = omp_get_wtime();
-      search_cpu   = ((double) (end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+      search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
       search_wtime = end_search_wtime - start_search_wtime;
       }
 
@@ -670,7 +666,7 @@ void Greedy(const Parameters &params,
       }
     }
     gsl_vector_complex_free(ts_el_omp);
-    //gsl_vector_complex_free(last_rb_omp);
+    gsl_vector_complex_free(last_rb_omp);
   }
 
   double omp_end  = omp_get_wtime();
@@ -707,7 +703,7 @@ void Greedy(const Parameters &params,
     }
 
     end_search_cpu = clock();
-    search_cpu   = ((double) (end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+    search_cpu   = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
 
     // --- add worst approximated solution to basis set --- //
     start_or_cpu = clock();
@@ -741,15 +737,18 @@ void Greedy(const Parameters &params,
   fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",omp_time);
   fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_wtime);
   fprintf(stdout,"Greedy - GS took %f seconds\n",omp_time-total_ortho_wtime);
-  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",total_search_wtime);
-  fprintf(stdout,"Building approximation space took %f cpu seconds and %f wall seconds \n",alg_cpu,omp_time);
-  fprintf(stdout,"GS took %f cpu seconds and %f wall seconds \n",total_ortho_cpu,total_ortho_wtime);
-  fprintf(stdout,"Search took %f cpu seconds and %f wall seconds \n",total_search_cpu,total_search_wtime);
+  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",
+                  total_search_wtime);
+  printf("Building approximation space took %f cpu seconds and %f wall seconds \n",alg_cpu,omp_time);
+  printf("GS took %f cpu seconds and %f wall seconds \n",
+          total_ortho_cpu,total_ortho_wtime);
+  printf("Search took %f cpu seconds and %f wall seconds \n",
+          total_search_cpu,total_search_wtime);
   #else
   fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",alg_cpu);
   fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_cpu);
   fprintf(stdout,"Greedy - GS took %f seconds\n",alg_cpu-total_ortho_cpu);
-  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",total_search_cpu);
+  printf("Greedy sweeps took (pivot search) %f seconds\n",total_search_cpu);
   #endif
 
   dim_RB = dim_RB - 1;
