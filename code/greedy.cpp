@@ -433,7 +433,6 @@ void GreedyMaster(const int size,
     gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
     gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
 
-
     ++dim_RB;
 
     // --- update timers and output info --- //
@@ -509,11 +508,15 @@ void Greedy(const Parameters &params,
   double *greedy_err;        // approximate error
   clock_t start, end;        // for algorithm timing experiments
   clock_t start1, end1;      // for algorithm timing experiments
-  double alg_time;           // for algorithm timing experiments
+  clock_t start_or, end_or;     // time between orthogonalizations
+  clock_t start_sw, end_sw;     // greedy sweep times
+  double alg_time,or_t,sw_t;    // for algorithm timing experiments
   double worst_err;          // errors in greedy sweep
   int worst_app;             // worst error stored
   gsl_complex tmpc;          // worst error temp
   bool continue_work = true;
+  double total_ortho_time = 0.0;
+  double total_sweep_time = 0.0;
 
 
   gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
@@ -565,6 +568,7 @@ void Greedy(const Parameters &params,
 
     start1 = clock();
 
+    start_sw = clock();
     gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
 
 
@@ -614,20 +618,34 @@ void Greedy(const Parameters &params,
       continue_work = false;
     }
 
+    end_sw = clock();
+    sw_t   = ((double) (end_sw - start_sw)/CLOCKS_PER_SEC);
 
     // --- add worst approximated solution to basis set --- //
+    start_or = clock();
     gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
     gsl_matrix_complex_set_row(RB_space,dim_RB,ortho_basis);
     gsl_matrix_complex_set_row(R_matrix,dim_RB,ru);
-    dim_RB = dim_RB + 1;
+    end_or = clock();
+
+    ++dim_RB;
 
     end1 = clock();
     alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
 
-    fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
-            dim_RB,worst_app,worst_err,alg_time);
+    //fprintf(stdout,"RB %i || row selected %i || error %1.4e || time %f\n",\
+    //        dim_RB,worst_app,worst_err,alg_time);
+    // --- update timers and output info --- //
+    end1     = clock();
+    or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
+    alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+    total_ortho_time += or_t;
+    total_sweep_time += sw_t;
+    fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+                   "| sweep time %1.3e | total time %1.3e\n",\
+            dim_RB,worst_app,worst_err,or_t,sw_t,alg_time);
 
   }
   end = clock();
@@ -640,6 +658,10 @@ void Greedy(const Parameters &params,
   double omp_time = alg_time;
   #endif
  
+  fprintf(stdout,"Greedy routine took %f seconds\n",alg_time);
+  fprintf(stdout,"GS routine took %f seconds\n",total_ortho_time);
+  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_time-total_ortho_time);
+  fprintf(stdout,"Greedy sweeps took %f seconds\n",total_sweep_time);
   fprintf(stdout,"Building approximation space took %f cpu seconds and %f wall seconds \n",alg_time,omp_time);
   dim_RB = dim_RB - 1;
 
