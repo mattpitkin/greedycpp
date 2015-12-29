@@ -15,9 +15,9 @@
 #include <mpi.h>
 #endif
 
-#ifdef USE_OPENMP
+//#ifdef USE_OPENMP
 #include <omp.h>
-#endif
+//#endif
 
 #include <iostream>
 #include <fstream>
@@ -138,23 +138,26 @@ void print_timers(const double omp_time, const double total_ortho_wtime,
                   const double total_ortho_cpu, const double total_search_cpu)
 {
 
-  #ifdef USE_OPENMP
+  //#ifdef USE_OPENMP
+  //printf("Walltime from openMP...\n");
   fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",omp_time);
   fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_wtime);
   fprintf(stdout,"Greedy - GS took %f seconds\n",omp_time-total_ortho_wtime);
   fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",
                   total_search_wtime);
-  printf("Building approximation space took %f cpu seconds and %f wall seconds \n",alg_cpu,omp_time);
-  printf("GS took %f cpu seconds and %f wall seconds \n",
+  fprintf(stdout,"Full algorithm took %f cpu seconds and %f wall seconds \n",
+         alg_cpu,omp_time);
+  fprintf(stdout,"GS took %f cpu seconds and %f wall seconds \n",
           total_ortho_cpu,total_ortho_wtime);
-  printf("Search took %f cpu seconds and %f wall seconds \n",
+  fprintf(stdout,"Search took %f cpu seconds and %f wall seconds \n",
           total_search_cpu,total_search_wtime);
-  #else
+  /*#else
+  printf("cpu time from clock...\n");
   fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",alg_cpu);
   fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_cpu);
   fprintf(stdout,"Greedy - GS took %f seconds\n",alg_cpu-total_ortho_cpu);
   printf("Greedy sweeps took (pivot search) %f seconds\n",total_search_cpu);
-  #endif
+  /#endif*/
 }
 
 // --- GreedyWorker and Master are removed from serial builds --- //
@@ -175,10 +178,10 @@ void GreedyWorker(const int rank,
   const int seed_global = params.seed();
   const double tol      = params.tol();
 
-  int dim_RB               = 1;
-  const int cols           = wQuad->size;
-  const int local_rows    = ts.matrix_sub_size()[rank];
-  bool continue_work = true;
+  int dim_RB           = 1;
+  const int cols       = wQuad->size;
+  const int local_rows = ts.matrix_sub_size()[rank];
+  bool continue_work   = true;
   int worst_global, worst_local, worst_rank;
   double rb_inc_r, rb_inc_i, tmp, worst_err;
   double *errors, *vec_real, *vec_imag, *A_row_norms2;
@@ -242,24 +245,19 @@ void GreedyWorker(const int rank,
       {
       MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
       MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
-      //mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
+      mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb);
       }
       #pragma omp barrier
-      mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb_omp);
-
-      /*#pragma omp master
-      {
-        std::cout<<"threads (GreedyWorker) = "<<omp_get_num_threads()<<std::endl;
-      }*/
+      //mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,last_rb_omp);
 
       #pragma omp for
       for(int i = 0; i < local_rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
-        /*gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));*/
         gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
+                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+        //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+        //            mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         // better conditioned to sum positive values, then subtract
         errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       } // implicit barrier here
@@ -267,6 +265,7 @@ void GreedyWorker(const int rank,
       #pragma omp master
       {
       // -- find worst error here (worst_local is worker's row index) -- //
+      // TODO: OMP reduction
       FindMax2(errors,ts.matrix_sub_size()[rank],tmp,worst_local);
       worst_global = ts.mystart()[rank] + worst_local; // global row index
 
@@ -392,21 +391,15 @@ void GreedyMaster(const int size,
   int *greedy_points;           // selectted greedy points (row selection)
   double *greedy_err;           // approximate error
 
-  /*clock_t start, end;           // for algorithm timing experiments
-  clock_t start1, end1;         // for algorithm timing experiments
-  clock_t start_or, end_or;     // time between orthogonalizations
-  clock_t start_sw, end_sw;     // greedy sweep times
-  double alg_time,or_t,sw_t;    // for algorithm timing experiments*/
-
   clock_t start_cpu, end_cpu;        // for algorithm timing experiments
-  clock_t start_sweep_cpu, end_sweep_cpu;      // for algorithm timing experiments
+  clock_t start_sweep_cpu, end_sweep_cpu; // for algorithm timing experiments
   double start_sweep_wtime, end_sweep_wtime;
   clock_t start_or_cpu, end_or_cpu;     // time between orthogonalizations
   double start_or_wtime, end_or_wtime;
   clock_t start_search_cpu, end_search_cpu;     // greedy sweep times
   double start_search_wtime, end_search_wtime;
-  double alg_cpu,or_cpu,sweep_cpu,search_cpu;    // for algorithm timing experiments
-  double or_wtime,sweep_wtime,search_wtime;    // for algorithm timing experiments
+  double alg_cpu,or_cpu,sweep_cpu,search_cpu; // for algorithm timing
+  double or_wtime,sweep_wtime,search_wtime;    // for algorithm timing
 
   double worst_err;             // errors in greedy sweep
   int worst_app, worst_worker, worst_rank;             // worst error stored
@@ -419,10 +412,11 @@ void GreedyMaster(const int size,
   double dummy_mpi_double = -1.0;
   int dim_RB              = 1;
   bool continue_work = true;
+  double omp_start;
 
-  double total_ortho_cpu = 0.0;
-  double total_search_cpu = 0.0;
-  double total_ortho_wtime = 0.0;
+  double total_ortho_cpu    = 0.0;
+  double total_search_cpu   = 0.0;
+  double total_ortho_wtime  = 0.0;
   double total_search_wtime = 0.0;
 
   double omp_end  = -1;
@@ -469,41 +463,31 @@ void GreedyMaster(const int size,
   dim_RB           = 1;
   greedy_err[0]    = 1.0;
 
-  // start_sw: before orthonormal basis sent to workers
-  // end_sw: after basis recieved from workers
-
   // -- send first basis to all workers -- // 
-  #ifdef USE_OPENMP
+  //#ifdef USE_OPENMP
   start_sweep_cpu  = clock();
   start_search_cpu = clock();
   start_sweep_wtime  = omp_get_wtime();
   start_search_wtime = omp_get_wtime();
-  #else
+  /*#else
   start_sweep_cpu  = clock();
   start_search_cpu = clock();
-  #endif
+  #endif*/
   mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
   MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
   MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
   // --- Continue approximation until tolerance satisfied --- //
-  start_cpu = clock();
-  #ifdef USE_OPENMP
-  double omp_start = omp_get_wtime();
-  #endif
+  //start_cpu = clock();
+  //double omp_start = omp_get_wtime();
 
   while(continue_work)
   {
 
-    /*#ifdef USE_OPENMP
-    start_sweep_cpu  = clock();
-    start_search_cpu = clock();
-    start_sweep_wtime  = omp_get_wtime();
-    start_search_wtime = omp_get_wtime();
-    #else
-    start_sweep_cpu  = clock();
-    start_search_cpu = clock();
-    #endif*/
+    if(dim_RB==2) { // ignore first loop
+      start_cpu = clock();
+      omp_start = omp_get_wtime();
+    }
 
     // -- gather worst (local) info from workers -- //
     MPI_Allreduce(&dummy_reduce_data,&global_reduce_err_index_data,1,
@@ -520,30 +504,31 @@ void GreedyMaster(const int size,
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
-    #ifdef USE_OPENMP
+    //#ifdef USE_OPENMP
     end_search_wtime = omp_get_wtime();
     end_search_cpu   = clock();
     search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
     search_wtime = end_search_wtime - start_search_wtime;
-    #else
+    /*#else
     end_search_cpu = clock();
     search_cpu  = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
-    #endif
+    #endif*/
 
     // --- record worst approximated row element (basis) --- //
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
     // --- orthogonalize solution/vector --- //
-    #ifdef USE_OPENMP
+    //#ifdef USE_OPENMP
     start_or_cpu = clock();
     start_or_wtime = omp_get_wtime();
-    #else
-    start_or_cpu = clock();
-    #endif
+    //#else
+    //start_or_cpu = clock();
+    //#endif
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
-    #ifdef USE_OPENMP
+
+    //#ifdef USE_OPENMP
     end_or_wtime = omp_get_wtime();
     end_sweep_wtime = omp_get_wtime();
     end_or_cpu = clock();
@@ -553,19 +538,12 @@ void GreedyMaster(const int size,
     sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
     sweep_wtime = end_sweep_wtime - start_sweep_wtime;
 
-    total_ortho_cpu  += or_cpu;
-    total_search_cpu += search_cpu;
-    total_ortho_wtime  += or_wtime;
-    total_search_wtime += search_wtime;
-    #else
-    end_or_cpu = clock();
-    end_sweep_cpu = clock();
-    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
-    sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
-
-    total_ortho_cpu  += or_cpu;
-    total_search_cpu += search_cpu;
-    #endif
+    if(dim_RB!=1) { // first iteration systematically higher
+      total_search_wtime += search_wtime;
+      total_search_cpu   += search_cpu;
+      total_ortho_cpu    += or_cpu;
+      total_ortho_wtime  += or_wtime;
+    }
 
     // -- decide if another greedy sweep will be needed -- //
     if( (dim_RB+1 == max_RB) || worst_err < tol){
@@ -574,16 +552,15 @@ void GreedyMaster(const int size,
     else {
 
       // -- send last orthonormal rb to work procs -- //
-      //start_sw = clock();
-      #ifdef USE_OPENMP
+      //#ifdef USE_OPENMP
       start_sweep_cpu  = clock();
       start_search_cpu = clock();
       start_sweep_wtime  = omp_get_wtime();
       start_search_wtime = omp_get_wtime();
-      #else
+      /*#else
       start_sweep_cpu  = clock();
       start_search_cpu = clock();
-      #endif
+      #endif*/
       mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
       MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
       MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -597,37 +574,30 @@ void GreedyMaster(const int size,
     ++dim_RB;
 
     // --- update timers and output info --- //
-    //end1     = clock();
-    //or_t     = ((double) (end_or- start_or)/CLOCKS_PER_SEC);
-    //alg_time = ((double) (end1 - start1)/CLOCKS_PER_SEC);
-    //total_ortho_time += or_t;
-    //total_sweep_time += sw_t;
-
-    #ifdef USE_OPENMP
+    //#ifdef USE_OPENMP
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                    "| search time %1.3e | sweep time %1.3e\n",\
             dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
     /*fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                      "| search time %1.3e | sweep time %1.3e\n",\
               dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);*/
-    #else
+    /*#else
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                      "| search time %1.3e | sweep time %1.3e\n",\
               dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
-    #endif
+    #endif*/
 
 
   }
 
-  #ifdef USE_OPENMP
   omp_end  = omp_get_wtime();
   omp_time = omp_end - omp_start;
-  #endif
   end_cpu = clock();
   alg_cpu = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
 
   print_timers(omp_time,total_ortho_wtime,total_search_wtime,alg_cpu,
                total_ortho_cpu,total_search_cpu);
+
   dim_RB = dim_RB - 1;
 
   // -- output relevant information -- //
@@ -683,23 +653,24 @@ void Greedy(const Parameters &params,
   double *greedy_err;        // approximate error
 
   clock_t start_cpu, end_cpu;        // for algorithm timing experiments
-  clock_t start_sweep_cpu, end_sweep_cpu;      // for algorithm timing experiments
+  clock_t start_sweep_cpu, end_sweep_cpu;  // for algorithm timing experiments
   double start_sweep_wtime, end_sweep_wtime;
   clock_t start_or_cpu, end_or_cpu;     // time between orthogonalizations
   double start_or_wtime, end_or_wtime;
   clock_t start_search_cpu, end_search_cpu;     // greedy sweep times
   double start_search_wtime, end_search_wtime;
-  double alg_cpu,or_cpu,sweep_cpu,search_cpu;    // for algorithm timing experiments
-  double or_wtime,sweep_wtime,search_wtime;    // for algorithm timing experiments
+  double alg_cpu,or_cpu,sweep_cpu,search_cpu;  // for algorithm timing
+  double or_wtime,sweep_wtime,search_wtime;    // for algorithm timing
+  double omp_start;
 
   double worst_err;          // errors in greedy sweep
   int worst_app;             // worst error stored
   gsl_complex tmpc;          // worst error temp
   bool continue_work = true;
 
-  double total_ortho_cpu = 0.0;
-  double total_search_cpu = 0.0;
-  double total_ortho_wtime = 0.0;
+  double total_ortho_cpu    = 0.0;
+  double total_search_cpu   = 0.0;
+  double total_ortho_wtime  = 0.0;
   double total_search_wtime = 0.0;
 
   double omp_end  = -1;
@@ -742,11 +713,10 @@ void Greedy(const Parameters &params,
   int dim_RB       = 1;
   greedy_err[0]    = 1.0;
 
-  start_cpu = clock();
-
-  #ifdef USE_OPENMP
-  double omp_start = omp_get_wtime();
+  //start_cpu = clock();
+  //omp_start = omp_get_wtime();
  
+  #ifdef USE_OPENMP
   #pragma omp parallel
   {
 
@@ -755,25 +725,29 @@ void Greedy(const Parameters &params,
     last_rb_omp = gsl_vector_complex_alloc(cols);
 
 
+    // barrier results in more consistent timing numbers
+    #pragma omp barrier
     while(continue_work)
     {
-      // Ensure RB_space has been updated
-      #pragma omp barrier
-
       #pragma omp master
       {
-      start_sweep_cpu  = clock();
-      start_search_cpu = clock();
+      start_sweep_cpu    = clock();
+      start_search_cpu   = clock();
       start_sweep_wtime  = omp_get_wtime();
       start_search_wtime = omp_get_wtime();
+      if(dim_RB==2) {
+        start_cpu = clock();
+        omp_start = omp_get_wtime();
+      }
       }
 
       gsl_matrix_complex_get_row(last_rb_omp,RB_space,dim_RB-1); // last basis
+      //#pragma omp barrier
 
-      #pragma omp master
-      {
-      std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
-      }
+      //#pragma omp master
+      //{
+      //std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
+      //}
 
 
       #pragma omp for
@@ -788,27 +762,18 @@ void Greedy(const Parameters &params,
       #pragma omp master
       {
       // --- find worst represented ts element, add to basis --- //
+      // TODO: omp reduction
+      // http://www.techdarting.com/2013/06/openmp-min-max-reduction-code.html
       FindMax2(errors,rows,worst_err,worst_app);
       greedy_points[dim_RB] = worst_app;
       greedy_err[dim_RB]    = worst_err;
 
-      end_search_cpu = clock();
+      end_search_cpu   = clock();
       end_search_wtime = omp_get_wtime();
       search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
       search_wtime = end_search_wtime - start_search_wtime;
-      }
 
-      // -- decide if another greedy sweep is needed -- //
-      // all threads need to execute this
-      #pragma omp barrier
-      if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
-        continue_work = false;
-      }
-
-      #pragma omp master
-      {
-      // --- add worst approximated solution to basis set --- //
-      start_or_cpu = clock();
+      start_or_cpu   = clock();
       start_or_wtime = omp_get_wtime();
       gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
       mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
@@ -818,45 +783,68 @@ void Greedy(const Parameters &params,
 
       ++dim_RB;
 
-      end_or_cpu = clock();
+      end_sweep_cpu   = clock();
+      end_sweep_wtime = omp_get_wtime();
+      sweep_cpu   = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
+      sweep_wtime = end_sweep_wtime - start_sweep_wtime;
+
+      end_or_cpu   = clock();
       end_or_wtime = omp_get_wtime();
       or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
       or_wtime   = end_or_wtime - start_or_wtime;
-      end_sweep_cpu = clock();
-      end_sweep_wtime = omp_get_wtime();
-      sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
-      sweep_wtime = end_sweep_wtime - start_sweep_wtime;
 
-      // --- update timers and output info --- //
-      total_ortho_cpu  += or_cpu;
-      total_search_cpu += search_cpu;
-      total_ortho_wtime  += or_wtime;
-      total_search_wtime += search_wtime;
+      if(dim_RB!=2) { // first iteration systematically higher
+        total_search_wtime += search_wtime;
+        total_search_cpu   += search_cpu;
+        total_ortho_cpu    += or_cpu;
+        total_ortho_wtime  += or_wtime;
+      }
 
       //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
       //               "| search time %1.3e | sweep time %1.3e\n",\
       //        dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
-      fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-                     "| search time %1.3e | sweep time %1.3e\n",\
-              dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
+      //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+      //               "| search time %1.3e | sweep time %1.3e\n",\
+      //        dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
 
       }
+
+      // Ensure RB_space has been updated
+      #pragma omp barrier
+
+      // -- decide if another greedy sweep is needed -- //
+      // all threads need to execute this
+      if( (dim_RB == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
+        continue_work = false;
+      }
+
     }
+
+    #pragma omp master
+    {
+    omp_end  = omp_get_wtime();
+    end_cpu  = clock();
+    alg_cpu  = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
+    omp_time = omp_end - omp_start;
+    }
+
     gsl_vector_complex_free(ts_el_omp);
     gsl_vector_complex_free(last_rb_omp);
   }
-
-  omp_end  = omp_get_wtime();
-  omp_time = omp_end - omp_start;
-
   // without OpenMP //
   #else
-
   while(continue_work)
   {
 
-    start_sweep_cpu  = clock();
-    start_search_cpu = clock();
+    if(dim_RB==2) {
+      start_cpu = clock();
+      omp_start = omp_get_wtime();
+    }
+
+    start_sweep_cpu    = clock();
+    start_search_cpu   = clock();
+    start_sweep_wtime  = omp_get_wtime();
+    start_search_wtime = omp_get_wtime();
 
     gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
 
@@ -874,16 +862,14 @@ void Greedy(const Parameters &params,
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
-    // -- decide if another greedy sweep is needed -- //
-    if( (dim_RB+1 == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
-      continue_work = false;
-    }
-
-    end_search_cpu = clock();
-    search_cpu   = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+    end_search_cpu   = clock();
+    end_search_wtime = omp_get_wtime();
+    search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
+    search_wtime = end_search_wtime - start_search_wtime;
 
     // --- add worst approximated solution to basis set --- //
-    start_or_cpu = clock();
+    start_or_cpu   = clock();
+    start_or_wtime = omp_get_wtime();
     gsl_matrix_complex_get_row(ortho_basis,A,worst_app);
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
@@ -892,27 +878,48 @@ void Greedy(const Parameters &params,
 
     ++dim_RB;
 
-    end_or_cpu = clock();
-    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
-    end_sweep_cpu = clock();
-    sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
+    end_sweep_cpu   = clock();
+    end_sweep_wtime = omp_get_wtime();
+    end_or_cpu   = clock();
+    end_or_wtime = omp_get_wtime();
+    sweep_cpu    = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
+    sweep_wtime  = end_sweep_wtime - start_sweep_wtime;
+    or_cpu       = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
+    or_wtime     = end_or_wtime - start_or_wtime;
+
 
     // --- update timers and output info --- //
-    total_ortho_cpu += or_cpu;
-    total_search_cpu += search_cpu;
-    fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-                   "| search time %1.3e | sweep time %1.3e\n",\
-            dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
+    if(dim_RB!=2) { // first iteration systematically higher
+      total_search_wtime += search_wtime;
+      total_search_cpu   += search_cpu;
+      total_ortho_cpu    += or_cpu;
+      total_ortho_wtime  += or_wtime;
+    }
 
+    //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+    //               "| search time %1.3e | sweep time %1.3e\n",\
+    //        dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
+    //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+    //               "| search time %1.3e | sweep time %1.3e\n",\
+    //        dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
+
+    // -- decide if another greedy sweep is needed -- //
+    if( (dim_RB == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
+      continue_work = false;
+    }
   }
+  omp_end  = omp_get_wtime();
+  end_cpu  = clock();
+  alg_cpu  = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
+  omp_time = omp_end - omp_start;
   #endif
  
-  end_cpu = clock();
-  alg_cpu = ((double) (end_cpu - start_cpu)/CLOCKS_PER_SEC);
-
-  print_timers(omp_time,total_ortho_wtime,
-               total_search_wtime,alg_cpu,
-               total_ortho_cpu,total_search_cpu);
+  print_timers(omp_time,
+               total_ortho_wtime,
+               total_search_wtime,
+               alg_cpu,
+               total_ortho_cpu,
+               total_search_cpu);
 
   /*#ifdef USE_OPENMP
   fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",omp_time);
@@ -1125,7 +1132,9 @@ int main (int argc, char **argv) {
       end = clock(); 
       double ts_time = ((double) (end - start)/CLOCKS_PER_SEC);
       #endif
-      fprintf(stdout,"Rank %i filled TS in %f seconds\n",rank,ts_time);
+      if(rank < 40) {
+        fprintf(stdout,"Rank %i filled TS in %f seconds\n",rank,ts_time);
+      }
 
     }
 

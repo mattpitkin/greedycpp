@@ -67,8 +67,10 @@ void FillTrainingSet(gsl_matrix_complex *TS_gsl,
                      const int rank)
 {
 
-  fprintf(stdout,"Populating training set on proc %i. Using model %s.\n",
-          rank,ts.model());
+  if(rank <=40) {
+    fprintf(stdout,"Populating training set on proc %i. Using model %s.\n",
+            rank,ts.model());
+  }
 
   int proc_ts_size;
   ts.LocalTrainingSetSize(proc_ts_size,rank);
