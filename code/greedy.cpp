@@ -184,18 +184,25 @@ void GreedyWorker(const int rank,
   bool continue_work   = true;
   int worst_global, worst_local, worst_rank;
   double rb_inc_r, rb_inc_i, tmp, worst_err;
-  double *errors, *vec_real, *vec_imag, *A_row_norms2;
+  double *errors, *vec_real, *vec_imag, *A_row_norms2, *projection_norms2;
   gsl_complex tmpc;
+  gsl_complex projection_coeff;
   gsl_vector_complex *last_rb, *row_vec;
   gsl_matrix_complex *project_coeff;
 
   last_rb       = gsl_vector_complex_alloc(cols);
   row_vec       = gsl_vector_complex_alloc(cols);
-  project_coeff = gsl_matrix_complex_alloc(max_RB,local_rows);
+  //project_coeff = gsl_matrix_complex_alloc(max_RB,local_rows);
   errors        = new double[local_rows];
   A_row_norms2  = new double[local_rows];
   vec_real      = new double[cols];
   vec_imag      = new double[cols];
+  projection_norms2 = new double[local_rows];
+
+  // TODO: make its own function
+  for(int i=0; i<local_rows;++i){
+    projection_norms2[i] = 0;
+  }
 
   errorDouble_rankInt reduce_data; 
   errorDouble_rankInt global_reduce_data;
@@ -229,7 +236,7 @@ void GreedyWorker(const int rank,
   }
 
   #ifdef USE_OPENMP
-  #pragma omp parallel
+  #pragma omp parallel private(projection_coeff)
   {
 
     // every variable declared here is thread private (thread-safe)
@@ -254,12 +261,16 @@ void GreedyWorker(const int rank,
       for(int i = 0; i < local_rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
-        gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                           mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
+        projection_coeff = mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc);
+        projection_norms2[i] +=(projection_coeff.dat[0]*projection_coeff.dat[0]+
+                                projection_coeff.dat[1]*projection_coeff.dat[1]);
+        errors[i] = A_row_norms2[i] - projection_norms2[i];
+        //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+        //                   mygsl::InnerProduct(wQuad,last_rb,ts_el_omp,useEuc));
         //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
         //            mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
         // better conditioned to sum positive values, then subtract
-        errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
+        //errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
       } // implicit barrier here
 
       #pragma omp master
@@ -316,9 +327,13 @@ void GreedyWorker(const int rank,
     for(int i = 0; i < local_rows; i++)
     {
       gsl_matrix_complex_get_row(row_vec,A,i);
-      gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                         mygsl::InnerProduct(wQuad,last_rb,row_vec,useEuc));
-      errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
+      projection_coeff = mygsl::InnerProduct(wQuad,last_rb,row_vec,useEuc);
+      projection_norms2[i] +=(projection_coeff.dat[0]*projection_coeff.dat[0]+
+                              projection_coeff.dat[1]*projection_coeff.dat[1]);
+      errors[i] = A_row_norms2[i] - projection_norms2[i];
+      //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+      //                   mygsl::InnerProduct(wQuad,last_rb,row_vec,useEuc));
+      //errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
 
     // -- find worst error here (worst_local is worker's row index) -- //
@@ -358,7 +373,8 @@ void GreedyWorker(const int rank,
 
   gsl_vector_complex_free(last_rb);
   gsl_vector_complex_free(row_vec);
-  gsl_matrix_complex_free(project_coeff);
+  //gsl_matrix_complex_free(project_coeff);
+  delete [] projection_norms2;
   delete [] vec_real;
   delete [] vec_imag;
   delete [] errors;
@@ -464,23 +480,15 @@ void GreedyMaster(const int size,
   greedy_err[0]    = 1.0;
 
   // -- send first basis to all workers -- // 
-  //#ifdef USE_OPENMP
   start_sweep_cpu  = clock();
   start_search_cpu = clock();
   start_sweep_wtime  = omp_get_wtime();
   start_search_wtime = omp_get_wtime();
-  /*#else
-  start_sweep_cpu  = clock();
-  start_search_cpu = clock();
-  #endif*/
   mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
   MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
   MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
 
   // --- Continue approximation until tolerance satisfied --- //
-  //start_cpu = clock();
-  //double omp_start = omp_get_wtime();
-
   while(continue_work)
   {
 
@@ -504,39 +512,33 @@ void GreedyMaster(const int size,
              MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     mygsl::make_gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
 
-    //#ifdef USE_OPENMP
     end_search_wtime = omp_get_wtime();
     end_search_cpu   = clock();
     search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
     search_wtime = end_search_wtime - start_search_wtime;
-    /*#else
-    end_search_cpu = clock();
-    search_cpu  = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
-    #endif*/
 
     // --- record worst approximated row element (basis) --- //
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
     // --- orthogonalize solution/vector --- //
-    //#ifdef USE_OPENMP
     start_or_cpu = clock();
     start_or_wtime = omp_get_wtime();
-    //#else
-    //start_or_cpu = clock();
-    //#endif
+
     mygsl::IMGS(ru,ortho_basis,RB_space,wQuad,dim_RB); // IMGS is default
     //mygsl::MGS(ru,ortho_basis,RB_space,wQuad,dim_RB);
 
-    //#ifdef USE_OPENMP
-    end_or_wtime = omp_get_wtime();
+    end_sweep_cpu   = clock();
     end_sweep_wtime = omp_get_wtime();
-    end_or_cpu = clock();
-    end_sweep_cpu = clock();
-    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
-    or_wtime   = end_or_wtime - start_or_wtime;
+    sweep_cpu   = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
+    sweep_wtime = end_sweep_wtime - start_sweep_wtime;
     sweep_cpu = ((double) (end_sweep_cpu - start_sweep_cpu)/CLOCKS_PER_SEC);
     sweep_wtime = end_sweep_wtime - start_sweep_wtime;
+
+    end_or_wtime = omp_get_wtime();
+    end_or_cpu = clock();
+    or_cpu     = ((double) (end_or_cpu-start_or_cpu)/CLOCKS_PER_SEC);
+    or_wtime   = end_or_wtime - start_or_wtime;
 
     if(dim_RB!=1) { // first iteration systematically higher
       total_search_wtime += search_wtime;
@@ -552,15 +554,11 @@ void GreedyMaster(const int size,
     else {
 
       // -- send last orthonormal rb to work procs -- //
-      //#ifdef USE_OPENMP
-      start_sweep_cpu  = clock();
-      start_search_cpu = clock();
+      start_sweep_cpu    = clock();
       start_sweep_wtime  = omp_get_wtime();
+      start_search_cpu   = clock();
       start_search_wtime = omp_get_wtime();
-      /*#else
-      start_sweep_cpu  = clock();
-      start_search_cpu = clock();
-      #endif*/
+
       mygsl::gsl_vector_complex_parts(vec_real,vec_imag,ortho_basis);
       MPI_Bcast(vec_real, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
       MPI_Bcast(vec_imag, cols, MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -720,9 +718,6 @@ void Greedy(const Parameters &params,
   int dim_RB       = 1;
   greedy_err[0]    = 1.0;
 
-  //start_cpu = clock();
-  //omp_start = omp_get_wtime();
- 
   #ifdef USE_OPENMP
   #pragma omp parallel private(projection_coeff)
   {
@@ -755,7 +750,6 @@ void Greedy(const Parameters &params,
       //{
       //std::cout<<"threads (Greedy) = "<<omp_get_num_threads()<<std::endl;
       //}
-
 
       #pragma omp for
       for(int i = 0; i < rows; i++)
@@ -967,6 +961,7 @@ void Greedy(const Parameters &params,
   delete [] errors;
   delete [] A_row_norms2;
   //gsl_matrix_complex_free(project_coeff);
+  delete [] projection_norms2;
   delete [] greedy_points;
   delete [] greedy_err;
   gsl_matrix_complex_free(RB_space);
