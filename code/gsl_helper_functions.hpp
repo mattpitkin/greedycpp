@@ -112,6 +112,7 @@ int gsl_linalg_complex_L_solve(const gsl_matrix_complex* L,
                              gsl_vector_complex* x);
 
 // sum first n rows of A's column i
+// XXX: DUE TO MULTIPLE gets, THIS IS VERY SLOW
 double SumColumn(const gsl_matrix_complex *A,
                            const int i,
                            const int n);

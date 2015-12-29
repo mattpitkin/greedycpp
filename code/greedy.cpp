@@ -679,9 +679,9 @@ void Greedy(const Parameters &params,
   gsl_vector_complex *ts_el, *last_rb, *ortho_basis, *ru;
   gsl_matrix_complex *RB_space, *R_matrix;
   double *A_row_norms2;              // || A(i,:) ||^2
+  double *projection_norms2;
   double *errors;                    // approximation errors at i^{th} sweep
-  gsl_matrix_complex *project_coeff; // h = coeff_i e_i
-
+  //gsl_matrix_complex *project_coeff; // h = coeff_i e_i
 
   // --- this memory should be freed here --- //
   ts_el         = gsl_vector_complex_alloc(cols);
@@ -690,11 +690,18 @@ void Greedy(const Parameters &params,
   ru            = gsl_vector_complex_alloc(max_RB);
   errors        = new double[rows];
   A_row_norms2  = new double[rows];
-  project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
+  projection_norms2 = new double[rows];
+  //project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
+  gsl_complex projection_coeff;
   greedy_points = new int[max_RB];
   greedy_err    = new double[max_RB];
   RB_space      = gsl_matrix_complex_alloc(max_RB,cols); 
   R_matrix      = gsl_matrix_complex_alloc(max_RB,max_RB);
+
+  // TODO: make its own function
+  for(int i=0; i<rows;++i){
+    projection_norms2[i] = 0;
+  }
 
   // --- compute norm of each training space element --- //
   for(int ii=0;ii<rows;++ii) {
@@ -717,7 +724,7 @@ void Greedy(const Parameters &params,
   //omp_start = omp_get_wtime();
  
   #ifdef USE_OPENMP
-  #pragma omp parallel
+  #pragma omp parallel private(projection_coeff)
   {
 
     gsl_vector_complex *ts_el_omp, *last_rb_omp;
@@ -732,8 +739,8 @@ void Greedy(const Parameters &params,
       #pragma omp master
       {
       start_sweep_cpu    = clock();
-      start_search_cpu   = clock();
       start_sweep_wtime  = omp_get_wtime();
+      start_search_cpu   = clock();
       start_search_wtime = omp_get_wtime();
       if(dim_RB==2) {
         start_cpu = clock();
@@ -754,9 +761,13 @@ void Greedy(const Parameters &params,
       for(int i = 0; i < rows; i++)
       {
         gsl_matrix_complex_get_row(ts_el_omp,A,i);
-        gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+        projection_coeff = mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc);
+        projection_norms2[i] +=(projection_coeff.dat[0]*projection_coeff.dat[0]+
+                                projection_coeff.dat[1]*projection_coeff.dat[1]);
+        errors[i] = A_row_norms2[i] - projection_norms2[i];
+        /*gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
                       mygsl::InnerProduct(wQuad,last_rb_omp,ts_el_omp,useEuc));
-        errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
+        errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);*/
       } // implicit barrier here
 
       #pragma omp master
@@ -768,8 +779,8 @@ void Greedy(const Parameters &params,
       greedy_points[dim_RB] = worst_app;
       greedy_err[dim_RB]    = worst_err;
 
-      end_search_cpu   = clock();
       end_search_wtime = omp_get_wtime();
+      end_search_cpu   = clock();
       search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
       search_wtime = end_search_wtime - start_search_wtime;
 
@@ -803,9 +814,9 @@ void Greedy(const Parameters &params,
       //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
       //               "| search time %1.3e | sweep time %1.3e\n",\
       //        dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
-      //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-      //               "| search time %1.3e | sweep time %1.3e\n",\
-      //        dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
+      fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+                     "| search time %1.3e | sweep time %1.3e\n",\
+              dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
 
       }
 
@@ -842,8 +853,8 @@ void Greedy(const Parameters &params,
     }
 
     start_sweep_cpu    = clock();
-    start_search_cpu   = clock();
     start_sweep_wtime  = omp_get_wtime();
+    start_search_cpu   = clock();
     start_search_wtime = omp_get_wtime();
 
     gsl_matrix_complex_get_row(last_rb,RB_space,dim_RB-1); // previous basis
@@ -852,9 +863,13 @@ void Greedy(const Parameters &params,
     for(int i = 0; i < rows; i++)
     {
       gsl_matrix_complex_get_row(ts_el,A,i);
-      gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
-                            mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
-      errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
+      projection_coeff = mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc);
+      projection_norms2[i] +=(projection_coeff.dat[0]*projection_coeff.dat[0]+
+                              projection_coeff.dat[1]*projection_coeff.dat[1]);
+      //gsl_matrix_complex_set(project_coeff,dim_RB-1,i,
+      //                      mygsl::InnerProduct(wQuad,last_rb,ts_el,useEuc));
+      errors[i] = A_row_norms2[i] - projection_norms2[i];
+      //errors[i] = A_row_norms2[i] - mygsl::SumColumn(project_coeff,i,dim_RB);
     }
 
     // --- find worst represented ts element, add to basis --- //
@@ -862,8 +877,8 @@ void Greedy(const Parameters &params,
     greedy_points[dim_RB] = worst_app;
     greedy_err[dim_RB]    = worst_err;
 
-    end_search_cpu   = clock();
     end_search_wtime = omp_get_wtime();
+    end_search_cpu   = clock();
     search_cpu = ((double)(end_search_cpu - start_search_cpu)/CLOCKS_PER_SEC);
     search_wtime = end_search_wtime - start_search_wtime;
 
@@ -899,9 +914,9 @@ void Greedy(const Parameters &params,
     //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
     //               "| search time %1.3e | sweep time %1.3e\n",\
     //        dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
-    //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-    //               "| search time %1.3e | sweep time %1.3e\n",\
-    //        dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
+    fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+                   "| search time %1.3e | sweep time %1.3e\n",\
+            dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
 
     // -- decide if another greedy sweep is needed -- //
     if( (dim_RB == max_RB) || (worst_err < tol) || (ts_size == dim_RB) ){
@@ -951,7 +966,7 @@ void Greedy(const Parameters &params,
   gsl_vector_complex_free(ru);
   delete [] errors;
   delete [] A_row_norms2;
-  gsl_matrix_complex_free(project_coeff);
+  //gsl_matrix_complex_free(project_coeff);
   delete [] greedy_points;
   delete [] greedy_err;
   gsl_matrix_complex_free(RB_space);
