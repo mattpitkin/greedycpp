@@ -572,20 +572,12 @@ void GreedyMaster(const int size,
     ++dim_RB;
 
     // --- update timers and output info --- //
-    //#ifdef USE_OPENMP
     fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
                    "| search time %1.3e | sweep time %1.3e\n",\
             dim_RB,worst_app,worst_err,or_wtime,search_wtime,sweep_wtime);
-    /*fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-                     "| search time %1.3e | sweep time %1.3e\n",\
-              dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);*/
-    /*#else
-    fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
-                     "| search time %1.3e | sweep time %1.3e\n",\
-              dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
-    #endif*/
-
-
+    //fprintf(stdout,"RB %i | pivot # %i | err %1.3e | ortho time %1.3e "
+    //                 "| search time %1.3e | sweep time %1.3e\n",\
+    //          dim_RB,worst_app,worst_err,or_cpu,search_cpu,sweep_cpu);
   }
 
   omp_end  = omp_get_wtime();
@@ -929,24 +921,6 @@ void Greedy(const Parameters &params,
                alg_cpu,
                total_ortho_cpu,
                total_search_cpu);
-
-  /*#ifdef USE_OPENMP
-  fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",omp_time);
-  fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_wtime);
-  fprintf(stdout,"Greedy - GS took %f seconds\n",omp_time-total_ortho_wtime);
-  fprintf(stdout,"Greedy sweeps took (pivot search) %f seconds\n",
-                  total_search_wtime);
-  printf("Building approximation space took %f cpu seconds and %f wall seconds \n",alg_cpu,omp_time);
-  printf("GS took %f cpu seconds and %f wall seconds \n",
-          total_ortho_cpu,total_ortho_wtime);
-  printf("Search took %f cpu seconds and %f wall seconds \n",
-          total_search_cpu,total_search_wtime);
-  #else
-  fprintf(stdout,"Greedy routine took (full alg) %f seconds\n",alg_cpu);
-  fprintf(stdout,"GS routine took (ortho) %f seconds\n",total_ortho_cpu);
-  fprintf(stdout,"Greedy - GS took %f seconds\n",alg_cpu-total_ortho_cpu);
-  printf("Greedy sweeps took (pivot search) %f seconds\n",total_search_cpu);
-  #endif*/
 
   dim_RB = dim_RB - 1;
 
