@@ -6,6 +6,7 @@ $(info "the git hash is"  ${GIT_SHA1})
 GIT_FLAGS=-DGIT_SHA1=\"$(GIT_SHA1)\"
 
 ### set your c++ compiler(s) here ###
+#CXX=icpc
 CXX=g++
 CXX_MPI=mpicxx
 
@@ -18,7 +19,7 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYROOT=/home/sfield/pool/cnpy/
+NUMPYROOT=/home/sfield/pool/
 NUMPYHEADERS=-I${NUMPYROOT}include
 NUMPYLIBS=-L${NUMPYROOT}lib -lcnpy
 
@@ -38,9 +39,9 @@ CXXFLAGS+=-I${LIBCONFROOT}include
 ### Optimizations ###
 # gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) #
 #OPTFLAGS=-O3 -ffast-math -ftree-vectorizer-verbose=6 -ftree-vectorize -mavx -DOPTIMIZE_AVX
-OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
+#OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 # icc optimizations (see README) #
-#OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
+OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
 
 
 ### model specific flags, headers, sources ###
@@ -50,8 +51,8 @@ MODELHEADERS=models/taylorf2/spa_waveforms.h
 MODELLIBS=
 
 ## LIGO Analysis Library (LAL) flags for LAL models ##
-#LAL=  # if you do not have LAL installed
-LAL=-DMODEL_LAL 
+LAL=  # if you do not have LAL installed
+#LAL=-DMODEL_LAL 
 MODELHEADERS+=models/lal/phenomp.h
 MODELFLAGS+=$(shell pkg-config --cflags lalsimulation)
 MODELLIBS+=$(shell pkg-config --libs lalsimulation)
@@ -84,7 +85,7 @@ all: $(BINDIR)/greedy_mpi \
 	$(BINDIR)/eim
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
         $(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
         $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
@@ -94,7 +95,7 @@ $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) 
 	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
         $(NUMPYHEADERS) -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 

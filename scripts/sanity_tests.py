@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Module to do sanity tests of output directory...
 
@@ -21,7 +22,7 @@ def ortho_test(outdir,xmin=None,xmax=None,quad_points=None):
 
   result = np.dot(weights * B.T.conj(),B) 
   err = result - np.eye(result.shape[1])
-  print "othogonality error %1.15e" % np.max(np.abs(err))
+  print( "othogonality error %1.15e"%np.max(np.abs(err)) )
 
 def basis_accuracy_test(outdir):
 
@@ -33,12 +34,14 @@ def basis_accuracy_test(outdir):
 
   # TODO: shouldn't use for-loop here
   for ii in range(evaluations):
-    proj_coeff = np.dot(weights * B.T.conj(),TS[:,ii])
-    err_h = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum (no weights either)
+    proj_coeff  = np.dot(weights * B.T.conj(),TS[:,ii])
+    err_h       = TS[:,ii] - np.dot(B,proj_coeff) # not conj is good! we just want the sum (no weights either)
     err_app[ii] = np.sqrt( np.dot( weights * err_h,err_h.conj()) ).real
 
-  import matplotlib.pyplot as plt
-  plt.semilogy(range(evaluations),err_app,'ro',label='rb error')
+  print(" max projection error %1.15e"%np.max(err_app) )
+
+  #import matplotlib.pyplot as plt
+  #plt.semilogy(range(evaluations),err_app,'ro',label='rb error')
   #plt.show()
 
   ## to show other info ##
@@ -82,5 +85,5 @@ if __name__=="__main__":
 
   ortho_test(outdir)
   basis_accuracy_test(outdir)
-  eim_accuracy_test(outdir)
+  #eim_accuracy_test(outdir)
 
