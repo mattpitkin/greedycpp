@@ -175,6 +175,8 @@ void GreedyWorker(const int rank,
   const int seed_global = params.seed();
   const double tol      = params.tol();
 
+  const int ts_size = ts.ts_size();
+
   int dim_RB               = 1;
   const int cols           = wQuad->size;
   const int local_rows    = ts.matrix_sub_size()[rank];
@@ -294,7 +296,7 @@ void GreedyWorker(const int rank,
 
       #pragma omp barrier
       // -- decide if another greedy sweep will be needed -- //
-      if( (dim_RB == max_RB) || worst_err < tol) {
+      if( (dim_RB == max_RB) || worst_err < tol || (ts_size == dim_RB) ) {
         continue_work = false;
       }
 
@@ -347,7 +349,7 @@ void GreedyWorker(const int rank,
     ++dim_RB;
 
     // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB == max_RB) || worst_err < tol) {
+    if( (dim_RB == max_RB) || worst_err < tol || (ts_size == dim_RB)) {
       continue_work = false;
     }
 
@@ -388,6 +390,7 @@ void GreedyMaster(const int size,
   const char * output_data_format = params.output_data_format().c_str();
 
   const int rows = ts.ts_size();// number of rows to approximate
+  const int ts_size = rows; 
   const int cols = wQuad->size; // samples (for quadrature)
   int *greedy_points;           // selectted greedy points (row selection)
   double *greedy_err;           // approximate error
@@ -568,7 +571,7 @@ void GreedyMaster(const int size,
     #endif
 
     // -- decide if another greedy sweep will be needed -- //
-    if( (dim_RB+1 == max_RB) || worst_err < tol){
+    if( (dim_RB+1 == max_RB) || worst_err < tol || (ts_size == dim_RB+1)){
       continue_work = false;
     }
     else {
