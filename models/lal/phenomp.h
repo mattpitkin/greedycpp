@@ -39,12 +39,12 @@ std::string get_waveform_part_tag(const double model_type)
 {
   std::string model_part;
   if( std::abs( model_type - 0) < 1.e-10) {
-    fprintf(stdout,"Plus with 7th param %f\n",model_type);
+    //fprintf(stdout,"Plus with 7th param %f\n",model_type);
     //PhenP_Waveform(wv,fnodes,params,"PhenomP_plus");
     model_part = "plus";
   }
   else if( std::abs( model_type - 1) < 1.e-10) {
-    fprintf(stdout,"cross with 7th param %f\n",model_type);
+    //fprintf(stdout,"cross with 7th param %f\n",model_type);
     //PhenP_Waveform(wv,fnodes,params,"PhenomP_cross");
     model_part = "cross";
   }
@@ -59,6 +59,9 @@ std::string get_waveform_part_tag(const double model_type)
   else if( std::abs( model_type - 4) < 1.e-10) {
     //PhenP_Waveform(wv,fnodes,params,"PhenomP_hphc");
     model_part = "hphc";
+  }
+  else if( std::abs( model_type - 5) < 1.e-10) {
+    model_part = "hpPLUShc";
   }
   else {
     std::cerr << "PhenomP all parts -- unknown part" << std::endl;
@@ -76,19 +79,19 @@ void lal_waveform_part(gsl_vector_complex *wv,
 {
 
   if(model_part.compare("plus") == 0) {
-    fprintf(stdout,"Im plus\n");
+    //fprintf(stdout,"Im plus\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
     }
   }
   else if(model_part.compare("cross") == 0) {
-    fprintf(stdout,"Im cross\n");
+    //fprintf(stdout,"Im cross\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i, (hctilde->data->data)[i]);
     }
   }
   else if(model_part.compare("hphp") == 0) {
-    fprintf(stdout,"Im hp hp\n");
+    //fprintf(stdout,"hp conj(hp)\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
         gsl_complex_mul((hptilde->data->data)[i],
@@ -96,15 +99,28 @@ void lal_waveform_part(gsl_vector_complex *wv,
     }
   }
   else if(model_part.compare("hchc") == 0) {
-    fprintf(stdout,"Im hc hc\n");
+    //fprintf(stdout,"hc conj(hc)\n");
     for (int i=0; i<n; i++) {
       gsl_vector_complex_set(wv, i,
         gsl_complex_mul((hctilde->data->data)[i],
                          gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
     }
   }
+  else if(model_part.compare("hpPLUShc") == 0) {
+    //fprintf(stdout,"(hc + hp) * conj(hc+hp)\n");
+    gsl_vector_complex *wv_conj;
+    wv_conj = gsl_vector_complex_alloc(n);
+    for(int i=0; i<n; i++) {
+      gsl_vector_complex_set(wv, i,
+        gsl_complex_add((hctilde->data->data)[i],(hptilde->data->data)[i]));
+      gsl_vector_complex_set(wv_conj, i,
+        gsl_complex_conjugate( gsl_complex_add((hctilde->data->data)[i],(hptilde->data->data)[i]) ));
+    }
+    gsl_vector_complex_mul(wv, wv_conj);
+    gsl_vector_complex_free(wv_conj);
+  }
   else if(model_part.compare("hphc") == 0) {
-    fprintf(stdout,"Im hp hc\n");
+    //fprintf(stdout,"Im hp hc\n");
     gsl_complex wv_i_real;
     for (int i=0; i<n; i++) {
       const gsl_complex wv_i =
@@ -167,13 +183,13 @@ void PhenP_Waveform(gsl_vector_complex *wv,
   std::string model_part;
   // "all_parts" is a distinct model of higher dimension
   if(model_tag.compare("PhenomP_all_parts") == 0) {
-    fprintf(stdout,"all parts model\n");
+    //fprintf(stdout,"all parts model\n");
     model_part = get_waveform_part_tag(params[7]);
   }
   else {
     model_part = get_waveform_part_tag(model_tag);
   }
-  fprintf(stdout,"model part tag %s\n",model_part.c_str());
+  //fprintf(stdout,"model part tag %s\n",model_part.c_str());
 
 
   COMPLEX16FrequencySeries *hptilde = NULL;
