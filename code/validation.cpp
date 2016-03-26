@@ -33,7 +33,7 @@ int main (int argc, char **argv) {
   // -- record parameters with errors above tolerance to separate file -- //
   // TODO: read in tol from *.cfg file (should be fudge_factor*tol)
   double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
-
+  bool save_norm = false;
 
   //----- Checking the number of Variables passed to the Executable -----//
   if (argc < 5 || argc > 6) {
@@ -73,6 +73,7 @@ int main (int argc, char **argv) {
 
   char err_filename[200];
   char bad_param_filename[200];
+  char model_norm_filename[200];
   char shell_command[200];
 
   // Creating Run Directory //
@@ -110,7 +111,7 @@ int main (int argc, char **argv) {
   const gsl_vector xQuad = data->xQuad();
 
   gsl_matrix_complex *model_evaluations;
-  double *errors, *errors_eim;
+  double *errors, *errors_eim, *model_norm;
   clock_t start, end;
 
 
@@ -133,6 +134,9 @@ int main (int argc, char **argv) {
 
   errors     = new double[random_samples->ts_size()];
   errors_eim = new double[random_samples->ts_size()];
+  if(save_norm) {
+    model_norm = new double[random_samples->ts_size()];
+  }
 
 
   // error reported will be \sqrt(h - Ph) //
@@ -174,6 +178,7 @@ int main (int argc, char **argv) {
             thread_id,size_per_thread,random_samples->ts_size(),
             one_percent_finished);
  
+    double nrm;
 
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
@@ -185,8 +190,16 @@ int main (int argc, char **argv) {
       //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
+
+      // NOTE: not the best way to do this: recomputing the norm, nrm2 NOT squared.
+      if(save_norm) {
+        nrm = mygsl::GetNorm_double(model_eval,&wQuad);
+        model_norm[ii] = nrm;
+      }
       mygsl::NormalizeVector(model_eval,&wQuad);
       const double nrm2 = mygsl::GetNorm_double(model_eval,&wQuad); // if model = 0, norm = 0, else 1
+      //fprintf(stdout,"nrm=%1.16e\n",nrm);
+
       /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
       fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);*/
@@ -198,7 +211,10 @@ int main (int argc, char **argv) {
       gsl_vector_complex *eim_eval =
         eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
       gsl_vector_complex_sub(eim_eval,model_eval);
+
+      // TODO: unaware of norm (compare with projection error below)
       errors_eim[ii] = mygsl::GetNorm_double(eim_eval,&wQuad);
+
       gsl_vector_complex_free(eim_eval);
       /*end1 = clock();
       alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
@@ -267,9 +283,14 @@ int main (int argc, char **argv) {
   strcat(err_filename,loc_dir.c_str());
   strcpy(bad_param_filename,err_filename);
   strcat(bad_param_filename,"bad_points_");
+  strcpy(model_norm_filename,err_filename);
+  strcat(model_norm_filename,"model_norm_");
+
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
   strcat(bad_param_filename,random_sample_file.substr(
+    random_sample_file.find_last_of("\\/")+1,100).c_str());
+  strcat(model_norm_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
 
 
@@ -287,10 +308,20 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
+  FILE *model_nrm = fopen(model_norm_filename,"w");
+  if (bad_param==NULL) {
+    std::cerr << "could not open model norm file\n";
+    std::cerr << "with file name = " << model_norm_filename << std::endl;
+    exit(1);
+  }
+
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
     fprintf(err_data," %1.15e",errors_eim[i]);
     fprintf(err_data," %1.15e\n",errors[i]);
+    if(save_norm) {
+      fprintf(model_nrm," %1.15e\n",model_norm[i]);
+    }
     if(errors[i]>err_tol) {
       random_samples->fprintf_ith(bad_param,i);
       fprintf(bad_param,"\n");
@@ -299,7 +330,11 @@ int main (int argc, char **argv) {
 
   fclose(bad_param);
   fclose(err_data);
+  fclose(model_nrm);
 
+  if(save_norm) {
+    delete [] model_norm;
+  }
   delete [] errors;
   delete [] errors_eim;
   delete data;
