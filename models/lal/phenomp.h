@@ -25,7 +25,7 @@ extern "C"{
 
 // deduce waveform part from full model tag's substring
 // Requires model tag to be of the form NAME_XXX
-// where XXX is plus, cross, hphp, hchc or hphc
+// valid tags are those cases listed in get_waveform_part_tag
 std::string get_waveform_part_tag(const std::string model_tag)
 {
   std::size_t pos  = model_tag.find("_");
@@ -61,7 +61,7 @@ std::string get_waveform_part_tag(const double model_type)
     model_part = "hphc";
   }
   else if( std::abs( model_type - 5) < 1.e-10) {
-    model_part = "hpPLUShc";
+    model_part = "hpPLUShcSquared";
   }
   else {
     std::cerr << "PhenomP all parts -- unknown part" << std::endl;
@@ -106,7 +106,7 @@ void lal_waveform_part(gsl_vector_complex *wv,
                          gsl_complex_conjugate( (hctilde->data->data)[i] ) ));
     }
   }
-  else if(model_part.compare("hpPLUShc") == 0) {
+  else if(model_part.compare("hpPLUShcSquared") == 0) {
     //fprintf(stdout,"(hc + hp) * conj(hc+hp)\n");
     gsl_vector_complex *wv_conj;
     wv_conj = gsl_vector_complex_alloc(n);
