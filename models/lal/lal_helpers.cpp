@@ -15,7 +15,8 @@ namespace lal_help {
 
 std::string get_waveform_part_tag(const std::string model_tag)
 {
-  std::size_t pos  = model_tag.find("_");
+  //std::size_t pos  = model_tag.find("_");
+  std::size_t pos  = model_tag.find_last_of("_");
   std::string part = model_tag.substr(pos+1);
   return part;
 }
