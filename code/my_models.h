@@ -20,7 +20,7 @@
 
 #ifdef MODEL_LAL
 #include "../models/lal/phenomp.h"
-#include "../models/lal/SEOBNRv2_ROM.h"
+//#include "../models/lal/SEOBNRv2_ROM.h"
 #include "../models/lal/TaylorF2.h"
 #endif
 
@@ -49,12 +49,12 @@ void EvaluateModel(gsl_vector_complex *model_eval,
   }
   //else if (strcmp(ts.model(),"SEOBNRv2_ROM_SingleSpin") == 0)
   //  SEOBNRv2_ROM_SingleSpin_Waveform(model_eval, xQuad, params);
-  else if (strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI") == 0)
-    ROM_SEOBNRv2_DS_HI_FullWaveform(model_eval, xQuad, params);
-  else if (strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI") == 0)
-    LackeyTidal2013_FullWaveform(model_eval, xQuad, params);
-  else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
-    TaylorF2_LAL_Waveform(model_eval, xQuad, params);
+  //else if (strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI") == 0)
+  //  ROM_SEOBNRv2_DS_HI_FullWaveform(model_eval, xQuad, params);
+  //else if (strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI") == 0)
+  //  LackeyTidal2013_FullWaveform(model_eval, xQuad, params);
+  //else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
+  //  TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif
   else {
     std::cerr << "my_models.h: Model not supported! Add model tag."<<std::endl;
