@@ -31,6 +31,12 @@ void lal_waveform_part(gsl_vector_complex *wv,
                        const COMPLEX16FrequencySeries *hctilde,
                        const int n);
 
+// Decide if mode part in models tag or "all_parts" model and
+// return model_part string id
+std::string model_tag2mode_part(const std::string model_tag,
+                                const int mode_param_indx,
+                                const double *params);
+
 };
 
 #endif

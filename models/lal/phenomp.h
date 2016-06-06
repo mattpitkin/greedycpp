@@ -35,16 +35,8 @@ void PhenP_Waveform(gsl_vector_complex *wv,
 
 
   // --- deduce the model_part tag --- //
-  std::string model_part;
-  // "all_parts" is a distinct model of higher dimension
-  if(model_tag.compare("PhenomP_all_parts") == 0) {
-    //fprintf(stdout,"all parts model\n");
-    model_part = lal_help::get_waveform_part_tag(params[7]);
-  }
-  else {
-    model_part = lal_help::get_waveform_part_tag(model_tag);
-  }
-  //fprintf(stdout,"model part tag %s\n",model_part.c_str());
+  std::string model_part =
+    lal_help::model_tag2mode_part(model_tag,7,params);
 
 
   COMPLEX16FrequencySeries *hptilde = NULL;
@@ -91,10 +83,11 @@ void PhenP_Waveform(gsl_vector_complex *wv,
     fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");
     exit(-1);
   }
-  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
+
 
   lal_help::lal_waveform_part(wv,model_part,hptilde,hctilde,n);
 
+  XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
