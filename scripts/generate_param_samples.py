@@ -52,9 +52,7 @@ def generate_sampling(filename,param_list=None,total_picks=100,\
     scaling_factor = 20.0 # default should be 1. higher values densely sample lower range of parameter interval
     params_num  = [50,50] # deterministic: upper interval of each parameter
 
-
-
-    if( sample_type is "deterministic"):
+    if( sample_type=="deterministic"):
       print "deterministic sampling"
 
       ### from franks code ###
@@ -102,7 +100,7 @@ def generate_sampling(filename,param_list=None,total_picks=100,\
 
       fp.close()
 
-    elif(sample_type is "rand"):
+    elif(sample_type=="rand"):
 
       rs = np.random.RandomState(seed=seed)
 
