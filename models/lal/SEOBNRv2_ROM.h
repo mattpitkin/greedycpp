@@ -149,14 +149,18 @@ void ROM_SEOBNRv2_DS_HI_FullWaveform(
 void LackeyTidal2013_FullWaveform(
   gsl_vector_complex * &wv, 
   const gsl_vector *fnodes,
-  const double *params
-)
+  const double *params,
+  const std::string model_tag)
 {
   // This tidal model is built on top of SEOBNRv2ROM_DS_HI
   // Note that the parameters are different from the plain ROM!
 
   // params = {mBH,mNS,chiBH,Lambda}
   // parameter list such that (mBH(param),mNS(param),chiBH,Lambda) is a unique point in parameter space
+
+  // --- deduce the model_part tag --- //
+  std::string model_part =
+    lal_help::model_tag2mode_part(model_tag,4,params);
 
   // Note: We expect masses in units of solar mass 
   // -> use conversion factor 1 in cfg-file!
@@ -194,14 +198,12 @@ void LackeyTidal2013_FullWaveform(
     Lambda         /**< Dimensionless tidal deformability (Eq 1  of Lackey et al) */
   );
 
-  // Copy h+ polarization into output buffer
-  for (int i=0; i<n; i++)
-    gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
-
   if (ret != XLAL_SUCCESS) {
     fprintf(stderr, "Error calling XLALSimIMRLackeyTidal2013FrequencySequence().\n");
     exit(-1);
   }
+
+  lal_help::lal_waveform_part(wv,model_part,hptilde,hctilde,n);
 
 
   XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);

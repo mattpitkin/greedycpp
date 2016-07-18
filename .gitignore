@@ -1,2 +1,5 @@
 *.pyc
 *~
+bin/eim
+bin/greedy*
+bin/verify*

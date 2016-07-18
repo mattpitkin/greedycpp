@@ -19,7 +19,7 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYROOT=/home/sfield/pool/
+NUMPYROOT=/home/sfield/pool/cnpy/
 NUMPYHEADERS=-I${NUMPYROOT}include
 NUMPYLIBS=-L${NUMPYROOT}lib -lcnpy
 
@@ -38,10 +38,10 @@ CXXFLAGS+=-I${LIBCONFROOT}include
 
 ### Optimizations ###
 # gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) #
-#OPTFLAGS=-O3 -ffast-math -ftree-vectorizer-verbose=6 -ftree-vectorize -mavx -DOPTIMIZE_AVX
+OPTFLAGS=-O3 -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 #OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 # icc optimizations (see README) #
-OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
+#OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
 
 
 ### model specific flags, headers, sources ###
@@ -51,13 +51,14 @@ MODELHEADERS=models/taylorf2/spa_waveforms.h
 MODELLIBS=
 
 ## LIGO Analysis Library (LAL) flags for LAL models ##
-LAL=  # if you do not have LAL installed
-#LAL=-DMODEL_LAL 
+#LAL=  # if you do not have LAL installed
+LAL=-DMODEL_LAL 
 MODELHEADERS+=models/lal/phenomp.h
+MODELHEADERS+=models/lal/SEOBNRv2_ROM.h
 MODELFLAGS+=$(shell pkg-config --cflags lalsimulation)
 MODELLIBS+=$(shell pkg-config --libs lalsimulation)
-
-
+MODELHEADERS+=models/lal/lal_helpers.hpp
+MODELSOURCES+=models/lal/lal_helpers.cpp
 
 
 ### Source and headers ###
