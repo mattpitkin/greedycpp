@@ -60,8 +60,7 @@ usage="""  generate_trainingpoints.py --input input.txt [options]
 """
 
 import numpy as np
-import math
-import random
+import math, random, time
 from optparse import OptionParser
 
 ### memory calculation function is copied from the memory module (this has no print statements)
@@ -162,11 +161,13 @@ def parse_samplingtype_string(sampling):
   sampling_type = "linear"
 
   modes = {"rand":"random","det":"deterministic"}
-  types = {"lin":"linear","ln":"ln","log10":"log10"}
+  types = {"lin":"linear","ln":"ln","log10":"log10","power":"power"}
 
   if sampling.strip() != "none":
     spl = sampling.strip().split('_')
-    if len(spl)!=2:
+    print spl
+    print len(spl)
+    if len(spl) not in [2,3]:
       raise Exception("Could not parse string \"%s\"."%sampling)
     else:
       sampling_mode = spl[0]
@@ -187,22 +188,29 @@ def parse_samplingtype_string(sampling):
       elif sampling_mode == "vector":
         sampling_type = spl[1]
       else:
-        raise Exception("Undefined sampling type \"%s\" (use \"lin\", \"ln\" or \"log10\")."%spl[1])
+        raise Exception("Undefined sampling type \"%s\" (use \"lin\", \"power\", \"ln\" or \"log10\")."%spl[1])
 
-  return [sampling_mode, sampling_type]
+      if sampling_type in ['power', 'log10', 'ln']:
+        log_sampling_factor = float(spl[2])
+        print("using sample factor %f"%log_sampling_factor)
+      else:
+        log_sampling_factor = None
+        
+
+  return [sampling_mode, sampling_type, log_sampling_factor]
 
 
 class parameter(object):
   """ Parameter object storing information for each parameter """
-  def __init__(self,parameter_index,min,max,dim,sampling,scaling_factor = 20.0,data_to_extend=[],vector_files=[]):
+  def __init__(self,parameter_index,min,max,dim,sampling,data_to_extend=[],vector_files=[]):
 
-    self.min = min
-    self.max = max
-    self.dim = dim
-    self.scaling_factor = scaling_factor
+    self.min = min # minimum value
+    self.max = max # maximum value
+    self.dim = dim # number of samples from min to max
     smpl = parse_samplingtype_string(sampling)
     self.sampling_mode = smpl[0]
     self.sampling_type = smpl[1]
+    self.scaling_factor = smpl[2] # for logarithmic sampling
     self.index = parameter_index
 
     if dim < 1:
@@ -228,23 +236,19 @@ class parameter(object):
         print "p%d: constant (value=%.2f)"%(self.index,self.min)
         self.vector = np.array([self.min])
 
-  def rescale_log(x,p_min,p_max,scaling_factor):
-    "rescale the log range to be in [p_min,p_max] if upper log-range has been pushed out"
-    a,b0,b = p_min,p_max,p_max*scaling_factor
-    c0,c1=a*(-b + b0)/(a - b),(a - b0)/(a - b)
-    return c0+c1*x
-
   def generate_vector(self):
 
     if( self.sampling_mode is "deterministic"):
       if(self.sampling_type=="linear"):
         v = np.linspace(self.min,self.max,self.dim,endpoint=True)
-      if(self.sampling_type=="ln"):
+      elif(self.sampling_type=="ln"):
         v_unscaled = np.logspace(math.log(self.min), math.log(self.scaling_factor*self.max), self.dim, endpoint=True, base=math.exp(1))
-        v=self.rescale_log(v_unscaled, self.min, self.max, self.scaling_factor)
-      if(self.sampling_type=="log10"):
+        v=self._rescale_log(v_unscaled, self.min, self.max, self.scaling_factor)
+      elif(self.sampling_type=="log10"):
         v_unscaled = np.logspace(math.log10(self.min), math.log10(self.scaling_factor*self.max), self.dim, endpoint=True, base=10.0)
-        v=self.rescale_log(v_unscaled, self.min, self.max, self.scaling_factor)
+        v=self._rescale_log(v_unscaled, self.min, self.max, self.scaling_factor)
+      elif(self.sampling_type=="power"):
+        v=self._power_points(self.scaling_factor, self.min, self.max, self.dim)
 
     elif ( self.sampling_mode is "random"):
       v = np.array([(self.max - self.min) * random.random() + self.min for i in range(self.dim)])
@@ -254,7 +258,17 @@ class parameter(object):
 
     return v
 
-def generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend="",vector_files=[]):
+  def _rescale_log(self, x, p_min, p_max, scaling_factor):
+    "rescale the log range to be in [p_min,p_max] if upper log-range has been pushed out"
+    a,b0,b = p_min,p_max,p_max*scaling_factor
+    c0,c1=a*(-b + b0)/(a - b),(a - b0)/(a - b)
+    return c0+c1*x
+
+  def _power_points(self, p, var_min, var_max, N):
+    var_p = np.linspace(var_min**p, var_max**p, N)
+    return var_p**(1./p)
+
+def generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend="",vector_files=[], return_ts=False):
 
   Nparams = len(params_low)
   if (Nparams != len(params_high) or Nparams != len(params_num) or Nparams != len(params_type)):
@@ -278,10 +292,13 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
       params.append( parameter(i,params_low[i],params_high[i],params_num[i],params_type[i],data_to_extend=data,vector_files=vector_files) )
       N *= params[i].dim
 
+  tic = time.time()
   Ntotal = N*Nfile
   print "Generating %d trainingpoints..."%(Ntotal)
   if file_to_extend=="":
     with open(filename,"w") as f:
+      # much faster to precompute all pv_indicies
+      #pv_indices = CaclulateIndices(0,params_num,len(params))
       for n in range(N):
         param_vector_indices = CaclulateIndices(n,params_num,len(params))
         string = ""
@@ -307,11 +324,19 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
 
         f.write(string)
 
-  return Ntotal
+  toc = time.time()
+  print("Seconds to sample: %f"%(toc-tic))
+
+  if return_ts: 
+    ts = np.loadtxt(filename)
+  else:
+    ts = None
+
+  return Ntotal, ts
 
 
 
-def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to_extend="",vector_files=[]):
+def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to_extend="",vector_files=[],return_ts=False):
   if param_list is None: # manual setup
     params_low  = np.array([1.0,1.0])  # lower interval of each parameter
     params_high = np.array([3.0,3.0])  # upper interval of each parameter
@@ -331,9 +356,13 @@ def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to
       params_num = param_info[2]
       params_type = param_info[3]
 
-    TS_size = generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend=file_to_extend,vector_files=vector_files)
+  tic = time.time()
+  TS_size,TS = generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend=file_to_extend,vector_files=vector_files,return_ts=return_ts)
+  toc = time.time()
+  print("Seconds to finish generate_trainingpoints: %f"%(toc-tic))
+ 
 
-  return TS_size
+  return TS_size, TS
 
 def vararg_callback(option, opt_str, value, parser):
     assert value is None
@@ -372,6 +401,7 @@ def main():
   parser.add_option("-v","--read-from-vectors",dest="vectors",action="callback",callback=vararg_callback,help="If a column's type is \"vector\" use this argument to pass the vector files (space separated)")
   (opts,args) = parser.parse_args()
 
+
   if not opts.mem_only:
     if not opts.input:
       print "Error: Need input file containing parameter information. Specify with --input.\n"
@@ -396,7 +426,7 @@ def main():
       exit("Error in estimating memory: must provide size of training set if --estimate-memory-only is set")
     ts_size = opts.ts_size
   else:
-    ts_size = generate_sampling(f_out,param_list=f_in,file_to_extend=f_extend,vector_files=vectors)
+    ts_size, ts = generate_sampling(f_out,param_list=f_in,file_to_extend=f_extend,vector_files=vectors)
     print "Trainingpoints written to \"%s\""%f_out
 
   ### Perform memory estimation if requested ###
@@ -412,8 +442,13 @@ def main():
     print '  20 pc fudge factor: %.2f GB' % (mem*1.2)
 
 
-
 if __name__ == "__main__":
 	# START THE MAIN FUNCTION IF RUN AS A SCRIPT. OTHERWISE, JUST LOADS THE CLASS
 	# AND FUNCTION DEFINITIONS
-	exit(main())
+
+        tic = time.time()
+	main()
+        toc = time.time()    
+        print("Seconds to run sampler: %f"%(toc-tic))
+        exit()
+
