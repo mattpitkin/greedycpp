@@ -87,11 +87,16 @@ void SEOBNRv2_ROM_SingleSpin_Waveform(gsl_vector_complex *wv,
 void ROM_SEOBNRv2_DS_HI_FullWaveform(
   gsl_vector_complex * &wv, 
   const gsl_vector *fnodes,
-  const double *params
-)
+  const double *params,
+  const std::string model_tag)
 {
   // params = {m1,m2,chi1,chi2}
   // parameter list such that (m1(param),m2(param),chi1,chi2) is a unique point in parameter space
+
+  // --- deduce the model_part tag --- //
+  std::string model_part =
+    lal_help::model_tag2mode_part(model_tag,4,params)
+
 
   // Note: We expect masses in units of solar mass 
   // -> use conversion factor 1 in cfg-file!
@@ -130,15 +135,12 @@ void ROM_SEOBNRv2_DS_HI_FullWaveform(
     -1
   );
 
-  // Copy h+ polarization into output buffer
-  for (int i=0; i<n; i++)
-    gsl_vector_complex_set(wv, i, (hptilde->data->data)[i]);
-
   if (ret != XLAL_SUCCESS) {
     fprintf(stderr, "Error calling XLALSimIMRSEOBNRv2ROMDoubleSpinHIFrequencySequence().\n");
     exit(-1);
   }
 
+  lal_help::lal_waveform_part(wv,model_part,hptilde,hctilde,n);
 
   XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);

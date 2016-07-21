@@ -50,8 +50,14 @@ void EvaluateModel(gsl_vector_complex *model_eval,
   }
   else if (strcmp(ts.model(),"SEOBNRv2_ROM_SingleSpin") == 0)
     SEOBNRv2_ROM_SingleSpin_Waveform(model_eval, xQuad, params);
-  else if (strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI") == 0)
-    ROM_SEOBNRv2_DS_HI_FullWaveform(model_eval, xQuad, params);
+  else if ( strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_plus")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_cross") == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hphp")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hchc")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hphc")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_all_parts") == 0 ) {
+    ROM_SEOBNRv2_DS_HI_FullWaveform(model_eval, xQuad, params, model_tag);
+  }
   else if ( strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_plus")  == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_cross") == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hphp")  == 0 ||
