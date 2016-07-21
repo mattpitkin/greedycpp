@@ -2,6 +2,8 @@
     text file can be read as input to greedy.cpp through proper specification
     in the configuration file.'''
 
+# WARNING (TODO): depricated. use generate_trainingpoints (7/18/2016)
+
 import numpy as np
 import math
 import sys, os
