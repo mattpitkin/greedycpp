@@ -64,7 +64,9 @@ void EvaluateModel(gsl_vector_complex *model_eval,
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hchc")  == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hphc")  == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts") == 0 ) {
-    LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
+    //LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
+    std::cout << "needs bleeding edge lal!\n";
+    exit(1);
   }
   else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
     TaylorF2_LAL_Waveform(model_eval, xQuad, params);

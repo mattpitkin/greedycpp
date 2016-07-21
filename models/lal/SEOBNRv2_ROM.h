@@ -95,7 +95,7 @@ void ROM_SEOBNRv2_DS_HI_FullWaveform(
 
   // --- deduce the model_part tag --- //
   std::string model_part =
-    lal_help::model_tag2mode_part(model_tag,4,params)
+    lal_help::model_tag2mode_part(model_tag,4,params);
 
 
   // Note: We expect masses in units of solar mass 
@@ -147,6 +147,7 @@ void ROM_SEOBNRv2_DS_HI_FullWaveform(
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
 
+/*
 // This routine is interfaced with greedy routine -- returns gsl data type //
 void LackeyTidal2013_FullWaveform(
   gsl_vector_complex * &wv, 
@@ -185,19 +186,19 @@ void LackeyTidal2013_FullWaveform(
   struct tagCOMPLEX16FrequencySeries *hptilde = NULL;
   struct tagCOMPLEX16FrequencySeries *hctilde = NULL;
 
-  /** Compute waveform in LAL format at specified frequencies */
+  // Compute waveform in LAL format at specified frequencies //
   int ret = XLALSimIMRLackeyTidal2013FrequencySequence(
-    &hptilde,      /**< Output: Frequency-domain waveform h+ */
-    &hctilde,      /**< Output: Frequency-domain waveform hx */
-    freqs,         /**< Frequency points at which to evaluate the waveform (Hz) */
-    phiRef,        /**< Phase at reference time */
-    fRef,          /**< Reference frequency (Hz); 0 defaults to fLow */
-    distance,      /**< Distance of source (m) */
-    inclination,   /**< Inclination of source (rad) */
-    mBH_SI,        /**< Mass of black hole (kg) */
-    mNS_SI,        /**< Mass of neutron star (kg) */
-    chiBH,         /**< Dimensionless aligned component spin of the BH */
-    Lambda         /**< Dimensionless tidal deformability (Eq 1  of Lackey et al) */
+    &hptilde,      //< Output: Frequency-domain waveform h+ //
+    &hctilde,      //< Output: Frequency-domain waveform hx //
+    freqs,         //< Frequency points at which to evaluate the waveform (Hz) //
+    phiRef,        /< Phase at reference time //
+    fRef,          //< Reference frequency (Hz); 0 defaults to fLow //
+    distance,      //< Distance of source (m) //
+    inclination,   //< Inclination of source (rad) //
+    mBH_SI,        //< Mass of black hole (kg) //
+    mNS_SI,        //< Mass of neutron star (kg) //
+    chiBH,         //< Dimensionless aligned component spin of the BH //
+    Lambda         //< Dimensionless tidal deformability (Eq 1  of Lackey et al) //
   );
 
   if (ret != XLAL_SUCCESS) {
@@ -211,7 +212,7 @@ void LackeyTidal2013_FullWaveform(
   XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-}
+}*/
 
 #endif
 
