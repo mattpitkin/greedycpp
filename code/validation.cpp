@@ -32,7 +32,7 @@ int main (int argc, char **argv) {
 
   // -- record parameters with errors above tolerance to separate file -- //
   // TODO: read in tol from *.cfg file (should be fudge_factor*tol)
-  double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) 
+  double err_tol = 1e-4;  // error recorded as \sqrt(h - Ph) --> this is projection (NOT eim)
   bool save_norm = false;
 
   //----- Checking the number of Variables passed to the Executable -----//

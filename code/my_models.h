@@ -20,7 +20,7 @@
 
 #ifdef MODEL_LAL
 #include "../models/lal/phenomp.h"
-//#include "../models/lal/SEOBNRv2_ROM.h" // cannot find file XLALSimIMRSEOBNRv2ROMSingleSpinFrequencySequence
+#include "../models/lal/SEOBNRv2_ROM.h"
 #include "../models/lal/TaylorF2.h"
 #endif
 
@@ -35,8 +35,10 @@ void EvaluateModel(gsl_vector_complex *model_eval,
 {
 
   // New models go here...add to the list and loop over paramters //
-  if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0)
+  std::string model_tag(ts.model()); // TODO: ts.model should be std::string
+  if(strcmp(ts.model(),"TaylorF2_PN3pt5") == 0) {
     TF2_FullWaveform(model_eval,params,xQuad,1.0,3.5); //amp=1.0,PN=3.5
+  }
   #ifdef MODEL_LAL
   else if( strcmp(ts.model(),"PhenomP_plus")  == 0 ||
            strcmp(ts.model(),"PhenomP_cross") == 0 ||
@@ -44,11 +46,26 @@ void EvaluateModel(gsl_vector_complex *model_eval,
            strcmp(ts.model(),"PhenomP_hchc")  == 0 ||
            strcmp(ts.model(),"PhenomP_hphc")  == 0 ||
            strcmp(ts.model(),"PhenomP_all_parts") == 0) {
-    std::string model_tag(ts.model());
     PhenP_Waveform(model_eval, xQuad, params, model_tag);
   }
-  //else if (strcmp(ts.model(),"SEOBNRv2_ROM_SingleSpin") == 0)
-  //  SEOBNRv2_ROM_SingleSpin_Waveform(model_eval, xQuad, params);
+  else if (strcmp(ts.model(),"SEOBNRv2_ROM_SingleSpin") == 0)
+    SEOBNRv2_ROM_SingleSpin_Waveform(model_eval, xQuad, params);
+  else if ( strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_plus")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_cross") == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hphp")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hchc")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_hphc")  == 0 ||
+            strcmp(ts.model(),"SEOBNRv2_ROM_DoubleSpin_HI_all_parts") == 0 ) {
+    ROM_SEOBNRv2_DS_HI_FullWaveform(model_eval, xQuad, params, model_tag);
+  }
+  else if ( strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_plus")  == 0 ||
+            strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_cross") == 0 ||
+            strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hphp")  == 0 ||
+            strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hchc")  == 0 ||
+            strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hphc")  == 0 ||
+            strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts") == 0 ) {
+    LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
+  }
   else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
     TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif
