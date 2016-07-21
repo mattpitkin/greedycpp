@@ -270,6 +270,8 @@ class parameter(object):
 
 def generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend="",vector_files=[], return_ts=False):
 
+  training_set = None # May get filled with all training set points
+
   Nparams = len(params_low)
   if (Nparams != len(params_high) or Nparams != len(params_num) or Nparams != len(params_type)):
     raise Exception("dimensions of params_low, params_high, params_num, params_type do not agree (%d,%d,%d,%d)"%(Nparams,len(params_high),len(params_num),len(params_type)))
@@ -296,19 +298,27 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
   Ntotal = N*Nfile
   print "Generating %d trainingpoints..."%(Ntotal)
   if file_to_extend=="":
+
+    # alternative way to get tensor product training set
+    vector_list = [pi.vector for pi in params]
+    nd_mesh = np.meshgrid(*vector_list,indexing='ij')
+    nd_mesh_flatten = [mesh.flatten() for mesh in nd_mesh]
+    del nd_mesh
+    training_set = np.vstack(nd_mesh_flatten).transpose()
+    del nd_mesh_flatten
+
     with open(filename,"w") as f:
-      # much faster to precompute all pv_indicies
-      #pv_indices = CaclulateIndices(0,params_num,len(params))
       for n in range(N):
-        param_vector_indices = CaclulateIndices(n,params_num,len(params))
+        #param_vector_indices = CaclulateIndices(n,params_num,len(params))
+        parameter_n = training_set[n][:]
         string = ""
         for i in range(Nparams):
-          string+=str(params[i].vector[param_vector_indices[i]])
+          string+=str(parameter_n[i])
+          #string+=str(params[i].vector[param_vector_indices[i]])
           if i < Nparams-1:
             string+=" "
           if i == Nparams-1 and n < N-1:
             string+="\n"
-
         f.write(string)
   else:
     with open(filename,"w") as f:
@@ -328,11 +338,10 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
   print("Seconds to sample: %f"%(toc-tic))
 
   if return_ts: 
-    ts = np.loadtxt(filename)
-  else:
-    ts = None
+    if training_set is None: 
+      training_set = np.loadtxt(filename)
 
-  return Ntotal, ts
+  return Ntotal, training_set
 
 
 
