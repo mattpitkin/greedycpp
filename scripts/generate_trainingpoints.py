@@ -159,14 +159,15 @@ def index_test():
 def parse_samplingtype_string(sampling):
   sampling_mode = "deterministic"
   sampling_type = "linear"
+  log_sampling_factor = None
 
   modes = {"rand":"random","det":"deterministic"}
   types = {"lin":"linear","ln":"ln","log10":"log10","power":"power"}
 
   if sampling.strip() != "none":
     spl = sampling.strip().split('_')
-    print spl
-    print len(spl)
+    #print spl
+    #print len(spl)
     if len(spl) not in [2,3]:
       raise Exception("Could not parse string \"%s\"."%sampling)
     else:
@@ -193,9 +194,7 @@ def parse_samplingtype_string(sampling):
       if sampling_type in ['power', 'log10', 'ln']:
         log_sampling_factor = float(spl[2])
         print("using sample factor %f"%log_sampling_factor)
-      else:
-        log_sampling_factor = None
-        
+
 
   return [sampling_mode, sampling_type, log_sampling_factor]
 
@@ -337,8 +336,8 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
   toc = time.time()
   print("Seconds to sample: %f"%(toc-tic))
 
-  if return_ts: 
-    if training_set is None: 
+  if return_ts:
+    if training_set is None:
       training_set = np.loadtxt(filename)
 
   return Ntotal, training_set
@@ -369,7 +368,7 @@ def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to
   TS_size,TS = generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend=file_to_extend,vector_files=vector_files,return_ts=return_ts)
   toc = time.time()
   print("Seconds to finish generate_trainingpoints: %f"%(toc-tic))
- 
+
 
   return TS_size, TS
 
@@ -457,7 +456,7 @@ if __name__ == "__main__":
 
         tic = time.time()
 	main()
-        toc = time.time()    
+        toc = time.time()
         print("Seconds to run sampler: %f"%(toc-tic))
         exit()
 
