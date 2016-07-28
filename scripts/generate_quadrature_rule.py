@@ -25,7 +25,6 @@ quadrature_type = 'GW'
 # for use with the routine GravitationalWaveAdaptive
 fmin = 20
 fmax = 4096
-dflim = 5
 m1_min = 1.2
 m2_min = 1.2
 
@@ -56,7 +55,7 @@ def MultiDomain(quad_points,dom_intervals):
 
     return x,w
 
-def GravitationalWaveAdaptive(fmin,fmax,dflim,m1_min,m2_min):
+def GravitationalWaveAdaptive(fmin,fmax,m1_min,m2_min,dflim=5):
   ''' Simple algorithm to create an array of frequencies and deltaF's
       based on gravitational wave signal duration.
 
@@ -94,19 +93,19 @@ def GravitationalWaveAdaptive(fmin,fmax,dflim,m1_min,m2_min):
   return f_array, df_array
 
 
+if __name__ == "__main__":
+  if quadrature_type == 'MultiDomain':
+    quad_nodes, quad_weights = MultiDomain(pts,dom_ints)
+  elif quadrature_type == 'GW':
+    quad_nodes, quad_weights = GravitationalWaveAdaptive(fmin,fmax,m1_min,m2_min)
+  elif quadrature_type == 'GL':
+    #SingleDomGaussLeg(quad_points,a,b)
+    pass
+  else:
+    raise ValueError
 
-if quadrature_type == 'MultiDomain':
-  quad_nodes, quad_weights = MultiDomain(pts,dom_ints)
-elif quadrature_type == 'GW':
-  quad_nodes, quad_weights = GravitationalWaveAdaptive(fmin,fmax,dflim,m1_min,m2_min)
-elif quadrature_type == 'GL':
-  #SingleDomGaussLeg(quad_points,a,b)
-  pass
-else:
-  raise ValueError
-
-np.savetxt(points_fname, quad_nodes)
-np.savetxt(weights_fname, quad_weights)
+  np.savetxt(points_fname, quad_nodes)
+  np.savetxt(weights_fname, quad_weights)
 
 
 #fp = open(points_fname,'w')
