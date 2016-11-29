@@ -77,7 +77,8 @@ void PhenP_Waveform(gsl_vector_complex *wv,
     alpha0,                 //< Distance of source (m) //
     phic,                   //< Initial value of alpha angle (azimuthal precession angle) //
     f_ref,                     //< Orbital phase at the peak of the underlying non precessing model (rad) //
-    version_flag);                    //< Reference frequency //
+    version_flag,                    //< Reference frequency //
+    NULL);
 
   if (ret != XLAL_SUCCESS) {
     fprintf(stderr, "Error calling XLALSimIMRPhenomPFrequencySequence().\n");

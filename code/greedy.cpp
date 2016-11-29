@@ -401,8 +401,10 @@ void GreedyMaster(const int size,
   const int max_RB = params.max_RB(); // global indexing
   const int seed   = params.seed();
   const double tol = params.tol();
-  const char * output_dir = params.output_dir().c_str();
-  const char * output_data_format = params.output_data_format().c_str();
+  const std::string& tmp_output_dir         = params.output_dir().c_str();
+  const char * output_dir                   = tmp_output_dir.c_str();
+  const std::string& tmp_output_data_format = params.output_data_format().c_str();
+  const char * output_data_format           = tmp_output_data_format.c_str();
 
   const int rows = ts.ts_size();// number of rows to approximate
   const int ts_size = rows; 
@@ -636,8 +638,10 @@ void Greedy(const Parameters &params,
   const int seed                 = params.seed();
   const int max_RB               = params.max_RB();
   const double tol               = params.tol();
-  const char *output_dir         = params.output_dir().c_str();
-  const char *output_data_format = params.output_data_format().c_str();
+  const std::string& tmp_output_dir         = params.output_dir().c_str();
+  const char * output_dir                   = tmp_output_dir.c_str();
+  const std::string& tmp_output_data_format = params.output_data_format().c_str();
+  const char * output_data_format           = tmp_output_data_format.c_str();
   const int ts_size              = params.ts_size();
 
   const int rows = A->size1; // number of rows to approximate

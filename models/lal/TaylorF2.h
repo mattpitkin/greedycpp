@@ -73,7 +73,7 @@ void TaylorF2_LAL_Waveform(gsl_vector_complex *wv,
 	  lambda2,
 	  LAL_SIM_INSPIRAL_SPIN_ORDER_ALL,
 	  LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN,
-          phaseO, amplitudeO);
+          phaseO, amplitudeO,NULL);
 
 	if (ret != XLAL_SUCCESS) {
     	  fprintf(stderr, "Error calling XLALSimInspiralTaylorF2Core().\n");
