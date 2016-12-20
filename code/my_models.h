@@ -22,6 +22,7 @@
 #include "../models/lal/phenomp.h"
 #include "../models/lal/SEOBNRv2_ROM.h"
 #include "../models/lal/TaylorF2.h"
+#include "../models/lal/Barycenter.h" // header for calculating solar system barycenter
 #endif
 
 namespace mymodel {
@@ -67,6 +68,10 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     //LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
     std::cout << "needs bleeding edge lal!\n";
     exit(1);
+  }
+  else if ( strcmp(ts.model(),"Barycenter_H1") == 0 || strcmp(ts.model(),"Barycenter_L1") == 0 || strcmp(ts.model(),"Barycenter_V1") == 0 ){
+    // run code for calculated solar system barycenter
+    Barycenter_Waveform(model_eval, xQuad, params, model_tag);
   }
   else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
     TaylorF2_LAL_Waveform(model_eval, xQuad, params);
