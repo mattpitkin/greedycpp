@@ -71,6 +71,7 @@ MODELLIBS+=$(shell pkg-config --libs lalsimulation)
 MODELHEADERS+=models/lal/lal_helpers.hpp
 MODELSOURCES+=models/lal/lal_helpers.cpp
 
+MODELHEADERS+=models/lal/Barycenter.h
 
 ### Source and headers ###
 SOURCES = $(SRCDIR)/training_set.cpp \
