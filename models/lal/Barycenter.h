@@ -42,7 +42,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
 
   int n = timestamps->size;
   REAL8 ra = params[0];  // right ascension
-  REAL8 dec = params[0]; // declination
+  REAL8 dec = params[1]; // declination
   
   // variables for calculating barycenter time delay
   EphemerisData *edat = NULL;
