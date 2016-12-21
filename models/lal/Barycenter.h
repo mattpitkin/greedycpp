@@ -20,6 +20,15 @@ extern "C"{
 #include <lal/LALInitBarycenter.h>
 #include <lal/SFTutils.h>
 
+// global variables for barycentering (so ephemeris files are only read in once)
+EphemerisData *edat = NULL;
+TimeCorrectionData *tdat = NULL;
+
+// set Earth and Sun solar system files (hardcode to DE405)
+char earthfile[256] = "earth00-19-DE405.dat.gz";
+char sunfile[256] = "sun00-19-DE405.dat.gz";
+char timecorrfile[256] = "te405_2000-2019.dat.gz"; // TCB time correction file
+
 void Barycenter_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *timestamps,
                     const double *params,
@@ -45,19 +54,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   REAL8 dec = params[1]; // declination
   
   // variables for calculating barycenter time delay
-  EphemerisData *edat = NULL;
-  TimeCorrectionData *tdat = NULL;
   BarycenterInput baryinput;
   EarthState earth;
   EmissionTime emit;
-
-  // set Earth and Sun solar system files (hardcode to DE405)
-  std::string earthfile = "earth00-19-DE405.dat.gz";
-  std::string sunfile = "sun00-19-DE405.dat.gz";
-  std::string timecorrfile = "te405_2000-2019.dat.gz"; // TCB time correction file
   
-  edat = XLALInitBarycenter( earthfile.c_str(), sunfile.c_str() );
-  tdat = XLALInitTimeCorrections( timecorrfile.c_str() );
+  if ( !edat ){ edat = XLALInitBarycenter( earthfile, sunfile ); }
+  if ( !tdat ){ tdat = XLALInitTimeCorrections( timecorrfile ); }
 
   /* set up location of detector */
   baryinput.site.location[0] = det.location[0]/LAL_C_SI;
