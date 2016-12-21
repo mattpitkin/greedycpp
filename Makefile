@@ -27,26 +27,23 @@ OPENMP=-fopenmp -DUSE_OPENMP
 
 ### Work with numpy data files ###
 NUMPY=-DUSE_NUMPY
-NUMPYROOT=/home/balzani57/pool/
-NUMPYHEADERS=-I${NUMPYROOT}include
-NUMPYLIBS=-L${NUMPYROOT}lib -lcnpy
+NUMPYHEADERS=
+NUMPYLIBS=-lcnpy
 
 ### GSL and GSL's verion of blas  ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
-LDLIBS = `gsl-config --libs` -L/opt/local/lib
+LDLIBS=`gsl-config --libs`
 CXXFLAGS=`gsl-config --cflags`
 CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
 
 ### Input file parser libconfig++ ###
 LDLIBS+=-lconfig++
 CXXFLAGS+=
-#CXXFLAGS=-g -O0 `gsl-config --cflags` $(shell pkg-config --cflags gsl && pkg-config --cflags lalsimulation)
-
 
 ### Optimizations ###
 # gcc optimizations for 64-bit OS on x86_64 with corei7 (see README) #
-#OPTFLAGS=-O3 -ffast-math -ftree-vectorizer-verbose=6 -ftree-vectorize -mavx -DOPTIMIZE_AVX
-OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
+OPTFLAGS=-O3 -ffast-math -ftree-vectorizer-verbose=6 -ftree-vectorize -mavx -DOPTIMIZE_AVX
+#OPTFLAGS=-O3 -mtune=corei7-avx -ffast-math -ftree-vectorize -DOPTIMIZE_AVX
 # icc optimizations (see README) #
 #OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
 
@@ -57,10 +54,10 @@ MODELSOURCES=
 MODELHEADERS=models/taylorf2/spa_waveforms.h
 MODELLIBS=
 
-## My LAL library (installed in a virtual environment using virtualenv_wrapper)
-VIRTUALENV_NAME=lalapps_knope_O1
-CXXFLAGS+=-L${WORKON_HOME}/${VIRTUALENV_NAME}/libs -I${WORKON_HOME}/${VIRTUALENV_NAME}/include
-LDLIBS+=-llal -llalsupport -llalsimulation -llalpulsar
+## My LAL library
+CXXFLAGS+=$(shell pkg-config --cflags lal lalpulsar)
+LDLIBS+=$(shell pkg-config --libs lal lalpulsar)
+
 
 ## LIGO Analysis Library (LAL) flags for LAL models ##
 #LAL=  # if you do not have LAL installed
