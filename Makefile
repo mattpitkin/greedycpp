@@ -54,17 +54,12 @@ MODELSOURCES=
 MODELHEADERS=models/taylorf2/spa_waveforms.h
 MODELLIBS=
 
-## My LAL library
-CXXFLAGS+=$(shell pkg-config --cflags lal lalpulsar)
-LDLIBS+=$(shell pkg-config --libs lal lalpulsar)
-
-
 ## LIGO Analysis Library (LAL) flags for LAL models ##
 #LAL=  # if you do not have LAL installed
 LAL=-DMODEL_LAL 
 MODELHEADERS+=models/lal/phenomp.h
-MODELFLAGS+=$(shell pkg-config --cflags lalsimulation)
-MODELLIBS+=$(shell pkg-config --libs lalsimulation)
+MODELFLAGS+=$(shell pkg-config --cflags lalsimulation lalpulsar)
+MODELLIBS+=$(shell pkg-config --libs lalsimulation lalpulsar)
 MODELHEADERS+=models/lal/lal_helpers.hpp
 MODELSOURCES+=models/lal/lal_helpers.cpp
 
