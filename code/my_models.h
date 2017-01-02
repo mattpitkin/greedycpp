@@ -69,7 +69,7 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     std::cout << "needs bleeding edge lal!\n";
     exit(1);
   }
-  else if ( strcmp(ts.model(),"Barycenter_H1") == 0 || strcmp(ts.model(),"Barycenter_L1") == 0 || strcmp(ts.model(),"Barycenter_V1") == 0 ){
+  else if ( strncmp(ts.model(), "Barycenter", sizeof(char)*10) == 0 ){
     // run code for calculated solar system barycenter
     Barycenter_Waveform(model_eval, xQuad, params, model_tag);
   }

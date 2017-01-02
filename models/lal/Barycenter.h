@@ -23,43 +23,54 @@ extern "C"{
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
+BarycenterInput baryinput;
+LALDetector det;
 
-// set Earth and Sun solar system files (hardcode to DE405)
-char earthfile[256] = "earth00-19-DE405.dat.gz";
-char sunfile[256] = "sun00-19-DE405.dat.gz";
 char timecorrfile[256] = "te405_2000-2019.dat.gz"; // TCB time correction file
 
 void Barycenter_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *timestamps,
                     const double *params,
                     const std::string model_tag){
-  // deduce the detector
-  LALDetector det;
-  if ( strstr(model_tag.c_str(), "H1") != NULL ){ 
-    det = *XLALGetSiteInfo( "H1" );
-  }
-  else if ( strstr(model_tag.c_str(), "L1") != NULL ){ 
-    det = *XLALGetSiteInfo( "L1" );
-  }
-  else if ( strstr(model_tag.c_str(), "V1") != NULL ){ 
-    det = *XLALGetSiteInfo( "V1" );
-  }
-  else{
-    fprintf(stderr, "Error... detector not found.\n");
-    exit(-1);
-  }
-
   int n = timestamps->size;
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
   
   // variables for calculating barycenter time delay
-  BarycenterInput baryinput;
   EarthState earth;
   EmissionTime emit;
   
-  if ( !edat ){ edat = XLALInitBarycenter( earthfile, sunfile ); }
-  if ( !tdat ){ tdat = XLALInitTimeCorrections( timecorrfile ); }
+  if ( !edat && !tdat ){
+    // deduce the detector, ephemeris and time units
+    std::vector<std::string> vals = lal_help::get_barycenter_tags(model_tag);
+
+    // TODO: add more detectors (and radio telescopes) in the future
+    if ( strstr(vals[0].c_str(), "H1") != NULL ){ 
+      det = *XLALGetSiteInfo( "H1" );
+    }
+    else if ( strstr(vals[0].c_str(), "L1") != NULL ){ 
+      det = *XLALGetSiteInfo( "L1" );
+    }
+    else if ( strstr(vals[0].c_str(), "V1") != NULL ){ 
+      det = *XLALGetSiteInfo( "V1" );
+    }
+    else{
+      fprintf(stderr, "Error... detector not found.\n");
+      exit(-1);
+    }
+
+    // set earth and sun ephemeris files
+    char earthfile[256], sunfile[256];
+    snprintf(earthfile, sizeof(char)*256, "earth00-19-%s.dat.gz", vals[1].c_str());
+    snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
+    edat = XLALInitBarycenter( earthfile, sunfile );
+
+    // set time units file
+    char timecorrfile[256];
+    if ( !strcmp("TCB", vals[2].c_str()) ){ snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz"); }
+    else if ( !strcmp("TDB", vals[2].c_str()) ){ snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz"); }
+    tdat = XLALInitTimeCorrections( timecorrfile );
+  }
 
   /* set up location of detector */
   baryinput.site.location[0] = det.location[0]/LAL_C_SI;
