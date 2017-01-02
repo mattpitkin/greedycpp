@@ -11,6 +11,24 @@
 
 #include "lal_helpers.hpp"
 
+// function to split a string on a delimiter (from http://stackoverflow.com/a/236803/1862861)
+void split_string(const std::string &s, char delim, std::vector<std::string> &elems)
+{
+  std::stringstream ss;
+  ss.str(s);
+  std::string item;
+  while (std::getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
+}
+
+std::vector<std::string> split_string(const std::string &s, char delim)
+{
+  std::vector<std::string> elems;
+  split_string(s, delim, elems);
+  return elems;
+}
+
 namespace lal_help {
 
 // TODO: use enum instead of string tags
@@ -184,8 +202,32 @@ std::string model_tag2mode_part(const std::string model_tag,
 
 }
 
+std::vector<std::string> get_barycenter_tags(const std::string model_tag){
+  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
+  
+  if ( x.size() != 4 ){
+    fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\"\n");
+    exit(1);
+  }
+  // get the last three parts of the vector (i.e. DET, EPHEM, UNITS)
+  std::vector<std::string> y(x.begin()+1, x.begin()+4);
+  
+  // check ephem is DE200, DE405, DE414 or DE421
+  if ( strcmp(y[1].c_str(), "DE200") && strcmp(y[1].c_str(), "DE405") &&
+       strcmp(y[1].c_str(), "DE414") && strcmp(y[1].c_str(), "DE421") ){
+    fprintf(stderr, "Ephemeris must be either \"DE200\", \"DE405\", \"DE414\", or \"DE421\"\n");
+    exit(1);
+  }
+  
+  // check units is either TDB or TCB
+  if ( strcmp(y[2].c_str(), "TCB") && strcmp(y[2].c_str(), "TDB" ) ){
+    fprintf(stderr, "Time units must be either \"TCB\" or \"TDB\"\n");
+    exit(1);
+  }
 
+  fprintf(stdout, "Detector: \"%s\", ephemeris: \"%s\", time units: \"%s\"\n", y[0].c_str(), y[1].c_str(), y[2].c_str());
 
-
+  return y;
+}
 
 }

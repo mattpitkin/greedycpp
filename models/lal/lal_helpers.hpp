@@ -9,9 +9,17 @@
 #define lal_helpers_h
 
 #include <string>
+#include <sstream>
+#include <vector>
+
+#include <string.h>
 
 #include <lal/FrequencySeries.h>
 #include "../../code/gsl_helper_functions.hpp"
+
+// functions to split a string on a delimiter (from http://stackoverflow.com/a/236803/1862861)
+void split_string(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> split_string(const std::string &s, char delim);
 
 namespace lal_help {
 
@@ -36,6 +44,13 @@ void lal_waveform_part(gsl_vector_complex *wv,
 std::string model_tag2mode_part(const std::string model_tag,
                                 const int mode_param_indx,
                                 const double *params);
+
+// get the info for the barycentering tag, of the form:
+// Barycenter_DET_EPHEM_UNITS
+// where DET is the detector, EPHEM is the ephemeris type (e.g. DE405)
+// and UNITS are the time units (i.e. TDB or TCB). Return these values
+// in the string vector.
+std::vector<std::string> get_barycenter_tags(const std::string model_tag);
 
 };
 
