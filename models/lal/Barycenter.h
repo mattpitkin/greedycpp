@@ -26,8 +26,6 @@ TimeCorrectionData *tdat = NULL;
 BarycenterInput baryinput;
 LALDetector det;
 
-char timecorrfile[256] = "te405_2000-2019.dat.gz"; // TCB time correction file
-
 void Barycenter_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *timestamps,
                     const double *params,
