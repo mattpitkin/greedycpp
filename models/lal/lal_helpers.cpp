@@ -171,13 +171,13 @@ std::string model_tag2mode_part(const std::string model_tag,
   std::size_t found = model_tag.find("all_parts");
   // "all_parts" is a distinct model of higher dimension
   if(found!=std::string::npos) {
-    fprintf(stdout,"all parts model\n");
+    //fprintf(stdout,"all parts model\n");
     model_part = get_waveform_part_tag(params[mode_param_indx]);
   }
   else {
     model_part = get_waveform_part_tag(model_tag);
   }
-  fprintf(stdout,"model part tag %s\n",model_part.c_str());
+  //fprintf(stdout,"model part tag %s\n",model_part.c_str());
 
   // TODO: check that a mode part has been found
   return model_part;
