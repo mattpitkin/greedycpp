@@ -2,7 +2,9 @@
     text file can be read as input to greedy.cpp through proper specification
     in the configuration file.'''
 
-# WARNING (TODO): depricated. use generate_trainingpoints (7/18/2016)
+# WARNING use generate_trainingpoints for most sampling (7/18/2016)
+# this routine does have a better random sampler. generate_trainingpoints
+# takes tensor products of random coordinate vectors
 
 import numpy as np
 import math

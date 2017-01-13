@@ -343,9 +343,18 @@ def generate_trainingpoints(filename,params_low,params_high,params_num,params_ty
 
   return Ntotal, training_set
 
+def parse_param_list(param_list=None):
+  ''' parse a standard param_list.input file which specifies the sampling.
 
+  For example
 
-def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to_extend="",vector_files=[],return_ts=False):
+  >>> cat mass_partition_0.input
+  #chirpmass eta chi1 chi2
+  1.2  0.1  -1.0 -1.0
+  17.0 0.25 .99  .99
+  23   5   7  12
+  det_power_0.5 det_power_2 det_lin det_lin'''
+
   if param_list is None: # manual setup
     params_low  = np.array([1.0,1.0])  # lower interval of each parameter
     params_high = np.array([3.0,3.0])  # upper interval of each parameter
@@ -364,6 +373,12 @@ def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to
       params_high = param_info[1]
       params_num = param_info[2]
       params_type = param_info[3]
+
+  return param_info, params_low, params_high, params_num, params_type
+
+def generate_sampling(filename,param_list=None,total_picks=100,seed=None,file_to_extend="",vector_files=[],return_ts=False):
+
+  param_info, params_low, params_high, params_num, params_type = parse_param_list(param_list)
 
   tic = time.time()
   TS_size,TS = generate_trainingpoints(filename,params_low,params_high,params_num,params_type,file_to_extend=file_to_extend,vector_files=vector_files,return_ts=return_ts)
