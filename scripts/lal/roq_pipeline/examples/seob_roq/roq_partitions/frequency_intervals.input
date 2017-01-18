@@ -1,0 +1,3 @@
+# each row is the (fmin,fmax) interval corresponding to a training region
+20.0 4096.0
+20.0 4096.0

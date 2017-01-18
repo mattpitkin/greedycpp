@@ -1,0 +1,19 @@
+{
+    "MODEL": "SEOBNRv2_ROM_DoubleSpin_HI_all_parts",
+    "modes": "+",
+    "sampler script": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_points.py",
+    "partitions": [
+        {
+            "quad": "adaptive",
+            "quad_nodes_file": "/home/mpuer/projects/greedycpp/runs_MP/QuadratureRule_SEOBNRv2_20Hz_smooth_fine.dat",
+            "quad_weight_file": "/home/mpuer/projects/greedycpp/runs_MP/MyWeights_SEOBNRv2_20Hz_smooth_fine.dat",
+            "sample intervals": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/mass_partition_0.input"
+        },
+        {
+            "quad": "adaptive",
+            "quad_nodes_file": "/home/mpuer/projects/greedycpp/runs_MP/QuadratureRule_SEOBNRv2_20Hz_smooth_fine.dat",
+            "quad_weight_file": "/home/mpuer/projects/greedycpp/runs_MP/MyWeights_SEOBNRv2_20Hz_smooth_fine.dat",
+            "sample intervals": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/mass_partition_1.input"
+        }
+    ]
+}
