@@ -10,6 +10,7 @@ with open(json_file) as fp:
 print roq_simulations
 
 
+ROQ_SCRIPTS='/home/sfield/greedycpp/scripts/lal/roq_pipeline/'
 
 #MODEL = "Lackey"
 
@@ -34,10 +35,10 @@ replacement_dict = {}
 #roq_simulations = {
 #'MODEL':"SEOBNRv2_ROM_DoubleSpin_HI_all_parts",
 #'modes': '+',
-#'sampler script': "/home/sfield/misc_notebooks_codes/greedycpp_helpers/generate_seob_points.py",
+#'sampler script': ROQ_SCRIPTS+"generate_seob_points.py",
 #'partitions':[
 #{'quad':'adaptive',
-#'sample intervals': "/home/sfield/misc_notebooks_codes/greedycpp_helpers/seob_sample.input",
+#'sample intervals': ROQ_SCRIPTS+"seob_sample.input",
 #'quad_nodes_file':'/home/mpuer/projects/greedycpp/runs_MP/QuadratureRule_SEOBNRv2_20Hz_smooth_fine.dat',
 #'quad_weight_file':'/home/mpuer/projects/greedycpp/runs_MP/MyWeights_SEOBNRv2_20Hz_smooth_fine.dat',
 #}]
@@ -46,8 +47,9 @@ replacement_dict = {}
 #with open('roq_info.json', 'w') as fp:
 #  json.dump(roq_simulations, fp, sort_keys=True,indent=4, separators=(',', ': '))
 
-# Nothing to change below this line
-MODE_MOD_SCRIPT = "/home/sfield/misc_notebooks_codes/greedycpp_helpers/AddReplaceModeDimension.py"
+### Nothing to change below this line ###
+
+MODE_MOD_SCRIPT = ROQ_SCRIPTS+"AddReplaceModeDimension.py"
 
 #######################################################################
 
@@ -120,6 +122,8 @@ MODEL = roq_simulations['MODEL']
 SAMPLER_SCRIPT = roq_simulations['sampler script']
 SAMPLING = roq_simulations["ts sampling"]
 
+shutil.copy(ROQ_SCRIPTS+'SetupMultipleValidations.py',rwd)
+
 for i, partition in enumerate(roq_simulations['partitions']):
 
   print partition
@@ -157,7 +161,7 @@ for i, partition in enumerate(roq_simulations['partitions']):
   shutil.copy(SAMPLE_INTERVALS,full_path)
   shutil.copy(partition['quad_nodes_file'],full_path)
   shutil.copy(partition['quad_weight_file'],full_path)
-  shutil.copy('/home/sfield/misc_notebooks_codes/greedycpp_helpers/roq.build.sh',full_path)
+  shutil.copy(ROQ_SCRIPTS+'roq.build.sh',full_path)
 
   if SAMPLING == "boundary":
     subprocess.call(SAMPLER_SCRIPT+' --no-full -o'+rundir+'/TS.txt --input '+SAMPLE_INTERVALS, shell=True)

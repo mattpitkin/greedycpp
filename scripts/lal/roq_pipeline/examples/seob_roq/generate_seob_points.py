@@ -5,7 +5,6 @@ import generate_param_samples as gps
 
 import numpy as np
 import random, argparse
-#from optparse import OptionParser
 
 # Parameter transformation functions
 def etafun(q):
@@ -39,7 +38,6 @@ def main():
   parser.add_argument('--N', dest='N',type=int,default=40,
                       help='number of RANDOM points per parameter space dimension')
 
-  #(opts,args) = parser.parse_args()
   opts = parser.parse_args()
 
   full  = opts.full

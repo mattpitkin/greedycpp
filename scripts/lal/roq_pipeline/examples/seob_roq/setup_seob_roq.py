@@ -5,20 +5,17 @@ import subprocess, os, json, fnmatch
 from BatchSubmission.SimulationDataTools import fancy_glob
 import numpy as np
 
-
-
 # USER SETTINGS HERE -- common to all ROQ training intervals #
 roq_sim = {
 #    "ts sampling": "boundary",
     "ts sampling": "full",
     "MODEL": "SEOBNRv2_ROM_DoubleSpin_HI_all_parts",
     "modes": "+ x",
-    "sampler script": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_points.py",
+    "sampler script": "/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_points.py",
     "partitions": []
 }
 
-partition_dir = "/panfs/ds08/sxs/sfield/greedy_seob/production_runs/partitions_roq/"
-#partition_dir = "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/PipelineROQ/partitions_roq/"
+partition_dir = "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/"
 
 partition_files = fancy_glob(partition_dir+'mass_partition_*.input',sort=True)
 print len(partition_files)
@@ -50,9 +47,9 @@ for i, f1 in enumerate(partition_files):
 
   sample_intervals = partition_dir+f
 
-  subprocess.call('/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_quadrature.py -l '+\
+  subprocess.call('/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_quadrature.py -l '+\
                   str(flow)+' -u '+str(fup)+' -i '+f, shell=True)
-  #subprocess.call('/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_quadrature.py -l '+\
+  #subprocess.call('/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_quadrature.py -l '+\
   #                str(flow)+' -u '+str(fup)+' -i '+f+' --mlow 1.2', shell=True)
 
   roq_sim['partitions'].append({

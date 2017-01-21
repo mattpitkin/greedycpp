@@ -19,10 +19,10 @@ bindir="/home/sfield/greedycpp/bin" # greedy executable here
 # Lackey tidal and SEOB runs
 source /home/sfield/zwicky-env/SetupGreedyICC.sh
 module add gsl/1.16
-#cfgpath="default_settings.cfg"
+cfgpath="default_settings.cfg"
 #cfgpath="/panfs/ds08/sxs/sfield/greedy_seob/production_runs/roq_5/df128/run_settings.cfg"
 #cfgpath="/panfs/ds08/sxs/sfield/greedy_tidalEOB/lea_review/run_settings.cfg"
-cfgpath="/panfs/ds08/sxs/sfield/greedy_seob/production_runs/roq_5/df128/ts_quad/run_settings.cfg"
+#cfgpath="/panfs/ds08/sxs/sfield/greedy_seob/production_runs/roq_5/df128/ts_quad/run_settings.cfg"
 
 ##########################
 

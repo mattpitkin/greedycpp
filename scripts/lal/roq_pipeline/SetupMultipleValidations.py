@@ -7,8 +7,8 @@ from string import Template
 roq_indx='5'
 
 # name of directory for validation run setup 
-#rundir_name='rundir'
-rundir_name='rundir'+roq_indx
+#rundir_name='valrundir'
+rundir_name='valrundir'+roq_indx
 
 Simulations = 320
 #Simulations = 320
@@ -45,7 +45,7 @@ replacement_dict['VALCFG']="validations_setup.cfg"
 # script needs to take numberOfSamples, outputFilename, validation intervals (given above)
 #replacement_dict['SAMPLER_SCRIPT']="/home/sfield/misc_notebooks_codes/phenomP_cfg_scripts/helper_scripts/sample_phenomP.py"
 #replacement_dict['SAMPLER_SCRIPT']="/home/sfield/tidalroq/src/scripts/makeTS_power_boundary_component_masses.py"
-replacement_dict['SAMPLER_SCRIPT']="/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_points.py"
+replacement_dict['SAMPLER_SCRIPT']="/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_points.py"
 
 # location of validation executable #
 replacement_dict['BINDIR']='/home/sfield/greedycpp/bin'
@@ -54,7 +54,7 @@ replacement_dict['BINDIR']='/home/sfield/greedycpp/bin'
 replacement_dict['RANDFILE']="/panfs/ds08/sxs/sfield/tmp"+roq_indx+"/test.txt"
 #replacement_dict['RANDFILE']="/panfs/ds08/sxs/sfield/tmp/test.txt"
 
-replacement_dict['MODE_MOD_SCRIPT']="/home/sfield/misc_notebooks_codes/greedycpp_helpers/AddReplaceModeDimension.py"
+replacement_dict['MODE_MOD_SCRIPT']="/home/sfield/greedycpp/scripts/lal/roq_pipeline/AddReplaceModeDimension.py"
 
 #replacement_dict['SAMPLES']='1000'
 #replacement_dict['SAMPLES']='25000'

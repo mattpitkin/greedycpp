@@ -25,7 +25,7 @@ def main():
 
   parser  = argparse.ArgumentParser(description='GW quadrature rules',\
            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("-i","--input",dest="input", action="store", nargs='+', type=str, help="input files containing sampling ranges")
+  parser.add_argument("-i","--input",dest="input", action="store", nargs='+', type=str, help="input files containing parametric sampling ranges")
   parser.add_argument("-l","--flow",dest="flow", action="store", type=float,help="lower frequency")
   parser.add_argument("-u","--fup",dest="fup", action="store", type=float,help="lower frequency")
   parser.add_argument("--mlow",dest="mlow", action="store", default=None,type=float,help="lower m1 and m2 component masses. Overrides mass intervals deduced from input argument")
@@ -41,7 +41,7 @@ def main():
 
   print mlow
 
-  raise ValueError("script does not provide point at fup... fix this for future runs")
+  print("script does not provide point at fup... fix this for future runs")
 
   # this will give a conservative estimate for df since m1,m2 are minimized independently
   for f in f_in:

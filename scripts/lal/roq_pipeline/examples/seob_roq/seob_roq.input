@@ -1,19 +1,20 @@
 {
     "MODEL": "SEOBNRv2_ROM_DoubleSpin_HI_all_parts",
-    "modes": "+",
-    "sampler script": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/generate_seob_points.py",
+    "modes": "+ x",
     "partitions": [
         {
             "quad": "adaptive",
-            "quad_nodes_file": "/home/mpuer/projects/greedycpp/runs_MP/QuadratureRule_SEOBNRv2_20Hz_smooth_fine.dat",
-            "quad_weight_file": "/home/mpuer/projects/greedycpp/runs_MP/MyWeights_SEOBNRv2_20Hz_smooth_fine.dat",
-            "sample intervals": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/mass_partition_0.input"
+            "quad_nodes_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0_Nodes.dat",
+            "quad_weight_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0_Weights.dat",
+            "sample intervals": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0.input"
         },
         {
             "quad": "adaptive",
-            "quad_nodes_file": "/home/mpuer/projects/greedycpp/runs_MP/QuadratureRule_SEOBNRv2_20Hz_smooth_fine.dat",
-            "quad_weight_file": "/home/mpuer/projects/greedycpp/runs_MP/MyWeights_SEOBNRv2_20Hz_smooth_fine.dat",
-            "sample intervals": "/home/sfield/misc_notebooks_codes/greedycpp_helpers/examples/seob_roq/mass_partition_1.input"
+            "quad_nodes_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1_Nodes.dat",
+            "quad_weight_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1_Weights.dat",
+            "sample intervals": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1.input"
         }
-    ]
+    ],
+    "sampler script": "/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_points.py",
+    "ts sampling": "full"
 }
