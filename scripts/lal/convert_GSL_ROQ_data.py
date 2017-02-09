@@ -68,6 +68,51 @@ def ReadComplexGSLBinaryMatrix(directory, filename, m, N):
     A_im = np.reshape(data[1::2], (m,N))
     return A_re + 1.j*A_im
 
+def FindTrainingRegion(TS_file, approximant):
+    """ Deduce basis training region so that this information can be exported."""
+
+    print 'Loading training set from file', TS_file
+    TS = np.loadtxt(TS_file)
+    num_pars = np.shape(TS)[1]
+    if approximant=='SEOBNRv2_ROM_DoubleSpin_HI':
+        # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
+        m1 = TS.T[0]
+        m2 = TS.T[1]
+        etas = etafun(m1 / m2)
+        Mcs = Mchirpfun(m1 + m2, etas)
+        TS.T[0] = Mcs
+        TS.T[1] = etas
+        par_names = ['Mc', 'eta', 'chi1', 'chi2']
+    elif approximant=='LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts':
+        # The model interface used parameters ['mBH', 'mNS', 'chiBH', 'Lambda']
+        # The TS also uses these parameters, so we will stick to them to preserve the boundary.
+        par_names = ['mBH', 'mNS', 'chiBH', 'Lambda']
+    elif 'PhenomP' in approximant: # catch all the different polarizations and h^2 terms
+        # The PhenomP interface used ['Mtot', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
+        Mtots = TS.T[0]
+        etas = TS.T[1]
+        TS.T[0] = Mchirpfun(Mtots, etas)
+        par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
+
+    return TS
+
+
+def ParseConfigFile(cfg_file):
+
+    model_pattern = re.compile('model_name[=\s]+"(\w+)"')
+    for line in open(cfg_file):
+        for match in re.finditer(model_pattern, line):
+            approximant = match.groups()[0]
+            break
+    ts_pattern = re.compile('ts_file[=\s]+"(.*)"')
+    for line in open(cfg_file):
+        for match in re.finditer(ts_pattern, line):
+            TS_file = match.groups()[0]
+            break
+
+    return approximant, TS_file
+
+
 def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz.hdf5', 
       output_style='hdf5', cfg_file='run_40_4096Hz_pbnd_phase_corr_fine_local.cfg',
       outdir='.'):
@@ -111,19 +156,14 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
     EIM_dfs = EIM_dfs_unsorted[idx]
 
     # Parse greedcpp config file
-    model_pattern = re.compile('model_name[=\s]+"(\w+)"')
-    for line in open(cfg_file):
-        for match in re.finditer(model_pattern, line):
-            approximant = match.groups()[0]
-            break
-    ts_pattern = re.compile('ts_file[=\s]+"(.*)"')
-    for line in open(cfg_file):
-        for match in re.finditer(ts_pattern, line):
-            TS_file = match.groups()[0]
-            break
+    approximant, TS_file = ParseConfigFile(cfg_file)
 
     if output_style=='numpy':
         print 'Saving B matrix and EIM in numpy format'
+        model_pattern, ts_pattern = ParseConfigFile(cfg_file)
+        TS = FindTrainingRegion(TS_file, approximant)
+        print "model = %s"%approximant
+        print "TS_file = %s"%TS_file
         np.save(os.path.join(outdir, 'EIM_F_sorted.npy'), EIM_F)
         np.save(os.path.join(outdir, 'EIM_dfs_sorted.npy'), EIM_dfs)
         np.save(os.path.join(outdir, 'B_sorted.npy'), B)
@@ -173,28 +213,7 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
             )
 
         # Write training set bound metadata for all physical parameters
-        print 'Loading training set from file', TS_file
-        TS = np.loadtxt(TS_file)
-        num_pars = np.shape(TS)[1]
-        if approximant=='SEOBNRv2_ROM_DoubleSpin_HI':
-            # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
-            m1 = TS.T[0]
-            m2 = TS.T[1]
-            etas = etafun(m1 / m2)
-            Mcs = Mchirpfun(m1 + m2, etas)
-            TS.T[0] = Mcs
-            TS.T[1] = etas
-            par_names = ['Mc', 'eta', 'chi1', 'chi2']
-        elif approximant=='LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts':
-            # The model interface used parameters ['mBH', 'mNS', 'chiBH', 'Lambda']
-            # The TS also uses these parameters, so we will stick to them to preserve the boundary.
-            par_names = ['mBH', 'mNS', 'chiBH', 'Lambda']
-        elif 'PhenomP' in approximant: # catch all the different polarizations and h^2 terms
-            # The PhenomP interface used ['Mtot', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
-            Mtots = TS.T[0]
-            etas = TS.T[1]
-            TS.T[0] = Mchirpfun(Mtots, etas)
-            par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
+        TS = FindTrainingRegion(TS_file, aproximant)
 
         for i in range(len(par_names)):
             fp.attrs[par_names[i]+'_min'] = np.min(TS.T[i])
