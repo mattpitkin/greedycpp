@@ -156,7 +156,7 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
 
     print(outdir)
 
-    if directory != outdir and output_style == 'numpy':
+    if directory != outdir and output_style == 'numpy' and not os.path.isdir(outdir):
         os.makedirs(outdir)
 
     # Read RB and EIM from directory, write B matrix for ROQ
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         outdir = options.path_of_output
     Convert_GSL_EIM_Data(options.data_directory, hdf5_filename=options.hdf5_filename, 
                          output_style=options.output_style, cfg_file=options.cfg_file,
-                         outdir=outdir, roq_info=options.roq_info)
+                         outdir=outdir, roq_info=options.roq_info, roq_part=options.roq_part)
 
     print 'All done!\n'
 
