@@ -74,7 +74,7 @@ def FindTrainingRegion(TS_file, approximant):
     print 'Loading training set from file', TS_file
     TS = np.loadtxt(TS_file)
     num_pars = np.shape(TS)[1]
-    if approximant=='SEOBNRv2_ROM_DoubleSpin_HI':
+    if 'SEOBNRv2_ROM_DoubleSpin_HI' in approximant: # catch all the different polarization tags
         # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
         m1 = TS.T[0]
         m2 = TS.T[1]
@@ -94,7 +94,7 @@ def FindTrainingRegion(TS_file, approximant):
         TS.T[0] = Mchirpfun(Mtots, etas)
         par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
 
-    return TS
+    return par_names, TS
 
 
 def ParseConfigFile(cfg_file):
@@ -110,12 +110,49 @@ def ParseConfigFile(cfg_file):
             TS_file = match.groups()[0]
             break
 
-    return approximant, TS_file
+    roq_partition_pattern = re.compile('roq_[0-9\s]')
+    roq_partition = None
+    for line in open(cfg_file):
+        x = re.search(roq_partition_pattern, line)
+        if x is not None:
+            roq_partition = int(x.group().split('_')[1])
+            break
 
+    print "roq partition is %s"%roq_partition
+
+    return approximant, TS_file, roq_partition
+
+def ParseROQInfo(roq_info,outdir,roq_partition):
+    """ Use roq_info.json file to deduce the correct params.dat file"""
+
+    import json
+    with open(roq_info) as fp:
+        opts = json.load(fp)
+
+    roq_partitions = opts["partitions"]
+    ts_boundary_file = roq_partitions[roq_partition]["sample intervals"]
+
+    x = np.genfromtxt(ts_boundary_file, names=True)
+
+    par_names = '#'
+    par_value = ''
+
+    for param_name in x.dtype.names:
+      par_names += param_name+'-min '+ param_name+'-max '
+      par_min = x[param_name][0]
+      par_max = x[param_name][1]
+      par_value += str(par_min) + ' '+ str(par_max) + ' '
+
+    par_names +='\n' 
+
+    fp = open(os.path.join(outdir, 'params.dat'),'w')
+    fp.write(par_names)
+    fp.write(par_value)
+    fp.close()
 
 def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz.hdf5', 
       output_style='hdf5', cfg_file='run_40_4096Hz_pbnd_phase_corr_fine_local.cfg',
-      outdir='.'):
+      outdir='.',roq_info=None):
 
     print(outdir)
 
@@ -156,12 +193,20 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
     EIM_dfs = EIM_dfs_unsorted[idx]
 
     # Parse greedcpp config file
-    approximant, TS_file = ParseConfigFile(cfg_file)
+    approximant, TS_file, roq_partition = ParseConfigFile(cfg_file)
+
+    # Write training set bound metadata for all physical parameters
+    par_names, TS = FindTrainingRegion(TS_file, approximant)
+
+    # Parse roq_info.json file
+    if roq_info is not None:
+        ParseROQInfo(roq_info, outdir, roq_partition)
+    else:
+        print "No roq_info.json file to parse"
+        
 
     if output_style=='numpy':
         print 'Saving B matrix and EIM in numpy format'
-        model_pattern, ts_pattern = ParseConfigFile(cfg_file)
-        TS = FindTrainingRegion(TS_file, approximant)
         print "model = %s"%approximant
         print "TS_file = %s"%TS_file
         np.save(os.path.join(outdir, 'EIM_F_sorted.npy'), EIM_F)
@@ -212,9 +257,6 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
             '''
             )
 
-        # Write training set bound metadata for all physical parameters
-        TS = FindTrainingRegion(TS_file, aproximant)
-
         for i in range(len(par_names)):
             fp.attrs[par_names[i]+'_min'] = np.min(TS.T[i])
             fp.attrs[par_names[i]+'_max'] = np.max(TS.T[i])
@@ -240,9 +282,12 @@ if __name__ == "__main__":
     parser.add_option("-p", "--path-of-output", dest="path_of_output", type="string",
                   help="Directory path in which to place the output data.", 
                   metavar="data_directory")
+    parser.add_option("-j", "--roq-info", dest="roq_info", type="string",
+                  help="Path to the roq_info.json file, if it exists (this file is used in the roq pipeline). If provided, a params.dat fill will be created.", metavar="roq_info")
 
     parser.set_defaults(data_directory='.', hdf5_filename=None,
-                        output_style='hdf5', cfg_file=None,path_of_output=None)
+                        output_style='hdf5', cfg_file=None,path_of_output=None,
+                        roq_info=None)
 
     (options, args) = parser.parse_args()
 
@@ -257,7 +302,7 @@ if __name__ == "__main__":
         outdir = options.path_of_output
     Convert_GSL_EIM_Data(options.data_directory, hdf5_filename=options.hdf5_filename, 
                          output_style=options.output_style, cfg_file=options.cfg_file,
-                         outdir=outdir)
+                         outdir=outdir, roq_info=options.roq_info)
 
     print 'All done!\n'
 
