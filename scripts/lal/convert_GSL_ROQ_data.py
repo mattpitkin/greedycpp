@@ -74,11 +74,8 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
 
     print(outdir)
 
-    if directory != outdir:
+    if directory != outdir and output_style == 'numpy':
         os.makedirs(outdir)
-    else:
-        print "hellow"
-
 
     # Read RB and EIM from directory, write B matrix for ROQ
     print 'Reading data from directory', directory
@@ -139,10 +136,11 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
 
         dset_B = fp.create_dataset('B', data=B)
         dset_B.attrs['Comment'] = np.string_('The sorted B matrix: B = e^T . inv(V). shape(B) = C^{N x m}')
-        dset_e = fp.create_dataset('Reduced basis', data=e)
-        dset_e.attrs['Comment'] = np.string_('The reduced basis e. shape(e) = C^{m x N}')
+        # Don't save e as it can be reconstructed from B and Vinv and is usually very large.
+        #dset_e = fp.create_dataset('Reduced basis', data=e)
+        #dset_e.attrs['Comment'] = np.string_('The reduced basis e. shape(e) = C^{m x N}')
         dset_Vinv = fp.create_dataset('V inverse', data=Vinv)
-        dset_e.attrs['Comment'] = np.string_('The inverse Vandermonde matrix. shape(inv(V)) = C^{m x m}')
+        dset_Vinv.attrs['Comment'] = np.string_('The inverse Vandermonde matrix. shape(inv(V)) = C^{m x m}')
 
         dset_ApproxErrors = fp.create_dataset('ApproxErrors', data=ApproxErrors)
         dset_EIM_dfs = fp.create_dataset('EIM_deltaF_j', data=EIM_dfs)
@@ -178,7 +176,7 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
         print 'Loading training set from file', TS_file
         TS = np.loadtxt(TS_file)
         num_pars = np.shape(TS)[1]
-        if approximant=='SEOBNRv2_ROM_DS_LM':
+        if approximant=='SEOBNRv2_ROM_DoubleSpin_HI':
             # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
             m1 = TS.T[0]
             m2 = TS.T[1]
@@ -187,6 +185,10 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
             TS.T[0] = Mcs
             TS.T[1] = etas
             par_names = ['Mc', 'eta', 'chi1', 'chi2']
+        elif approximant=='LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts':
+            # The model interface used parameters ['mBH', 'mNS', 'chiBH', 'Lambda']
+            # The TS also uses these parameters, so we will stick to them to preserve the boundary.
+            par_names = ['mBH', 'mNS', 'chiBH', 'Lambda']
         elif 'PhenomP' in approximant: # catch all the different polarizations and h^2 terms
             # The PhenomP interface used ['Mtot', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
             Mtots = TS.T[0]
@@ -194,7 +196,7 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
             TS.T[0] = Mchirpfun(Mtots, etas)
             par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
 
-        for i in range(num_pars):
+        for i in range(len(par_names)):
             fp.attrs[par_names[i]+'_min'] = np.min(TS.T[i])
             fp.attrs[par_names[i]+'_max'] = np.max(TS.T[i])
         print 'Saved training set bounds for parameters', par_names 
@@ -237,4 +239,6 @@ if __name__ == "__main__":
     Convert_GSL_EIM_Data(options.data_directory, hdf5_filename=options.hdf5_filename, 
                          output_style=options.output_style, cfg_file=options.cfg_file,
                          outdir=outdir)
+
+    print 'All done!\n'
 
