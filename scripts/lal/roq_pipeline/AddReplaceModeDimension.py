@@ -34,7 +34,7 @@ def parse_cmd_line():
   parser.add_argument('--m', type=str,nargs='+',\
                       help='Supply if ADDING model tag type (e.g. + x ++ xx +x h2 for all of them)')
   parser.add_argument('-r', action='store_true',\
-                      help='Switch between mode index conventions (see code)')
+                      help='Switch between quadratic mode (++, xx, +x)  index conventions (see code)')
   parser.add_argument('-d', action='store_true',\
                       help='Delete the mode parameter')
 
