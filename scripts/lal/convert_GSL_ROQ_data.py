@@ -152,7 +152,7 @@ def ParseROQInfo(roq_info,outdir,roq_partition):
 
 def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz.hdf5', 
       output_style='hdf5', cfg_file='run_40_4096Hz_pbnd_phase_corr_fine_local.cfg',
-      outdir='.',roq_info=None):
+      outdir='.',roq_info=None, roq_part=""):
 
     print(outdir)
 
@@ -209,9 +209,9 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
         print 'Saving B matrix and EIM in numpy format'
         print "model = %s"%approximant
         print "TS_file = %s"%TS_file
-        np.save(os.path.join(outdir, 'EIM_F_sorted.npy'), EIM_F)
-        np.save(os.path.join(outdir, 'EIM_dfs_sorted.npy'), EIM_dfs)
-        np.save(os.path.join(outdir, 'B_sorted.npy'), B)
+        np.save(os.path.join(outdir, 'fnodes_%s.npy'%roq_part), EIM_F)
+        #np.save(os.path.join(outdir, 'EIM_dfs_sorted.npy'%roq_part), EIM_dfs) # not needed by LAL
+        np.save(os.path.join(outdir, 'B_%s.npy'%roq_part), B.T)
     elif output_style=='hdf5':
         if not hdf5_filename:
             hdf5_filename = 'ROQ' + '_' + approximant + '_' + str(np.min(freqs)) + '_' + str(np.max(freqs)) + 'Hz.hdf5'
@@ -284,6 +284,8 @@ if __name__ == "__main__":
                   metavar="data_directory")
     parser.add_option("-j", "--roq-info", dest="roq_info", type="string",
                   help="Path to the roq_info.json file, if it exists (this file is used in the roq pipeline). If provided, a params.dat fill will be created.", metavar="roq_info")
+    parser.add_option("-a", "--ROQ-part", dest="roq_part", type="string",
+                  help="Can be 'linear' or 'quadratic'", metavar="roq_part")
 
     parser.set_defaults(data_directory='.', hdf5_filename=None,
                         output_style='hdf5', cfg_file=None,path_of_output=None,
