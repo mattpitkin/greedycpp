@@ -1,0 +1,20 @@
+{
+    "MODEL": "SEOBNRv2_ROM_DoubleSpin_HI_all_parts",
+    "modes": "+ x",
+    "partitions": [
+        {
+            "quad": "adaptive",
+            "quad_nodes_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0_Nodes.dat",
+            "quad_weight_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0_Weights.dat",
+            "sample intervals": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_0.input"
+        },
+        {
+            "quad": "adaptive",
+            "quad_nodes_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1_Nodes.dat",
+            "quad_weight_file": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1_Weights.dat",
+            "sample intervals": "/panfs/ds08/sxs/sfield/greedy_seob/test_runs/TmpPipelineROQ/roq_partitions/mass_partition_1.input"
+        }
+    ],
+    "sampler script": "/home/sfield/greedycpp/scripts/lal/roq_pipeline/examples/seob_roq/generate_seob_points.py",
+    "ts sampling": "full"
+}

@@ -1,16 +1,32 @@
-''' generate a mutlidomain quadrature rule for input into the greedy alg '''
+#!/usr/bin/env python
+
+''' generate a mutlidomain quadrature rule for use with the greedy algorithm. '''
 
 import numpy as np
 from scipy.special.orthogonal import p_roots
 
 
+points_fname  = 'MyQuadPoints.txt'
+weights_fname = 'MyQuadWeights.txt'
+
+
+#quadrature_type = 'GL'
+#quadrature_type = 'MultiDomain'
+quadrature_type = 'GW'
+
 ### setup quadrature rule ###
-pts = 10000
-#dom_ints = [10.0,30.0,1024.0]
-dom_ints = [40,65,100,250,400,700,1099]
+#pts = 10000
+##dom_ints = [10.0,30.0,1024.0]
+#dom_ints = [40,65,100,250,400,700,1099]
 
 ### make these global to avoid recomputing roots ###
-p_roots_x, p_roots_w = p_roots(pts)
+#p_roots_x, p_roots_w = p_roots(pts)
+
+# for use with the routine GravitationalWaveAdaptive
+fmin = 20
+fmax = 4096
+m1_min = 1.2
+m2_min = 1.2
 
 def SingleDomGaussLeg(quad_points,a,b):
     '''a,b domain endpoints. quad_points is number of quadrature points'''
@@ -39,15 +55,65 @@ def MultiDomain(quad_points,dom_intervals):
 
     return x,w
 
-quad_nodes,quad_weights = MultiDomain(pts,dom_ints)
+def GravitationalWaveAdaptive(fmin,fmax,m1_min,m2_min,dflim=5):
+  ''' Simple algorithm to create an array of frequencies and deltaF's
+      based on gravitational wave signal duration.
 
-fp = open('MyQuadPoints.txt','w')
-fw = open('MyQuadWeights.txt','w')
-for ii in range(len(quad_nodes)):
-    fp.write('%1.15e\n' % quad_nodes[ii])
-    fw.write('%1.15e\n' % quad_weights[ii])
+      Written by Michael Purrer.
 
-fp.close()
-fw.close()
+  INPUT
+  =====
+  fmin   --- starting frequency 
+  fmax   --- ending frequency
+  dflim  --- maximum allowed df
+  m1_min --- smallest component mass of body 1
+  m2_min --- smallest component mass of body 2'''
+
+  import lal
+  import lalsimulation as LS
+
+  df_array = []
+  f_array = []
+  f = fmin
+
+  while f < fmax:
+    try:
+      df = 0.2 / LS.SimIMRSEOBNRv2ROMDoubleSpinHITimeOfFrequency(f, m1_min*lal.MSUN_SI, m2_min*lal.MSUN_SI, 0, 0)
+    except Exception,e:
+      print str(e)
+      df = dflim # At very high frequencies the above call can fail, but we know that the frequency spacing would be huge there
+    #print f, df
+    if abs(df) > dflim: df = dflim
+    f_array.append(f)
+    df_array.append(df)
+    f += df
+
+  print len(f_array)
+
+  return f_array, df_array
+
+
+if __name__ == "__main__":
+  if quadrature_type == 'MultiDomain':
+    quad_nodes, quad_weights = MultiDomain(pts,dom_ints)
+  elif quadrature_type == 'GW':
+    quad_nodes, quad_weights = GravitationalWaveAdaptive(fmin,fmax,m1_min,m2_min)
+  elif quadrature_type == 'GL':
+    #SingleDomGaussLeg(quad_points,a,b)
+    pass
+  else:
+    raise ValueError
+
+  np.savetxt(points_fname, quad_nodes)
+  np.savetxt(weights_fname, quad_weights)
+
+
+#fp = open(points_fname,'w')
+#fw = open(weights_fname,'w')
+#for ii in range(len(quad_nodes)):
+  #fp.write('%1.15e\n' % quad_nodes[ii])
+  #fw.write('%1.15e\n' % quad_weights[ii])
+#fp.close()
+#fw.close()
 
 

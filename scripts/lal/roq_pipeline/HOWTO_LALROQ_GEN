@@ -1,0 +1,41 @@
+
+
+     PLEAE SEE THE greedycpp wiki instead!
+
+
+--- building the roq (linear and quadratic) on a single interval ---
+
+Write me!
+
+
+
+--- validations of greedy and eim data ---
+
+1) Modify the SetupMultipleValidations.py script to validate an ROQ (data in the folder)
+
+2) run ./mergeValidations, delete old folders
+3) merge all validation files into a single one
+
+>>> cat test.txt* > validations.txt [or skip this step, if the file sizes are too large]
+>>> cat bad_points_test.txt* > ts_bad_points.txt
+>>> rm bad_points_test.txt*
+
+4) can check the worst validations in ipython
+
+>>> x = np.loadtxt('validations.txt')  [x = np.loadtxt('test.txt0')]
+>>> x.max(axis=0)
+
+5) if there are bad points, enrich the basis (see bitbucket wiki).
+
+
+--- resampling for a \delta f = constant (1/128, e.g.) ---
+
+1) setup a directory for the new run
+
+>>> mkdir df128
+
+2) link to setup_new_quad.py, change settings and run in the folder
+
+3) submit the job with roq.build.sh
+
+

@@ -68,17 +68,96 @@ def ReadComplexGSLBinaryMatrix(directory, filename, m, N):
     A_im = np.reshape(data[1::2], (m,N))
     return A_re + 1.j*A_im
 
+def FindTrainingRegion(TS_file, approximant):
+    """ Deduce basis training region so that this information can be exported."""
+
+    print 'Loading training set from file', TS_file
+    TS = np.loadtxt(TS_file)
+    num_pars = np.shape(TS)[1]
+    if 'SEOBNRv2_ROM_DoubleSpin_HI' in approximant: # catch all the different polarization tags
+        # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
+        m1 = TS.T[0]
+        m2 = TS.T[1]
+        etas = etafun(m1 / m2)
+        Mcs = Mchirpfun(m1 + m2, etas)
+        TS.T[0] = Mcs
+        TS.T[1] = etas
+        par_names = ['Mc', 'eta', 'chi1', 'chi2']
+    elif approximant=='LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts':
+        # The model interface used parameters ['mBH', 'mNS', 'chiBH', 'Lambda']
+        # The TS also uses these parameters, so we will stick to them to preserve the boundary.
+        par_names = ['mBH', 'mNS', 'chiBH', 'Lambda']
+    elif 'PhenomP' in approximant: # catch all the different polarizations and h^2 terms
+        # The PhenomP interface used ['Mtot', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
+        Mtots = TS.T[0]
+        etas = TS.T[1]
+        TS.T[0] = Mchirpfun(Mtots, etas)
+        par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
+
+    return par_names, TS
+
+
+def ParseConfigFile(cfg_file):
+
+    model_pattern = re.compile('model_name[=\s]+"(\w+)"')
+    for line in open(cfg_file):
+        for match in re.finditer(model_pattern, line):
+            approximant = match.groups()[0]
+            break
+    ts_pattern = re.compile('ts_file[=\s]+"(.*)"')
+    for line in open(cfg_file):
+        for match in re.finditer(ts_pattern, line):
+            TS_file = match.groups()[0]
+            break
+
+    roq_partition_pattern = re.compile('roq_[0-9\s]')
+    roq_partition = None
+    for line in open(cfg_file):
+        x = re.search(roq_partition_pattern, line)
+        if x is not None:
+            roq_partition = int(x.group().split('_')[1])
+            break
+
+    print "roq partition is %s"%roq_partition
+
+    return approximant, TS_file, roq_partition
+
+def ParseROQInfo(roq_info,outdir,roq_partition):
+    """ Use roq_info.json file to deduce the correct params.dat file"""
+
+    import json
+    with open(roq_info) as fp:
+        opts = json.load(fp)
+
+    roq_partitions = opts["partitions"]
+    ts_boundary_file = roq_partitions[roq_partition]["sample intervals"]
+
+    x = np.genfromtxt(ts_boundary_file, names=True)
+
+    par_names = '#'
+    par_value = ''
+
+    for param_name in x.dtype.names:
+      par_names += param_name+'-min '+ param_name+'-max '
+      par_min = x[param_name][0]
+      par_max = x[param_name][1]
+      par_value += str(par_min) + ' '+ str(par_max) + ' '
+
+    par_names +='\n' 
+
+    fp = open(os.path.join(outdir, 'params.dat'),'w')
+    fp.write(par_names)
+    fp.write(par_value)
+    fp.close()
+
 def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz.hdf5', 
       output_style='hdf5', cfg_file='run_40_4096Hz_pbnd_phase_corr_fine_local.cfg',
-      outdir='.'):
+      outdir='.',roq_info=None, roq_part=""):
 
     print(outdir)
 
-    if directory != outdir:
+    if directory != outdir and output_style == 'numpy' and not os.path.isdir(outdir):
         os.makedirs(outdir)
-    else:
-        print "hellow"
-
 
     # Read RB and EIM from directory, write B matrix for ROQ
     print 'Reading data from directory', directory
@@ -114,22 +193,25 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
     EIM_dfs = EIM_dfs_unsorted[idx]
 
     # Parse greedcpp config file
-    model_pattern = re.compile('model_name[=\s]+"(\w+)"')
-    for line in open(cfg_file):
-        for match in re.finditer(model_pattern, line):
-            approximant = match.groups()[0]
-            break
-    ts_pattern = re.compile('ts_file[=\s]+"(.*)"')
-    for line in open(cfg_file):
-        for match in re.finditer(ts_pattern, line):
-            TS_file = match.groups()[0]
-            break
+    approximant, TS_file, roq_partition = ParseConfigFile(cfg_file)
+
+    # Write training set bound metadata for all physical parameters
+    par_names, TS = FindTrainingRegion(TS_file, approximant)
+
+    # Parse roq_info.json file
+    if roq_info is not None:
+        ParseROQInfo(roq_info, outdir, roq_partition)
+    else:
+        print "No roq_info.json file to parse"
+        
 
     if output_style=='numpy':
         print 'Saving B matrix and EIM in numpy format'
-        np.save(os.path.join(outdir, 'EIM_F_sorted.npy'), EIM_F)
-        np.save(os.path.join(outdir, 'EIM_dfs_sorted.npy'), EIM_dfs)
-        np.save(os.path.join(outdir, 'B_sorted.npy'), B)
+        print "model = %s"%approximant
+        print "TS_file = %s"%TS_file
+        np.save(os.path.join(outdir, 'fnodes_%s.npy'%roq_part), EIM_F)
+        #np.save(os.path.join(outdir, 'EIM_dfs_sorted.npy'%roq_part), EIM_dfs) # not needed by LAL
+        np.save(os.path.join(outdir, 'B_%s.npy'%roq_part), B.T)
     elif output_style=='hdf5':
         if not hdf5_filename:
             hdf5_filename = 'ROQ' + '_' + approximant + '_' + str(np.min(freqs)) + '_' + str(np.max(freqs)) + 'Hz.hdf5'
@@ -139,10 +221,11 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
 
         dset_B = fp.create_dataset('B', data=B)
         dset_B.attrs['Comment'] = np.string_('The sorted B matrix: B = e^T . inv(V). shape(B) = C^{N x m}')
-        dset_e = fp.create_dataset('Reduced basis', data=e)
-        dset_e.attrs['Comment'] = np.string_('The reduced basis e. shape(e) = C^{m x N}')
+        # Don't save e as it can be reconstructed from B and Vinv and is usually very large.
+        #dset_e = fp.create_dataset('Reduced basis', data=e)
+        #dset_e.attrs['Comment'] = np.string_('The reduced basis e. shape(e) = C^{m x N}')
         dset_Vinv = fp.create_dataset('V inverse', data=Vinv)
-        dset_e.attrs['Comment'] = np.string_('The inverse Vandermonde matrix. shape(inv(V)) = C^{m x m}')
+        dset_Vinv.attrs['Comment'] = np.string_('The inverse Vandermonde matrix. shape(inv(V)) = C^{m x m}')
 
         dset_ApproxErrors = fp.create_dataset('ApproxErrors', data=ApproxErrors)
         dset_EIM_dfs = fp.create_dataset('EIM_deltaF_j', data=EIM_dfs)
@@ -174,27 +257,7 @@ def Convert_GSL_EIM_Data(directory, hdf5_filename='ROQ_SEOBNRv2_ROM_LM_40_4096Hz
             '''
             )
 
-        # Write training set bound metadata for all physical parameters
-        print 'Loading training set from file', TS_file
-        TS = np.loadtxt(TS_file)
-        num_pars = np.shape(TS)[1]
-        if approximant=='SEOBNRv2_ROM_DS_LM':
-            # The ROM interface used parameters ['m1', 'm2', 'chi1', 'chi2']
-            m1 = TS.T[0]
-            m2 = TS.T[1]
-            etas = etafun(m1 / m2)
-            Mcs = Mchirpfun(m1 + m2, etas)
-            TS.T[0] = Mcs
-            TS.T[1] = etas
-            par_names = ['Mc', 'eta', 'chi1', 'chi2']
-        elif 'PhenomP' in approximant: # catch all the different polarizations and h^2 terms
-            # The PhenomP interface used ['Mtot', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
-            Mtots = TS.T[0]
-            etas = TS.T[1]
-            TS.T[0] = Mchirpfun(Mtots, etas)
-            par_names = ['Mc', 'eta', 'chi_eff', 'chip', 'thetaJ', 'alpha0']
-
-        for i in range(num_pars):
+        for i in range(len(par_names)):
             fp.attrs[par_names[i]+'_min'] = np.min(TS.T[i])
             fp.attrs[par_names[i]+'_max'] = np.max(TS.T[i])
         print 'Saved training set bounds for parameters', par_names 
@@ -219,9 +282,14 @@ if __name__ == "__main__":
     parser.add_option("-p", "--path-of-output", dest="path_of_output", type="string",
                   help="Directory path in which to place the output data.", 
                   metavar="data_directory")
+    parser.add_option("-j", "--roq-info", dest="roq_info", type="string",
+                  help="Path to the roq_info.json file, if it exists (this file is used in the roq pipeline). If provided, a params.dat fill will be created.", metavar="roq_info")
+    parser.add_option("-a", "--ROQ-part", dest="roq_part", type="string",
+                  help="Can be 'linear' or 'quadratic'", metavar="roq_part")
 
     parser.set_defaults(data_directory='.', hdf5_filename=None,
-                        output_style='hdf5', cfg_file=None,path_of_output=None)
+                        output_style='hdf5', cfg_file=None,path_of_output=None,
+                        roq_info=None)
 
     (options, args) = parser.parse_args()
 
@@ -236,5 +304,7 @@ if __name__ == "__main__":
         outdir = options.path_of_output
     Convert_GSL_EIM_Data(options.data_directory, hdf5_filename=options.hdf5_filename, 
                          output_style=options.output_style, cfg_file=options.cfg_file,
-                         outdir=outdir)
+                         outdir=outdir, roq_info=options.roq_info, roq_part=options.roq_part)
+
+    print 'All done!\n'
 

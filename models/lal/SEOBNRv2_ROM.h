@@ -147,7 +147,7 @@ void ROM_SEOBNRv2_DS_HI_FullWaveform(
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 }
 
-/*
+
 // This routine is interfaced with greedy routine -- returns gsl data type //
 void LackeyTidal2013_FullWaveform(
   gsl_vector_complex * &wv, 
@@ -191,7 +191,7 @@ void LackeyTidal2013_FullWaveform(
     &hptilde,      //< Output: Frequency-domain waveform h+ //
     &hctilde,      //< Output: Frequency-domain waveform hx //
     freqs,         //< Frequency points at which to evaluate the waveform (Hz) //
-    phiRef,        /< Phase at reference time //
+    phiRef,        //< Phase at reference time //
     fRef,          //< Reference frequency (Hz); 0 defaults to fLow //
     distance,      //< Distance of source (m) //
     inclination,   //< Inclination of source (rad) //
@@ -212,7 +212,7 @@ void LackeyTidal2013_FullWaveform(
   XLALDestroyREAL8Sequence((REAL8Sequence *)freqs);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-}*/
+}
 
 #endif
 

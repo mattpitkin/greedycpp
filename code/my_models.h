@@ -23,6 +23,7 @@
 #include "../models/lal/SEOBNRv2_ROM.h"
 #include "../models/lal/TaylorF2.h"
 #include "../models/lal/Barycenter.h" // header for calculating solar system barycenter
+//#include "../models/lal/TaylorF2.h"
 #endif
 
 namespace mymodel {
@@ -65,16 +66,14 @@ void EvaluateModel(gsl_vector_complex *model_eval,
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hchc")  == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_hphc")  == 0 ||
             strcmp(ts.model(),"LackeyTidal2013_SEOBNRv2_ROM_HI_all_parts") == 0 ) {
-    //LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
-    std::cout << "needs bleeding edge lal!\n";
-    exit(1);
+    LackeyTidal2013_FullWaveform(model_eval, xQuad, params, model_tag);
   }
   else if ( strncmp(ts.model(), "Barycenter", sizeof(char)*10) == 0 ){
     // run code for calculated solar system barycenter
     Barycenter_Waveform(model_eval, xQuad, params, model_tag);
   }
-  else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
-    TaylorF2_LAL_Waveform(model_eval, xQuad, params);
+  //else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
+  //  TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif
   else {
     std::cerr << "my_models.h: Model not supported! Add model tag."<<std::endl;
