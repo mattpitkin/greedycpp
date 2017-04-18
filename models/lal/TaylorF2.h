@@ -42,15 +42,9 @@ void TaylorF2_LAL_Waveform(gsl_vector_complex *wv,
 	double chi1 = 0; // Don't include spins as parameters for now
 	double chi2 = 0;
 	double distance = 100*1e6*LAL_PC_SI;
-	double inclination = 0;
 	double fRef = 0;
-	double phiRef = 0;
-	int phaseO = -1;
-	int amplitudeO = -1;
-	double quadparam1 = 1.0; // quadrupole deformation parameter of body 1 (dimensionless, 1 for BH)
-	double quadparam2 = 1.0; // quadrupole deformation parameter of body 1 (dimensionless, 1 for BH)
-	double lambda1 = 0.0; // (tidal deformation of body 1)/(mass of body 1)^5
-	double lambda2 = 0.0; // (tidal deformation of body 1)/(mass of body 1)^5
+        double phiRef = 0.;
+	double shft = 0.;
 
 	// Copy frequency data into sequence
         const REAL8Sequence *freqs = XLALCreateREAL8Sequence(n);
@@ -65,15 +59,9 @@ void TaylorF2_LAL_Waveform(gsl_vector_complex *wv,
 	  m1SI, m2SI, 
 	  chi1, chi2, 
 	  fRef,
-	  inclination, 
-	  distance,
-	  quadparam1,
-	  quadparam2,
-	  lambda1,
-	  lambda2,
-	  LAL_SIM_INSPIRAL_SPIN_ORDER_ALL,
-	  LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN,
-          phaseO, amplitudeO,NULL);
+	  shft,
+          distance,
+          NULL);
 
 	if (ret != XLAL_SUCCESS) {
     	  fprintf(stderr, "Error calling XLALSimInspiralTaylorF2Core().\n");
