@@ -37,6 +37,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   // variables for calculating barycenter time delay
   EarthState earth;
   EmissionTime emit;
+  TimeCorrectionType ttype;
   
   if ( !edat && !tdat ){
     // deduce the detector, ephemeris and time units
@@ -65,8 +66,18 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
 
     // set time units file
     char timecorrfile[256];
-    if ( !strcmp("TCB", vals[2].c_str()) ){ snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz"); }
-    else if ( !strcmp("TDB", vals[2].c_str()) ){ snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz"); }
+    if ( !strcmp("TCB", vals[2].c_str()) ){
+      snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz");
+      ttype = TIMECORRECTION_TCB;
+    }
+    else if ( !strcmp("TDB", vals[2].c_str()) ){
+      snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz");
+      ttype = TIMECORRECTION_TDB;
+    }
+    else{
+      fprintf(stderr, "Error... time system must be \"TDB\" or \"TCB\".\n");
+      exit(-1);
+    }
     tdat = XLALInitTimeCorrections( timecorrfile );
   }
 
@@ -82,7 +93,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   
   for ( int i=0; i < n; i++ ){
     XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
-    XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, TIMECORRECTION_TCB );
+    XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
     XLALBarycenter( &emit, &baryinput, &earth );
     gsl_complex emitdt;
     GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
