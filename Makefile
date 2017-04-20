@@ -84,6 +84,7 @@ HEADERS = $(SRCDIR)/training_set.hpp \
 
 all: $(BINDIR)/greedy_mpi \
 	$(BINDIR)/greedyOMP_mpi \
+	$(BINDIR)/verify \
 	$(BINDIR)/verifyOMP \
 	$(BINDIR)/greedy \
 	$(BINDIR)/greedyOMP \
@@ -91,22 +92,27 @@ all: $(BINDIR)/greedy_mpi \
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
-        $(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
-        $(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedy $(SRCDIR)/greedy.cpp \
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(GIT_FLAGS) \
-        $(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
+	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
 	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
-        $(NUMPYHEADERS) -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(NUMPYHEADERS) -o $(BINDIR)/greedy_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedyOMP_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(GIT_FLAGS) \
-        $(NUMPYHEADERS) -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(NUMPYHEADERS) -o $(BINDIR)/greedyOMP_mpi $(SRCDIR)/greedy.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
+$(BINDIR)/verify: $(SRCDIR)/validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) \
+	$(NUMPYHEADERS) -o $(BINDIR)/verify $(SRCDIR)/validation.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/verifyOMP: $(SRCDIR)/validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
@@ -121,7 +127,7 @@ $(BINDIR)/eim: $(SRCDIR)/eim_driver.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(
 
 .PHONY: clean
 clean:
-	rm -f bin/greedy bin/greedyOMP bin/greedy_mpi bin/greedyOMP_mpi bin/verifyOMP bin/eim
+	rm -f bin/greedy bin/greedyOMP bin/greedy_mpi bin/greedyOMP_mpi bin/verifyOMP bin/verify bin/eim
 	rm -rf Temporary
 
 test: test1 test2 test3 test4
