@@ -23,8 +23,8 @@ extern "C"{
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
-BarycenterInput baryinput;
 LALDetector det;
+TimeCorrectionType ttype;
 
 void Barycenter_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *timestamps,
@@ -33,12 +33,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   int n = timestamps->size;
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
-  
+
   // variables for calculating barycenter time delay
   EarthState earth;
   EmissionTime emit;
-  TimeCorrectionType ttype;
-  
+  BarycenterInput baryinput;
+
   if ( !edat && !tdat ){
     // deduce the detector, ephemeris and time units
     std::vector<std::string> vals = lal_help::get_barycenter_tags(model_tag);
@@ -85,12 +85,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   baryinput.site.location[0] = det.location[0]/LAL_C_SI;
   baryinput.site.location[1] = det.location[1]/LAL_C_SI;
   baryinput.site.location[2] = det.location[2]/LAL_C_SI;
-  
+
   // set source position
   baryinput.dInv = 0.;
   baryinput.delta = dec;
   baryinput.alpha = ra;
-  
+
   for ( int i=0; i < n; i++ ){
     XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
     XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
