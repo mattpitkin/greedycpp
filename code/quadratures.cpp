@@ -114,9 +114,9 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,
   const int quad_points = pParams->quad_points();
   const double x_min = pParams->x_min();
   const double x_max = pParams->x_max();
-  const char *quad_nodes_file = pParams->quad_nodes_file().c_str();
-  const char *weight_file_name = pParams->quad_weight_file().c_str();
-  const char *num_weight_file = pParams->num_weight_file().c_str();
+  const char *quad_nodes_file = strdup(pParams->quad_nodes_file().c_str());
+  const char *weight_file_name = strdup(pParams->quad_weight_file().c_str());
+  const char *num_weight_file = strdup(pParams->num_weight_file().c_str());
 
   int gsl_status;
 
@@ -133,7 +133,7 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,
   if(quad_type == 2) {
     FILE *fvecf = fopen(quad_nodes_file, "r");
     if (fvecf==NULL) {
-      fprintf(stderr,"Could not open quadrature nodes file.\n");
+      fprintf(stderr,"Could not open quadrature nodes file \"%s\".\n", quad_nodes_file);
       exit(1);
     }
     gsl_status = gsl_vector_fscanf(fvecf, xQuad_tmp);
@@ -145,7 +145,7 @@ void SetupQuadratureRule(gsl_vector_complex **wQuad,
 
     FILE *fweightf = fopen(num_weight_file, "r");
     if (fweightf==NULL) {
-      fprintf(stderr,"Could not open quadrature weights file.\n");
+      fprintf(stderr,"Could not open quadrature weights file \"%s\".\n", weight_file_name);
       exit(1);
     }
     gsl_status = gsl_vector_fscanf(fweightf, wQuad_tmp1);
