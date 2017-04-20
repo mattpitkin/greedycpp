@@ -165,6 +165,7 @@ int main (int argc, char **argv) {
     double alg_time1;
 
     // estimate the size of loop allocated to each thread
+    #ifdef USE_OPENMP
     int size_per_thread =
       std::floor(random_samples->ts_size()/omp_get_num_threads());
     //int one_percent_finished = std::floor(size_per_thread/100);
@@ -177,7 +178,7 @@ int main (int argc, char **argv) {
     fprintf(stdout,"Thread %i, estimates %i of %i total. %i for one percent\n",
             thread_id,size_per_thread,random_samples->ts_size(),
             one_percent_finished);
- 
+    #endif
     double nrm;
 
     #pragma omp for
@@ -186,7 +187,7 @@ int main (int argc, char **argv) {
       // Use this if model_evaluations matrix has been filled (see above) //
       //gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
 
-      // Use this if model evalutions are done on-the-fly //
+      // Use this if model evaluations are done on-the-fly //
       //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
@@ -205,7 +206,7 @@ int main (int argc, char **argv) {
       fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);*/
 
       // -- Compute empirical interpolation errors -- //
-      // projection error valiadtion modifies model_eval; 
+      // projection error validation modifies model_eval; 
       // so EIM errors must be computed first
       //start1 = clock();
       gsl_vector_complex *eim_eval =
@@ -251,12 +252,13 @@ int main (int argc, char **argv) {
       //fprintf(stdout,"Random point index %i with error %1.3e\n",
       //  ii,errors[ii]);
 
+      #ifdef USE_OPENMP
       if( ii % one_percent_finished == 0) {
         percent_completed +=1;
         fprintf(stdout,"Thread %i %i percent finished\n",thread_id,
                 percent_completed);
       }
-
+      #endif
     }
 
     gsl_vector_complex_free(r_tmp);
