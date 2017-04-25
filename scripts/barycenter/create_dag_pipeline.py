@@ -54,7 +54,7 @@ parser.add_argument("--detector", dest="detector", default="H1", help="Gravitati
 parser.add_argument("--ephemeris", dest="ephem", default="DE405", help="JPL solar system ephemeris to use (DE200, DE405, DE414, or DE421) [default: %(default)s]")
 parser.add_argument("--units", dest="units", default="TCB", help="Time units to use (TCB or TDB) [default: %(default)s]")
 parser.add_argument("--tolerance", dest="tol", type=float, default=5e-12, help="The tolerance for producing the reduced basis [default: %(default)s]")
-parser.add_argument("--max-rb", dest="maxrb", type=int, deault=500, help="The maximum number of reduced bases that will be produced [default: %(default)s]")
+parser.add_argument("--max-rb", dest="maxrb", type=int, default=500, help="The maximum number of reduced bases that will be produced [default: %(default)s]")
 parser.add_argument("--num-cores", dest="numcores", type=int, default=1, help="The number of CPUs to request and use [default: %(default)s]")
 parser.add_argument("--request-mem", dest="requestmem", type=int, default=1024, help="The amount of RAM (Mb) to request [default: %(default)s]")
 parser.add_argument("--max-enrich", dest="maxenrich", type=int, default=0, help="The maximum number of enrichment steps to try [default: %(default)s]")
@@ -130,17 +130,17 @@ if opts.npoints > 0:
 else:
   print("Error... training set length '{}' is not valid".format(opts.npoints), file=sys.stderr)
   sys.exit(1)
-if opts.detector is in ['H1', 'L1', 'H2', 'V1', 'G1']:
+if opts.detector in ['H1', 'L1', 'H2', 'V1', 'G1']:
   cfgdic["detector"] = opts.detector
 else:
   print("Error... detector '{}' is not valid".format(opts.detector), file=sys.stderr)
   sys.exit(1)
-if opts.ephem is in ['DE405', 'DE200', 'DE414', 'DE421']:
+if opts.ephem in ['DE405', 'DE200', 'DE414', 'DE421']:
   cfgdic["ephemeris"] = opts.ephem
 else:
   print("Error... ephemeris '{}' is not valid".format(opts.ephem), file=sys.stderr)
   sys.exit(1)
-if opts.units is in ['TCB', 'TDB']:
+if opts.units in ['TCB', 'TDB']:
   cfgdic["timeunits"] = opts.units
 else:
   print("Error... time units '{}' is not valid".format(opts.units), file=sys.stderr)
