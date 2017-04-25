@@ -10,16 +10,9 @@ from __future__ import division, print_function
 import os
 import sys
 import argparse
+import uuid
 
-"""
-things to add:
- - subfile for running greedyOMP that includes "request_memory = X" and "machine_count = Y" for running on multiple cores
- - create the .cfg file for running the code
- - check whether to validate
- - check whether to enrich (and set a maximum number of enrichment steps)
-"""
-
-configtemplate = """// Configuration file for running greedycpp with the 'Barycenter' model
+configtemplate = r"""// Configuration file for running greedycpp with the 'Barycenter' model
 
 // start time, end time and number of time points
 x_min = {starttime};     // GPS start time
@@ -64,7 +57,9 @@ parser.add_argument("--tolerance", dest="tol", type=float, default=5e-12, help="
 parser.add_argument("--max-rb", dest="maxrb", type=int, deault=500, help="The maximum number of reduced bases that will be produced [default: %(default)s]")
 parser.add_argument("--num-cores", dest="numcores", type=int, default=1, help="The number of CPUs to request and use [default: %(default)s]")
 parser.add_argument("--request-mem", dest="requestmem", type=int, default=1024, help="The amount of RAM (Mb) to request [default: %(default)s]")
-parser.add_argument("--max-enrich", dest="maxenrich", type=int, default=1, help="The maximum number of enrichment steps to try [default: %(default)s]")
+parser.add_argument("--max-enrich", dest="maxenrich", type=int, default=0, help="The maximum number of enrichment steps to try [default: %(default)s]")
+parser.add_argument("--num-validate", dest="numvalidate", type=int, default=0, help="The number of validation instantiations to run [default: %(default)s]")
+parser.add_argument("--validate-ts", dest="validatets", type=int, default=5000, help="The number of training points to use for each validation [default: %(default)s]")
 
 # parse input options
 opts = parser.parse_args()
@@ -172,11 +167,11 @@ except:
 
 # create submit file for greedycpp
 greedysub = os.path.join(rundir, "greedy.sub")
-greedytemplate = """universe = vanilla
+greedytemplate = r"""universe = vanilla
 executable = {greedyexec}
 request_memory = {reqmem}
 machine_count = {ncpus}
-arguments = "{greedyargs}"
+arguments = "$(macrogreedycfg)"
 accounting_group_user = matthew.pitkin
 accounting_group = aluk.dev.o3.cw.targeted.rom
 log = {log}
@@ -198,7 +193,6 @@ if opts.numcores > 0:
 else:
   print("Error... invalid number of CPUs '{}' requested".format(opts.numcores), file=sys.stderr)
   sys.exit(1)
-greedydic["greedyargs"] = cfgfile
 
 logdir = os.path.join(rundir, "log")
 if not os.path.isdir(logdir):
@@ -207,9 +201,9 @@ if not os.path.isdir(logdir):
   except:
     print("Error... could not create log directory '{}'".format(logdir), file=sys.stderr)
     sys.exit(1)
-greedydic["log"] = os.path.join(logdir, "greedy.log")
-greedydic["error"] = os.path.join(logdir, "greedy.err")
-greedydic["output"] = os.path.join(logdir, "greedy.out")
+greedydic["log"] = os.path.join(logdir, "greedy_$(Process).log")
+greedydic["error"] = os.path.join(logdir, "greedy_$(Process).err")
+greedydic["output"] = os.path.join(logdir, "greedy_$(Process).out")
 
 try:
   fpgreedy = open(greedysub, "w")
@@ -223,7 +217,201 @@ except:
 dagfile = os.path.join(rundir, "run.dag")
 dagfp = open(dagfile, "w")
 
-# create submit file for
+# add greedycpp job to the DAG
+greedyid = str(uuid.uuid4().hex)
+dagfp.write(r"JOB {} {}\n".format(greedyid, greedysub))
+dagfp.write(r'VARS {} macrogreedycfg="{}"\n'.format(greedyid, cfgfile))
 
+# create submit files for EIM and validation if required
+if opts.numvalidate > 0:
+  eimtemplate = r"""universe = vanilla
+executable = {eimexec}
+arguments = "{eimargs}"
+accounting_group_user = matthew.pitkin
+accounting_group = aluk.dev.o3.cw.targeted.rom
+log = {log}
+error = {error}
+output = {output}
+getenv = true
+notifications = Never
+queue 1
+"""
+  eimdic = {}
+  eimdic["eimexec"] = eimexec
+  eimdic["eimargs"] = "$(macroeimconfig) $(macroeimrundir) gsl"
+  eimdic["log"] = os.path.join(logdir, r"eim_$(Process).log")
+  eimdic["error"] = os.path.join(logdir, r"eim_$(Process).err")
+  eimdic["output"] = os.path.join(logdir, r"eim_$(Process).out")
 
+  eimsub = os.path.join(rundir, "eim.sub")
+  try:
+    fpeim = open(eimsub, "w")
+    fpeim.write(eimtemplate.format(**eimdic))
+    fpeim.close()
+  except:
+    print("Error... could not output EIM '.sub' file '{}'".format(eimsub), file=sys.stderr)
+    sys.exit(1)
+
+  verifytemplate = r"""universe = vanilla
+executable = {verifyexec}
+arguments = "{verifyargs}"
+accounting_group_user = matthew.pitkin
+accounting_group = aluk.dev.o3.cw.targeted.rom
+machine_count = {ncpus}
+request_memory = {reqmem}
+log = {log}
+error = {error}
+output = {output}
+getenv = true
+notifications = Never
+queue 1
+"""
+
+  verifydic = {}
+  verfiydic["verifyexec"] = verifyexec
+  verifydic["verifyargs"] = r"$(macrovalconfig) $(macrovalrundir) gsl $(macrovalpoints) $(macrovaldirname)"
+  verfiydic["reqmem"] = opts.requestmem
+  verifydic["ncpus"] = opts.numcores
+  verifydic["log"] = os.path.join(logdir, r"verify_$(Process).log")
+  verifydic["error"] = os.path.join(logdir, r"verify_$(Process).err")
+  verifydic["output"] = os.path.join(logdir, r"verify_$(Process).out")
+
+  verifysub = os.path.join(rundir, "verify.sub")
+  try:
+    fpverify = open(verifysub, "w")
+    fpverify.write(verifytemplate.format(**verifydic))
+    fpverify.close()
+  except:
+    print("Error... could not output EIM '.sub' file '{}'".format(eimsub), file=sys.stderr)
+    sys.exit(1)
+
+  # create enrichment sub file template for concatenating files
+  if opts.maxenrich > 0:
+    catdic = {}
+    cattemplate = r"""universe = local
+executable = /bin/cat
+arguments = "$(macroinputs)"
+accounting_group_user = matthew.pitkin
+accounting_group = aluk.dev.o3.cw.targeted.rom
+log = {log}
+error = {error}
+output = {output}
+getenv = true
+notifications = Never
+queue 1
+"""
+    catdic["log"] = os.path.join(logdir, r"cat_$(Process).log")
+    catdic["error"] = os.path.join(logdir, r"cat_$(Process).err")
+
+  # setup validations for each enrichment step (or just once if no enrichment is performed)
+  niter = max([opts.maxenrich, 1])
+
+  nvalts = opts.validatets
+  if nvalts < 1:
+    print("Error... number of validation points '{}' is not valid".format(nvalts), file=sys.stderr)
+
+  for i in range(niter):
+    # create validation directories and validation training points
+    if i == 0:
+      valbasedir = rundir
+    else:
+      valbasedir = os.path.join(rundir, "enrich%03d" % (i-1)) # validation is done on previous directory
+
+    valdirs = []
+    for j in range(opts.numvalidate):
+      valdir = os.path.join(valbasedir, "validate%03d" % j)
+      try:
+        os.makedirs(valdir)
+      except:
+        print("Error... could not create validation directory '{}'".format(valdir), file=sys.stderr)
+        sys.exit(1)
+      valdirs.append(valdir)
+
+      # create validation points
+      ra = 2.*np.pi*np.random.rand(1,nvalts)
+      dec = -(np.pi/2.) + np.arccos(2.*np.random.rand(1,nvalts) - 1.)
+      valtsfile = os.path.join(valdir, "validation_points.txt")
+      try:
+        np.savetxt(valtsfile, np.concatenate((ra, dec)).T)
+      except:
+        print("Error... could not output validation points file '{}'".format(valtsfile), file=sys.stderr)
+        sys.exit(1)
+
+    # set up enrichment
+    if opts.maxenrich > 0 and i < niter-1: # second expression means we end on a validation rather than an enrichment
+      enrichdir = os.path.join(rundir, "enrich%03d" % i)
+
+      # set "new" training points from validation points and previously found reduced basis points
+      enrichfiles = [os.path.join(v, r"bad_points_validation_points.txt") for v in valdirs]
+      enrichfiles.append(os.path.join(valbasedir, "GreedyPoints.txt"))
+
+      try:
+        os.makedirs(enrichdir)
+      except:
+        print("Error... could not create enrichment directory '{}'".format(enrichdir), file=sys.stderr)
+        sys.exit(1)
+
+      enrichcfgfile = os.path.join(enrichdir, "enrich.cfg")
+      enrichtsfile = os.path.join(enrichdir, "TS_points.txt")
+      
+      # output new configuration file
+      cfgdic["tsfile"] = enrichtsfile
+      cfgdic["outdir"] = enrichdir
+      try:
+        fpenrich = open(enrichcfgfile, "w")
+        fpenrich.write(configtemplate.format(cfgdic))
+        fpenrich.close()
+      except:
+        print("Error... could not output enrichment configuration file '{}'".format(enrichcfgfile), file=sys.stderr)
+        sys.exit(1)
+
+      # output enriched training set
+      catdic["output"] = enrichtsfile
+
+    # add EIM job to dag
+    eimid = str(uuid.uuid4().hex) # DAG id for EIM run
+    dagfp.write(r"JOB {} {}\n".format(eimid, eimsub))
+    dagfp.write(r'VARS {} macroeimconfig="{}" macroeimrundir="{}"\n'.format(eimid, cfgfile, valbasedir))
+    dagsp.write(r'PARENT {} CHILD {}\n'.format(greedyid, eimid)) # set EIM to be child of greedy run
+
+    # add validation jobs to dag
+    valids = []
+    for v in valdirs:
+      valid = str(uuid.uuid4().hex) # DAG id for validation run
+      dagfp.write(r'JOB {} {}\n'.format(valid, verifysub))
+      valvars = [valid, os.path.join(valbasedir, 'validations_setup.cfg'), valbasedir, os.path.join(v, "validation_points.txt"), os.path.basename(v)]
+      dagfp.write(r'VARS {} macrovalconfig="{}" macrovalrundir="{}" macrovalpoints="{}" macrovaldirname="{}"\n'.format(*valvars))
+      valids.append(valid)    
+
+    dagfp.write(r'PARENT {} CHILD {}\n'.format(eimid, " ".join(valids))) # set all validation runs to be children of the EIM run
+
+    if opts.maxenrich > 0 and i < niter-1:
+      # write out specific concatenation job sub file
+      concatsub = os.path.join(valbasedir, "concat.sub")
+      try:
+        fpconcat = open(concatsub, "w")
+        fpconcat.write(cattemplate.format(**catdic))
+        fpconcat.close()
+      except:
+        print("Error... could not create concatenation .sub file '{}'".format(concatsub), file=sys.stderr)
+        sys.exit(1)
+
+      # add concatenation job to dag
+      concatid = str(uuid.uuid4().hex) # DAG id for concatenation run
+      dagfp.write(r'JOB {} {}\n'.format(concatid, concatsub))
+      dagfp.write(r'VARS {} macroinputs="{}"\n'.format(concatid, ' '.join(enrichfiles)))
+      dagfp.write(r'PARENT {} CHILD {}\n'.format(' '.join(valids), concatid)) # set concatenation to be a child of all validation runs
+
+      # and enrichment run of greedydp
+      enrichid = str(uuid.uuid4().hex) # DAG id for enrichment greedycpp run
+      dagfp.write(r'JOB {} {}\n'.format(enrichid, greedysub))
+      dagfp.write(r'VARS {} macrogreedycfg="{}"\n'.format(enrichid, enrichcfgfile))
+      dagfp.write(r'PARENT {} CHILD {}\n'.format(concatid, enrichid)) # set enrichment to be child of concatenation
+
+      cfgfile = enrichcfgfile # update configuration file for greedy run
+      greedyid = enrichid
+
+dagfp.close()
+
+print("Success... your DAG file '{}' has been created".format(dagfile), file=sys.stdout)
 
