@@ -26,9 +26,11 @@ OPENMP=-fopenmp -DUSE_OPENMP
 #-Wundef -Werror -Wno-unused
 
 ### Work with numpy data files ###
-NUMPY=-DUSE_NUMPY
+#NUMPY=-DUSE_NUMPY
+NUMPY=
 NUMPYHEADERS=
-NUMPYLIBS=-lcnpy
+#NUMPYLIBS=-lcnpy
+NUMPYLIBS=
 
 ### GSL and GSL's verion of blas  ###
 #LDLIBS = -lgsl -lgslcblas -lconfig++ -pg
@@ -58,8 +60,8 @@ MODELLIBS=
 #LAL=  # if you do not have LAL installed
 LAL=-DMODEL_LAL 
 MODELHEADERS+=models/lal/phenomp.h
-MODELFLAGS+=$(shell pkg-config --cflags lalsimulation lalpulsar)
-MODELLIBS+=$(shell pkg-config --libs lalsimulation lalpulsar)
+MODELFLAGS+=$(shell pkg-config --cflags lalsupport lalsimulation lalpulsar lalxml)
+MODELLIBS+=$(shell pkg-config --libs lalsupport lalsimulation lalpulsar lalxml)
 MODELHEADERS+=models/lal/lal_helpers.hpp
 MODELSOURCES+=models/lal/lal_helpers.cpp
 
