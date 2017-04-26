@@ -31,9 +31,7 @@
 #define TWOPI 6.283185307179586476925286766559005768
 
 int main (int argc, char **argv) {
-  // -- record parameters with errors above tolerance to separate file -- //
-  double err_tol = 1e-7; // maximum allowed residual time (seconds)
-    
+
   bool save_norm = false;
 
   //----- Checking the number of Variables passed to the Executable -----//
@@ -90,6 +88,7 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
+
   // Copy validation run cfg file to the output folder //
   std::string validation_cfg(argv[2]);
   validation_cfg.append(loc_dir).append("validation_run.cfg");
@@ -110,20 +109,39 @@ int main (int argc, char **argv) {
   const gsl_vector_complex wQuad = data->wQuad();
   const gsl_vector xQuad = data->xQuad();
 
-  gsl_matrix_complex *model_evaluations;
+  // -- record parameters with errors above tolerance to separate file -- //
+  // read in tol from *.cfg file
+  double err_tol = params_from_file.tol();
   
-  // calculate the maximum residual time between the validation points and empirically interpolated points
-  // and calculate the phase mismatch, assuming a 1000Hz source, caused by any barycentering uncertainty
-  // 1 - sum(cos(2*pi*1000*(Dt)))/N
-  double *error_resmax, *error_phasemismatch;
+  gsl_matrix_complex *model_evaluations;
+  double *errors, *errors_eim, *errors_resmax, *errors_phasemismatch, *model_norm;
   clock_t start, end;
+
+  // If basis is orthogonal (but not normalized) carry out normalization //
+  // NOTE: validation studies assume the basis satisfies <ei,ej> = \delta_{ij}
+  //std::cout << "Normalizing the basis..." << std::endl;
+  //mygsl::NormalizeMatrixRows(RB_space,wQuad);
+
+  // -- this is useful sanity check (looks at TS waveform errors) -- //
+  //TrainingSetClass *random_samples=new TrainingSetClass(&params_from_file,1);
 
   // -- use random samples file -- //
   TrainingSetClass *random_samples =
     new TrainingSetClass(&params_from_file,random_sample_file);
 
-  error_resmax        = new double[random_samples->ts_size()];
-  error_phasemismatch = new double[random_samples->ts_size()];
+  // Use this if filling up matrix upfront (faster for smaller studies) 
+  /*model_evaluations = 
+   gsl_matrix_complex_alloc(random_samples->ts_size(),params_from_file.quad_points());
+  mymodel::FillTrainingSet(model_evaluations,&xQuad,&wQuad,*random_samples,0);*/
+
+  errors               = new double[random_samples->ts_size()];
+  errors_eim           = new double[random_samples->ts_size()];
+  errors_resmax        = new double[random_samples->ts_size()];
+  errors_phasemismatch = new double[random_samples->ts_size()];
+  if(save_norm) {
+    model_norm = new double[random_samples->ts_size()];
+  }
+
 
   // error reported will be \sqrt(h - Ph) //
   start = clock();
@@ -142,9 +160,9 @@ int main (int argc, char **argv) {
 
     // r_tmp is rb_size+1... in MGS routine this entry is ||ortho||
     // use this r_tmp for older way (see below)
-    //r_tmp      = gsl_vector_complex_alloc(data->rb_size()+1);
-    //gsl_vector_complex_set_zero(r_tmp);
-    r_tmp      = gsl_vector_complex_alloc(data->rb_size());
+    r_tmp      = gsl_vector_complex_alloc(data->rb_size()+1);
+    gsl_vector_complex_set_zero(r_tmp);
+    //r_tmp      = gsl_vector_complex_alloc(data->rb_size());
 
     double *params;
     params     = new double[random_samples->param_dim()];
@@ -169,44 +187,68 @@ int main (int argc, char **argv) {
 
     #pragma omp for
     for(int ii = 0; ii < random_samples->ts_size(); ii++) {
+
+      // Use this if model_evaluations matrix has been filled (see above) //
+      //gsl_matrix_complex_get_row(model_eval,model_evaluations,ii);
+
       // Use this if model evaluations are done on-the-fly //
+      //start1 = clock();
       random_samples->GetParameterValue(params,0,ii);
       mymodel::EvaluateModel(model_eval,&xQuad,params,*random_samples);
 
-      // -- Compute empirical interpolation errors (residuals) -- //
-      gsl_vector_complex *eim_eval = eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
-      
-      //if ( ii == 0 ){
-        // print out model and EIM model
-        //FILE *fp1 = NULL;
-        //fp1 = fopen("/home/matthew/testing/redordbar/validation/eim_model.txt", "w");
-        //if ( gsl_vector_complex_fprintf(fp1, eim_eval, "%.16le") ){
-        //  fprintf(stderr, "Problem outputting EIM model\n");
-        //}
-        //fclose(fp1);
-        //fp1 = fopen("/home/matthew/testing/redordbar/validation/full_model.txt", "w");
-        //if ( gsl_vector_complex_fprintf(fp1, model_eval, "%.16le") ){
-        //  fprintf(stderr, "Problem outputting full model\n");
-        //}
-        //fclose(fp1);
-      //}
-        
+      // NOTE: not the best way to do this: recomputing the norm, nrm2 NOT squared.
+      if(save_norm) {
+        nrm = mygsl::GetNorm_double(model_eval,&wQuad);
+        model_norm[ii] = nrm;
+      }
+
+      //fprintf(stdout,"nrm=%1.16e\n",nrm);
+
+      /*end1 = clock();
+      alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+      fprintf(stdout,"evaluating the model took %f seconds\n",alg_time1);*/
+
+      // -- Compute empirical interpolation errors -- //
+      // projection error validation modifies model_eval; 
+      // so EIM errors must be computed first
+      //start1 = clock();
+      gsl_vector_complex *eim_eval =
+        eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
       gsl_vector_complex_sub(eim_eval,model_eval);
 
       // get maximum absolute residual value (model is only real so get real vector view)
       gsl_vector_view realres = gsl_vector_complex_real(eim_eval);
       double resmin = 0., resmax = 0.;
       gsl_vector_minmax(&realres.vector, &resmin, &resmax); // get the minimum and maximum values
-      error_resmax[ii] = MAXABS(resmin, resmax); // determine the maximum absolute value
+      errors_resmax[ii] = MAXABS(resmin, resmax); // determine the maximum absolute value
 
       // get the phase mismatch for a 1000 Hz signal (use trapzeium rule for integration)
       double phasematch = 0.;
       for (int jj=0; jj < data->quad_size()-1; jj++){ phasematch += 0.5*(cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj)) + cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj+1))); }
-      fprintf(stderr, "phase match = %.16lf\n", phasematch);
       phasematch /= (data->quad_size()-1.);
-      error_phasemismatch[ii] = 1. - phasematch;
+      errors_phasemismatch[ii] = 1. - phasematch;
+      
+      // to get the EIM error need normalised model, which is not wanted to timing residual errors
+      mygsl::NormalizeVector(model_eval,&wQuad);
+      const double nrm2 = mygsl::GetNorm_double(model_eval,&wQuad); // if model = 0, norm = 0, else 1
+      gsl_vector_complex_free(eim_eval);
+      eim_eval = eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
+      gsl_vector_complex_sub(eim_eval,model_eval);
+      // TODO: unaware of norm (compare with projection error below)
+      errors_eim[ii] = mygsl::GetNorm_double(eim_eval,&wQuad);
 
       gsl_vector_complex_free(eim_eval);
+      /*end1 = clock();
+      alg_time1 = ((double) (end1 - start1)/CLOCKS_PER_SEC);
+      fprintf(stdout,"eim took %f seconds\n",alg_time1);*/
+
+      // -- Compute errors by projecting onto the basis -- //
+      // NOTE: slow and fast way agree to about 1 sig fig
+      //       MGS takes a more "stable" projection
+      //start1 = clock();
+      // slow way (older) USING SLOW WAY HERE AND REMOVING FAST WAY, WHICH GIVES ODD RESULTS!
+      mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
+      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()));
 
       #ifdef USE_OPENMP
       if( ii % one_percent_finished == 0) {
@@ -241,11 +283,16 @@ int main (int argc, char **argv) {
   strcat(err_filename,loc_dir.c_str());
   strcpy(bad_param_filename,err_filename);
   strcat(bad_param_filename,"bad_points_");
+  strcpy(model_norm_filename,err_filename);
+  strcat(model_norm_filename,"model_norm_");
 
   strcat(err_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
   strcat(bad_param_filename,random_sample_file.substr(
     random_sample_file.find_last_of("\\/")+1,100).c_str());
+  strcat(model_norm_filename,random_sample_file.substr(
+    random_sample_file.find_last_of("\\/")+1,100).c_str());
+
 
   FILE *err_data  = fopen(err_filename,"w");
   if (err_data==NULL) {
@@ -261,11 +308,23 @@ int main (int argc, char **argv) {
     exit(1);
   }
 
+  FILE *model_nrm = fopen(model_norm_filename,"w");
+  if (bad_param==NULL) {
+    std::cerr << "could not open model norm file\n";
+    std::cerr << "with file name = " << model_norm_filename << std::endl;
+    exit(1);
+  }
+
   for(int i = 0; i < random_samples->ts_size() ; i++) {
     random_samples->fprintf_ith(err_data,i);
-    fprintf(err_data," %1.15e",error_phasemismatch[i]);
-    fprintf(err_data," %1.15e\n",error_resmax[i]);
-    if(error_resmax[i]>err_tol) {
+    fprintf(err_data," %1.15e",errors_eim[i]);
+    fprintf(err_data," %1.15e",errors[i]);
+    fprintf(err_data," %1.15e",errors_resmax[i]);
+    fprintf(err_data," %1.15e\n",errors_phasemismatch[i]);
+    if(save_norm) {
+      fprintf(model_nrm," %1.15e\n",model_norm[i]);
+    }
+    if(errors[i]>err_tol) {
       random_samples->fprintf_ith(bad_param,i);
       fprintf(bad_param,"\n");
     }
@@ -273,9 +332,15 @@ int main (int argc, char **argv) {
 
   fclose(bad_param);
   fclose(err_data);
+  fclose(model_nrm);
 
-  delete [] error_resmax;
-  delete [] error_phasemismatch;
+  if(save_norm) {
+    delete [] model_norm;
+  }
+  delete [] errors;
+  delete [] errors_eim;
+  delete [] errors_resmax;
+  delete [] errors_phasemismatch;
   delete data;
   data = NULL;
   delete eim;
