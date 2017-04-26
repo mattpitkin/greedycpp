@@ -88,6 +88,7 @@ all: $(BINDIR)/greedy_mpi \
 	$(BINDIR)/greedyOMP_mpi \
 	$(BINDIR)/verify \
 	$(BINDIR)/verifyOMP \
+	$(BINDIR)/verifyBarycenter \
 	$(BINDIR)/greedy \
 	$(BINDIR)/greedyOMP \
 	$(BINDIR)/eim
@@ -120,6 +121,11 @@ $(BINDIR)/verify: $(SRCDIR)/validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES)
 $(BINDIR)/verifyOMP: $(SRCDIR)/validation.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
 	$(NUMPYHEADERS) -o $(BINDIR)/verifyOMP $(SRCDIR)/validation.cpp $(SOURCES) \
+	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
+$(BINDIR)/verifyBarycenter: $(SRCDIR)/validation_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
+	$(NUMPYHEADERS) -o $(BINDIR)/verifyBarycenter $(SRCDIR)/validation_barycenter.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/eim: $(SRCDIR)/eim_driver.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
