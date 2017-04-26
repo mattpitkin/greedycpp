@@ -95,7 +95,7 @@ else:
     sys.exit(1)
 
   # set verfiy 'validation' exectable
-  verifyexec = os.path.join(opts.execdir, 'verifyOMP')
+  verifyexec = os.path.join(opts.execdir, 'verifyBarycenter')
   if not os.path.isfile(verifyexec) or not os.access(verifyexec, os.X_OK):
     print("Error... '{}' does not exist or is not executable".format(verifyexec), file=sys.stderr)
     sys.exit(1)
