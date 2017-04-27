@@ -9,7 +9,8 @@ source /home/matthew/repositories/greedycpp/script/barycenter/setup.sh
 genscript=/home/matthew/repositories/greedycpp/scripts/barycenter/generate_trainingpoints.py # script to generate set of RA and dec sky positions as training points
 greedy=/home/matthew/repositories/greedycpp/bin/greedyOMP  # greedycpp executable
 eim=/home/matthew/repositories/greedycpp/bin/eim           # empirical interpolator exectuable
-verify=/home/matthew/repositories/greedycpp/bin/verifyOMP  # verification executable
+verify=/home/matthew/repositories/greedycpp/bin/verifyBarycenter  # verification executable
+#verify=/home/matthew/repositories/greedycpp/bin/verifyOMP  # verification executable
 
 rundir=/home/matthew/testing/redordbar/
 if [ ! -d "$rundir" ]; then
