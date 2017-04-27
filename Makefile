@@ -128,6 +128,12 @@ $(BINDIR)/verifyBarycenter: $(SRCDIR)/validation_barycenter.cpp $(SOURCES) $(HEA
 	$(NUMPYHEADERS) -o $(BINDIR)/verifyBarycenter $(SRCDIR)/validation_barycenter.cpp $(SOURCES) \
 	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
+# version without OMP
+#$(BINDIR)/verifyBarycenter: $(SRCDIR)/validation_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+#	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(LAL) $(NUMPY) \
+#	$(NUMPYHEADERS) -o $(BINDIR)/verifyBarycenter $(SRCDIR)/validation_barycenter.cpp $(SOURCES) \
+#	$(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
 $(BINDIR)/eim: $(SRCDIR)/eim_driver.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) \
 	$(NUMPYHEADERS) -o $(BINDIR)/eim $(SRCDIR)/eim_driver.cpp $(SOURCES) \

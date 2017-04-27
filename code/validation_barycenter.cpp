@@ -108,7 +108,7 @@ int main (int argc, char **argv) {
   const gsl_matrix_complex RB_space = data->RB_space();
   const gsl_vector_complex wQuad = data->wQuad();
   const gsl_vector xQuad = data->xQuad();
-
+  
   // -- record parameters with errors above tolerance to separate file -- //
   // read in tol from *.cfg file
   double err_tol = params_from_file.tol();
@@ -228,9 +228,10 @@ int main (int argc, char **argv) {
       phasematch /= (data->quad_size()-1.);
       errors_phasemismatch[ii] = 1. - phasematch;
       
-      // to get the EIM error need normalised model, which is not wanted to timing residual errors
+      // to get the EIM error need normalised model, which is not wanted for timing residual errors
       mygsl::NormalizeVector(model_eval,&wQuad);
       const double nrm2 = mygsl::GetNorm_double(model_eval,&wQuad); // if model = 0, norm = 0, else 1
+
       gsl_vector_complex_free(eim_eval);
       eim_eval = eim->eim_full_vector(model_eval,&RB_space,data->rb_size());
       gsl_vector_complex_sub(eim_eval,model_eval);
@@ -247,8 +248,20 @@ int main (int argc, char **argv) {
       //       MGS takes a more "stable" projection
       //start1 = clock();
       // slow way (older) USING SLOW WAY HERE AND REMOVING FAST WAY, WHICH GIVES ODD RESULTS!
-      mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
-      errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()));
+      //mygsl::MGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
+      
+      // get projection errors in same way as in the Greedy() function for consistency
+      double projection_norms2 = 0.;
+      gsl_complex projection_coeff;
+      for (int jj = 0; jj < data->rb_size(); jj++){
+        gsl_vector_complex_const_view rbrow = gsl_matrix_complex_const_row(&RB_space, jj);
+        projection_coeff = mygsl::InnerProduct(&wQuad,&rbrow.vector,model_eval,false);
+        projection_norms2 += (projection_coeff.dat[0]*projection_coeff.dat[0]+projection_coeff.dat[1]*projection_coeff.dat[1]);
+      }
+      errors[ii] = nrm2 - projection_norms2;
+
+      //mygsl::IMGS(r_tmp,model_eval,&RB_space,&wQuad,data->rb_size());
+      //errors[ii] = GSL_REAL(gsl_vector_complex_get(r_tmp,data->rb_size()));
 
       #ifdef USE_OPENMP
       if( ii % one_percent_finished == 0) {
