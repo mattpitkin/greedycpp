@@ -348,8 +348,8 @@ queue 1
       enrichdir = os.path.join(rundir, "enrich%03d" % i)
 
       # set "new" training points from validation points and previously found reduced basis points
-      enrichfiles = [os.path.join(v, r"bad_points_validation_points.txt") for v in valdirs]
-      enrichfiles.append(os.path.join(valbasedir, "GreedyPoints.txt"))
+      enrichfiles = [os.path.join(valbasedir, "GreedyPoints.txt")]
+      enrichfiles += [os.path.join(v, r"bad_points_validation_points.txt") for v in valdirs]
 
       try:
         if not os.path.isdir(enrichdir):
