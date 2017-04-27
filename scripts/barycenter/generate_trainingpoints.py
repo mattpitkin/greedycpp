@@ -25,5 +25,5 @@ if __name__=='__main__':
 
   fp = open(opts.outfile, 'w')
   for i in range(opts.ntraining):
-    fp.write('%.16f\t%.16f\n' % (ra[i], dec[i]))
+    fp.write('%.14f\t%.14f\n' % (ra[i], dec[i]))
   fp.close()
