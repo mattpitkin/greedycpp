@@ -21,7 +21,7 @@ x_max = {endtime};       // GPS end time
 quad_points = {npoints}; // number of time points
 
 // model information
-model_name = "Barycenter_{detector}_{ephemeris}_{timeunits}";
+model_name = "Barycenter_{detector}_{ephemeris}_{timeunits}{shapiro}";
 
 // inner product information
 quad_type = 1;
@@ -62,6 +62,7 @@ parser.add_argument("--request-mem", dest="requestmem", type=int, default=1024, 
 parser.add_argument("--max-enrich", dest="maxenrich", type=int, default=0, help="The maximum number of enrichment steps to try [default: %(default)s]")
 parser.add_argument("--num-validate", dest="numvalidate", type=int, default=0, help="The number of validation instantiations to run [default: %(default)s]")
 parser.add_argument("--validate-ts", dest="validatets", type=int, default=5000, help="The number of training points to use for each validation [default: %(default)s]")
+parser.add_argument("--no-shapiro", dest="noshapiro", default=False, action='store_true', help="Do not include Shapiro delay in barycenter calculation [default: %(default)s]")
 
 # parse input options
 opts = parser.parse_args()
@@ -150,6 +151,10 @@ if opts.units in ['TCB', 'TDB']:
 else:
   print("Error... time units '{}' is not valid".format(opts.units), file=sys.stderr)
   sys.exit(1)
+if opts.noshapiro:
+  cfgdic["shapiro"] = "_NOSHAPIRO"
+else:
+  cfgdic["shapiro"] = ""
 if opts.tolerance > 0. and opts.tolerance < 1.:
   cfgdic["tolerance"] = opts.tolerance
 else:
