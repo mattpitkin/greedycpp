@@ -82,6 +82,7 @@ HEADERS = $(SRCDIR)/training_set.hpp \
 	$(SRCDIR)/load_simulation_data.hpp \
 	$(SRCDIR)/eim.hpp \
 	$(SRCDIR)/my_models.h \
+	$(SRCDIR)/my_models_barycenter.h \
 	$(SRCDIR)/utils.h
 
 all: $(BINDIR)/greedy_mpi \
@@ -91,6 +92,8 @@ all: $(BINDIR)/greedy_mpi \
 	$(BINDIR)/verifyBarycenter \
 	$(BINDIR)/greedy \
 	$(BINDIR)/greedyOMP \
+	$(BINDIR)/greedyBarycenter \
+	$(BINDIR)/greedyBarycenterOMP \
 	$(BINDIR)/eim
 
 $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
@@ -101,6 +104,16 @@ $(BINDIR)/greedy: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(M
 $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(GIT_FLAGS) \
 	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyOMP $(SRCDIR)/greedy.cpp \
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
+$(BINDIR)/greedyBarycenterOMP: $(SRCDIR)/greedy_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyBarycenterOMP $(SRCDIR)/greedy_barycenter.cpp \
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+
+$(BINDIR)/greedyBarycenter: $(SRCDIR)/greedy_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyBarycenter $(SRCDIR)/greedy_barycenter.cpp \
 	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
