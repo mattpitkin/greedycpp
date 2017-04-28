@@ -205,12 +205,15 @@ std::string model_tag2mode_part(const std::string model_tag,
 std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
   
-  if ( x.size() != 4 ){
-    fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\"\n");
+  if ( x.size() != 4 && x.size() != 5 ){
+    fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\" or \"Barycenter_DET_EPHEM_UNITS_NOSHAPIRO\"\n");
     exit(1);
   }
   // get the last three parts of the vector (i.e. DET, EPHEM, UNITS)
   std::vector<std::string> y(x.begin()+1, x.begin()+4);
+  
+  // add whether to include Shapiro delay in model or not
+  if ( x.size() == 4 ){ y.push_back("SHAPIRO"); }
   
   // check ephem is DE200, DE405, DE414 or DE421
   if ( strcmp(y[1].c_str(), "DE200") && strcmp(y[1].c_str(), "DE405") &&
@@ -222,6 +225,12 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   // check units is either TDB or TCB
   if ( strcmp(y[2].c_str(), "TCB") && strcmp(y[2].c_str(), "TDB" ) ){
     fprintf(stderr, "Time units must be either \"TCB\" or \"TDB\"\n");
+    exit(1);
+  }
+
+  // check NOSHAPIRO is either SHAPIRO or NOSHAPIRO (i.e. include or remove Shapiro delay from calculations)
+  if ( strcmp(y[3].c_str(), "SHAPIRO") && strcmp(y[3].c_str(), "NOSHAPIRO") ){
+    fprintf(stderr, "Must specify either \"SHAPIRO\" or \"NOSHAPIRO\"\n");
     exit(1);
   }
 

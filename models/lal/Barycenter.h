@@ -20,11 +20,14 @@ extern "C"{
 #include <lal/LALInitBarycenter.h>
 #include <lal/SFTutils.h>
 
+#include <omp.h>
+
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
 LALDetector det;
 TimeCorrectionType ttype;
+int noshapiro = 0;
 
 void Barycenter_Waveform(gsl_vector_complex *wv,
                     const gsl_vector *timestamps,
@@ -40,6 +43,10 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   BarycenterInput baryinput;
 
   if ( !edat && !tdat ){
+    #ifdef USE_OPENMP
+    #pragma omp master
+    {
+    #endif
     // deduce the detector, ephemeris and time units
     std::vector<std::string> vals = lal_help::get_barycenter_tags(model_tag);
 
@@ -79,6 +86,14 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       exit(-1);
     }
     tdat = XLALInitTimeCorrections( timecorrfile );
+    
+    if ( !strcmp("NOSHAPIRO", vals[3].c_str()) ){
+      noshapiro = 1; // do not include Shapiro delay in barycenter calculation
+    }
+    #ifdef USE_OPENMP
+    }
+    #pragma omp barrier
+    #endif
   }
 
   /* set up location of detector */
@@ -96,7 +111,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
     XLALBarycenter( &emit, &baryinput, &earth );
     gsl_complex emitdt;
-    GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
+    if ( noshapiro ){ // remove Shapiro delay
+      GSL_SET_COMPLEX(&emitdt, emit.deltaT+emit.shapiro, 0.); // add Shapiro delay as it is subtracted in LALBarycenter.c
+    }
+    else{
+      GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
+    }
 
     // fill in the output training buffer
     gsl_vector_complex_set(wv, i, emitdt);
