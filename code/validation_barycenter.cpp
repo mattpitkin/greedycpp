@@ -24,7 +24,7 @@
 #include "load_simulation_data.hpp"
 #include "parameters.hpp"
 #include "training_set.hpp"
-#include "my_models.h"
+#include "my_models_barycenter.h"
 #include "eim.hpp"
 
 #define MAXABS(a,b)  fabs(a) > fabs(b) ? fabs(a) : fabs(b)
@@ -222,7 +222,7 @@ int main (int argc, char **argv) {
       gsl_vector_minmax(&realres.vector, &resmin, &resmax); // get the minimum and maximum values
       errors_resmax[ii] = MAXABS(resmin, resmax); // determine the maximum absolute value
 
-      // get the phase mismatch for a 1000 Hz signal (use trapzeium rule for integration)
+      // get the phase mismatch for a 1000 Hz signal (use trapezium rule for integration)
       double phasematch = 0.;
       for (int jj=0; jj < data->quad_size()-1; jj++){ phasematch += 0.5*(cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj)) + cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj+1))); }
       phasematch /= (data->quad_size()-1.);
