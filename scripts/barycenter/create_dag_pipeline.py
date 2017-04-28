@@ -36,7 +36,7 @@ ts_file = "{tsfile}";  // location of training points file
 
 // greedy algoritm information
 seed = 0;
-tol = {tolerance};  // greedy algorithm tolerance
+tol = {tolerance};  // greedy algorithm tolerance (maximum residual time error)
 max_RB = {maxrb};   // estimated upper bound in number of reduced bases
 
 // output information
@@ -55,7 +55,7 @@ parser.add_argument("--npoints", dest="npoints", type=int, default=1440, help="T
 parser.add_argument("--detector", dest="detector", default="H1", help="Gravitational wave detector to use [default: %(default)s]")
 parser.add_argument("--ephemeris", dest="ephem", default="DE405", help="JPL solar system ephemeris to use (DE200, DE405, DE414, or DE421) [default: %(default)s]")
 parser.add_argument("--units", dest="units", default="TCB", help="Time units to use (TCB or TDB) [default: %(default)s]")
-parser.add_argument("--tolerance", dest="tolerance", type=float, default=5e-12, help="The tolerance for producing the reduced basis [default: %(default)s]")
+parser.add_argument("--tolerance", dest="tolerance", type=float, default=1e-7, help="The residual time tolerance for producing the reduced basis [default: %(default)s]")
 parser.add_argument("--max-rb", dest="maxrb", type=int, default=500, help="The maximum number of reduced bases that will be produced [default: %(default)s]")
 parser.add_argument("--num-cores", dest="numcores", type=int, default=1, help="The number of CPUs to request and use [default: %(default)s]")
 parser.add_argument("--request-mem", dest="requestmem", type=int, default=1024, help="The amount of RAM (Mb) to request [default: %(default)s]")
@@ -83,7 +83,7 @@ if not os.path.isdir(opts.execdir):
   sys.exit(1)
 else:
   # set greedycpp executable
-  greedyexec = os.path.join(opts.execdir, 'greedyOMP')
+  greedyexec = os.path.join(opts.execdir, 'greedyBarycenterOMP')
   if not os.path.isfile(greedyexec) or not os.access(greedyexec, os.X_OK):
     print("Error... '{}' does not exist or is not executable".format(greedyexec), file=sys.stderr)
     sys.exit(1)

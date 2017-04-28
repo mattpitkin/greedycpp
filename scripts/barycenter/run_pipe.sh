@@ -3,11 +3,11 @@
 # script to run greedycpp, then get the empirical interpolator, then run the validator, and finally enrich the original training set!
 # (see e.g. https://bitbucket.org/sfield83/greedycpp/wiki/features/Generic.md)
 
-source /home/matthew/repositories/greedycpp/script/barycenter/setup.sh
+./home/matthew/repositories/greedycpp/script/barycenter/setup.sh
 
 # set the executables
 genscript=/home/matthew/repositories/greedycpp/scripts/barycenter/generate_trainingpoints.py # script to generate set of RA and dec sky positions as training points
-greedy=/home/matthew/repositories/greedycpp/bin/greedyOMP  # greedycpp executable
+greedy=/home/matthew/repositories/greedycpp/bin/greedyBarycenterOMP  # greedycpp executable
 eim=/home/matthew/repositories/greedycpp/bin/eim           # empirical interpolator exectuable
 verify=/home/matthew/repositories/greedycpp/bin/verifyBarycenter  # verification executable
 #verify=/home/matthew/repositories/greedycpp/bin/verifyOMP  # verification executable
