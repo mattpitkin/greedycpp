@@ -50,6 +50,7 @@
 
 // return the maximum absolute value of two numbers
 #define MAXABS(a,b)  fabs(a) > fabs(b) ? fabs(a) : fabs(b)
+#define TWOPI 6.283185307179586476925286766559005768
 
 struct errorDouble_rankInt { 
   double error; 
@@ -696,6 +697,7 @@ void Greedy(const Parameters &params,
   double *projection_norms2;
   double *errors;                    // approximation errors at i^{th} sweep
   double *errors_res;                // residual errors
+  double *errors_phase;              // phase mismatch errors
   //gsl_matrix_complex *project_coeff; // h = coeff_i e_i
 
   EIM *eim, *eimV; // empirical interpolators (first for building, second for evaluating)
@@ -709,6 +711,7 @@ void Greedy(const Parameters &params,
   ru            = gsl_vector_complex_alloc(max_RB);
   errors        = new double[rows];
   errors_res    = new double[rows];
+  errors_phase  = new double[rows];
   A_row_norms2  = new double[rows];
   projection_norms2 = new double[rows];
   //project_coeff = gsl_matrix_complex_alloc(max_RB,rows);
@@ -814,6 +817,13 @@ void Greedy(const Parameters &params,
         double resmin = 0., resmax = 0.;
         gsl_vector_minmax(&realres.vector, &resmin, &resmax); // get the minimum and maximum values
         errors_res[i] = MAXABS(resmin, resmax); // determine the maximum absolute value
+        
+        // get the phase mismatch for a 1000 Hz signal (use trapezium rule for integration)
+        double phasematch = 0.;
+        for (int jj=0; jj < cols-1; jj++){ phasematch += 0.5*(cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj)) + cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj+1))); }
+        phasematch /= (cols-1.);
+        errors_phase[i] = 1. - phasematch;
+
         gsl_vector_complex_free(eim_eval);
 
         mygsl::NormalizeVector(ts_el_omp,wQuad); // normalise vector as training set not normalised in my_models_barycenter.h
@@ -960,6 +970,13 @@ void Greedy(const Parameters &params,
       double resmin = 0., resmax = 0.;
       gsl_vector_minmax(&realres.vector, &resmin, &resmax); // get the minimum and maximum values
       errors_res[i] = MAXABS(resmin, resmax); // determine the maximum absolute value
+
+      // get the phase mismatch for a 1000 Hz signal (use trapezium rule for integration)
+      double phasematch = 0.;
+      for (int jj=0; jj < cols-1; jj++){ phasematch += 0.5*(cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj)) + cos(TWOPI*1000.*gsl_vector_get(&realres.vector, jj+1))); }
+      phasematch /= (cols-1.);
+      errors_phase[i] = 1. - phasematch;
+
       gsl_vector_complex_free(eim_eval);
 
       mygsl::NormalizeVector(ts_el,wQuad); // normalise vector as training set not normalised in my_models_barycenter.h
@@ -1057,6 +1074,7 @@ void Greedy(const Parameters &params,
   gsl_vector_complex_free(ru);
   delete [] errors;
   delete [] errors_res;
+  delete [] errors_phase;
   delete [] A_row_norms2;
   //gsl_matrix_complex_free(project_coeff);
   delete [] projection_norms2;
