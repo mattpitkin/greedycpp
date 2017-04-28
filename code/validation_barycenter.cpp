@@ -337,7 +337,7 @@ int main (int argc, char **argv) {
     if(save_norm) {
       fprintf(model_nrm," %1.15e\n",model_norm[i]);
     }
-    if(errors[i]>err_tol) {
+    if(errors_resmax[i]>err_tol) {
       random_samples->fprintf_ith(bad_param,i);
       fprintf(bad_param,"\n");
     }
