@@ -214,7 +214,8 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   
   // add whether to include Shapiro delay in model or not
   if ( x.size() == 4 ){ y.push_back("SHAPIRO"); }
-  
+  else { y.push_back(x[4]); } 
+ 
   // check ephem is DE200, DE405, DE414 or DE421
   if ( strcmp(y[1].c_str(), "DE200") && strcmp(y[1].c_str(), "DE405") &&
        strcmp(y[1].c_str(), "DE414") && strcmp(y[1].c_str(), "DE421") ){
