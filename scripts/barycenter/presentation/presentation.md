@@ -101,11 +101,13 @@ Form a reduced bases, and interpolant for any sky position, for the SSB time del
 1 year for H1
 
  * generate 2000 sky positions drawn uniformly over the sky
- * for each sky point calculate $\tau(t)$ over one year in 60 s steps (a $2000 \times 525960$ array)
+ * for each sky point calculate $\tau(t)$[^fn] over one year in 60 s steps (a $2000 \times 525960$ array)
  * form a reduced basis with the constraint that the interpolant produces residual
    time delays of $< 0.1\mu{\rm s}$
  * validation and enrichment steps performed to check for any gaps ($30\,000$ sky points tested
    in total)
+
+[^fn]: excluding Shapiro delay due to cuspy nature
 
 ### Example analysis ###
 
