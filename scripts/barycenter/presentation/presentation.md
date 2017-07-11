@@ -74,7 +74,7 @@ consists of many calls to `sin` and `cos`, so if needed many times could be a co
 Reduced order modelling (ROM) is basically a compression technique (similar to, e.g., Principal
 Component Analysis).
 
- * generate a ``training set'' of signal models (randomly) over a required parameter space
+ * generate a ``training set'' of signal model vectors (each with length $M$) over a required parameter space
  * use modified <!-- \href{https://en.wikipedia.org/wiki/Gram\%E2\%80\%93Schmidt\_process}{Gram-Schmidt process} --> to form a
    minimal set of orthonormal bases from the ``training set'' that satisfy some constraint:
     * a small projection error of the _current_ bases onto the remaining training data
@@ -83,8 +83,37 @@ Component Analysis).
 
 ### Reduced Order Modelling ###
 
+The set of $N$ _reduced_ orthonormal bases can then be used to form an interpolant:
+
+ * find $N$ best points (interpolation nodes) in the bases with which to form the interpolant
+ * straightforward linear algebra to find a $N\times N$ matrix for interpolation
+
+Using the interpolant, the _reduced_ bases, and evaluating the full model function at only
+the $N$ nodes (as opposed to $M$ points) gives an approximation of the full function at all
+$M$ points.
+
 See, e.g., Appendix A & B of [Canizares _et al_, PRD, 124005 (2013)](http://ukads.nottingham.ac.uk/abs/2013PhRvD..87l4005C) for algorithms,
 and [`greedycpp`](https://bitbucket.org/sfield83/greedycpp) code for more details.
+
+### Example analysis ###
+
+Form a reduced bases, and interpolant for any sky position, for the SSB time delay $\tau$ spanning
+1 year for H1
+
+ * generate 2000 sky positions drawn uniformly over the sky
+ * for each sky point calculate $\tau(t)$ over one year in 60 s steps (a $2000 \times 525960$ array)
+ * form a reduced basis with the constraint that the interpolant produces residual
+   time delays of $< 0.1\mu{\rm s}$
+ * validation and enrichment steps performed to check for any gaps ($30\,000$ sky points tested
+   in total)
+
+### Example analysis ###
+
+The full sky the time delay can be reduced to 5 bases
+
+![][bases]
+
+[bases]: images/reduced_bases.pdf "Reduced bases" height="190px"
 
 ### Usage ###
 
@@ -105,4 +134,11 @@ Even if this has limited applicability in current CW searches it may be relevant
  * Many signals in LISA require referencing to the SSB
  * PTAs currently have quite sparse time samples, but in the future (e.g. SKA) there may be larger
    numbers of samples
+
+### Acknowlegdments ###
+
+Rory Smith has provided invaluable information on Reduced Order Modelling.
+
+Initial stages of this work were performed by two undergraduate students: Stuart Doolan
+and Lisa McMenanmin.
 
