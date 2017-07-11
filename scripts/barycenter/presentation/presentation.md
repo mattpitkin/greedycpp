@@ -1,12 +1,12 @@
 latex input:    mmd-beamer-header-11pt
 Title:          Reduced Order Modelling for Solar System Barycentring
-Date:           10 July 2017
+Date:           12 July 2017
 Author:         Matthew Pitkin
 Affiliation:    University of Glasgow
 LaTeX xslt:     beamer
 latex mode:     beamer
 Theme:          m
-Event:          LVC CW group
+Event:          LIGO-G1701327
 latex input:    mmd-beamer-begin-doc
 latex footer:   mmd-beamer-footer
 
@@ -43,19 +43,48 @@ where:
 
 ### Background ###
 
-For long duration signals, where the phase needs to be tracked precisely, this time delay needs to be known
+Shapiro delay and Einstein delay over one year for source at: $\alpha=0^{\rm h}0^{\rm m}0.0^{\rm s}$, $\delta = 0^{\circ}0'0''.0$
+
+![][shap_ein]
+
+[shap_ein]: images/shap_ein_delay.pdf "Shapiro and Einstein delays" height="170px"
+
+### Background ###
+
+Roemer delay (over one month) between Earth and SSB, and H1 and geocentre
+
+![][roemer]
+
+[roemer]: images/roemer_delay.pdf "Roemer delays" height="170px"
+
+### Background ###
+
+For long duration signals the phase needs to be tracked precisely -- time delay needs to be known
 to $\mathcal{O}(\mu{\rm s})$ accuracy. For an observation time of a year, and a signal at 100 Hz, sky locations
-separated by $15 \mu$ rad (near the ecliptic) produce 10% mismatches between signals, so long wide sky area
+separated by $15 \mu$ rad (near the ecliptic) produce 10% mismatches, so long wide-sky-area
 searches require the SSB calculation to be repeated for many sky positions.
 
-The code for the SSB calculated, see e.g. <!-- \href{http://software.ligo.org/docs/lalsuite/lalpulsar/\_l\_a\_l\_barycenter\_8c\_source.html\#l00078}{\texttt{XLALBarycenter()}}, -->
-consists of many calls to `sin` and `cos`, so if needed many times could be a computational bottleneck. Is there a way to speed
-up the calculation, but maintain accuracy?
+The code for the SSB calculation, e.g. <!-- \href{http://software.ligo.org/docs/lalsuite/lalpulsar/\_l\_a\_l\_barycenter\_8c\_source.html\#l00078}{\texttt{XLALBarycenter()}}, -->
+consists of many calls to `sin` and `cos`, so if needed many times could be a computational bottleneck.
+
+**Is there a way to speed up the calculation _and_ maintain accuracy?**
 
 ### Reduced Order Modelling ###
 
 Reduced order modelling (ROM) is basically a compression technique (similar to, e.g., Principal
-Component Analysis). It essentially
+Component Analysis).
+
+ * generate a ``training set'' of signal models (randomly) over a required parameter space
+ * use modified <!-- \href{https://en.wikipedia.org/wiki/Gram\%E2\%80\%93Schmidt\_process}{Gram-Schmidt process} --> to form a
+   minimal set of orthonormal bases from the ``training set'' that satisfy some constraint:
+    * a small projection error of the _current_ bases onto the remaining training data
+    * a small **resdiual** when generating an interpolant from the current bases and
+     comparing the interpolated models to the training set models
+
+### Reduced Order Modelling ###
+
+See, e.g., Appendix A & B of [Canizares _et al_, PRD, 124005 (2013)](http://ukads.nottingham.ac.uk/abs/2013PhRvD..87l4005C) for algorithms,
+and [`greedycpp`](https://bitbucket.org/sfield83/greedycpp) code for more details.
 
 ### Usage ###
 
