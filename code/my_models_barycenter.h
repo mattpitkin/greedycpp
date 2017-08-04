@@ -72,6 +72,10 @@ void EvaluateModel(gsl_vector_complex *model_eval,
     // run code for calculated solar system barycenter
     Barycenter_Waveform(model_eval, xQuad, params, model_tag);
   }
+  else if ( strncmp(ts.model(), "BinaryBarycenter", sizeof(char)*16) == 0 ){
+    // run code for calculated binary system barycenter
+    Binary_Barycenter_Waveform(model_eval, xQuad, params, model_tag);
+  }
   //else if (strcmp(ts.model(),"TaylorF2_LAL") == 0)
   //  TaylorF2_LAL_Waveform(model_eval, xQuad, params);
   #endif

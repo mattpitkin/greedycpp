@@ -1,5 +1,5 @@
 // Author: Matt Pitkin (2016)
-// Interface with lalpulsar solar system barycentering codes
+// Interface with lalpulsar solar system and binary system barycentering codes
 
 extern "C"{
 #ifdef __cplusplus
@@ -19,6 +19,7 @@ extern "C"{
 #include <lal/LALBarycenter.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/SFTutils.h>
+#include <lal/BinaryPulsarTiming.h>
 
 #include <omp.h>
 
@@ -119,6 +120,50 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     }
 
     // fill in the output training buffer
+    gsl_vector_complex_set(wv, i, emitdt);
+  }
+}
+
+
+void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
+                                const gsl_vector *timestamps,
+                                const double *params,
+                                const std::string model_tag){
+  int n = timestamps->size;
+  REAL8 w0 = params[0];  // angle of periastron
+  REAL8 T0 = params[1];  // time of periastron
+  REAL8 ecc = params[2]; // eccentricity
+
+  // period is just set to be the whole timespan
+  REAL8 Pb = gsl_vector_get(timestamps, timestamps->size-1) - gsl_vector_get(timestamps, 0);
+
+  // set asini to be 1
+  REAL8 asini = 1.;
+
+  BinaryPulsarInput binInput;
+  BinaryPulsarOutput binOutput;
+
+  char model[256] = "BT";
+  
+  // variables for calculating barycenter time delay
+  PulsarParameters *pars = (PulsarParameters*)XLALMalloc(sizeof(PulsarParameters *));
+
+  PulsarAddParam( pars, "OM", &w0, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "T0", &T0, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "ECC", &ecc, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "A1", &asini, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "PB", &Pb, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "BINARY", model, PULSARTYPE_string_t );
+
+  for ( int i=0; i < n; i++ ){
+    binInput.tb = gsl_vector_get(timestamps, i);
+
+    // calculate binary time delay
+    XLALBinaryPulsarDeltaTNew( &binOutput, &binInput, pars );
+
+    // fill in the output training buffer
+    gsl_complex emitdt;
+    GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.);
     gsl_vector_complex_set(wv, i, emitdt);
   }
 }
