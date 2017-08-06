@@ -130,12 +130,14 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
                                 const double *params,
                                 const std::string model_tag){
   int n = timestamps->size;
-  REAL8 w0 = params[0];  // angle of periastron
-  REAL8 T0 = params[1];  // time of periastron
+  REAL8 w0 = params[0];  // angle of periastron (0 -> 2*pi)
+  REAL8 T0 = params[1];  // time of periastron  (0 -> 1) - re-scale to Pb range
   REAL8 ecc = params[2]; // eccentricity
 
   // period is just set to be the whole timespan
   REAL8 Pb = gsl_vector_get(timestamps, timestamps->size-1) - gsl_vector_get(timestamps, 0);
+
+  T0 *= Pb; // rescale to be between 0 and Pb
 
   // set asini to be 1
   REAL8 asini = 1.;
