@@ -148,13 +148,13 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
   char model[256] = "BT";
   
   // variables for calculating barycenter time delay
-  PulsarParameters *pars = (PulsarParameters*)XLALMalloc(sizeof(PulsarParameters *));
+  PulsarParameters *pars = (PulsarParameters*)XLALCalloc(sizeof(PulsarParameters *), 1);
 
-  PulsarAddParam( pars, "OM", &w0, PULSARTYPE_REAL8Vector_t );
-  PulsarAddParam( pars, "T0", &T0, PULSARTYPE_REAL8Vector_t );
-  PulsarAddParam( pars, "ECC", &ecc, PULSARTYPE_REAL8Vector_t );
-  PulsarAddParam( pars, "A1", &asini, PULSARTYPE_REAL8Vector_t );
-  PulsarAddParam( pars, "PB", &Pb, PULSARTYPE_REAL8Vector_t );
+  PulsarAddParam( pars, "OM", &w0, PULSARTYPE_REAL8_t );
+  PulsarAddParam( pars, "T0", &T0, PULSARTYPE_REAL8_t );
+  PulsarAddParam( pars, "ECC", &ecc, PULSARTYPE_REAL8_t );
+  PulsarAddParam( pars, "A1", &asini, PULSARTYPE_REAL8_t );
+  PulsarAddParam( pars, "PB", &Pb, PULSARTYPE_REAL8_t );
   PulsarAddParam( pars, "BINARY", model, PULSARTYPE_string_t );
 
   for ( int i=0; i < n; i++ ){
@@ -168,4 +168,7 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
     GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.);
     gsl_vector_complex_set(wv, i, emitdt);
   }
+
+  PulsarClearParams( pars );
 }
+
