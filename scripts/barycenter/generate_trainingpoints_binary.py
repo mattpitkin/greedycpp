@@ -14,15 +14,16 @@ if __name__=='__main__':
 
   parser = argparse.ArgumentParser( description = description )
   parser.add_argument("-N", "--ntraining", dest="ntraining", default=10000, type=int, help="Number of training samples")
+  parser.add_argument("-e", "--max-ecc", dest="maxecc", default=0.1, type=float, help="Maximum eccentricity of training samples")
   parser.add_argument("-o", "--outfile", dest="outfile", default="TS_points.txt", help="Output training set file name")
 
   # parse input options
   opts = parser.parse_args()
 
   # generate training points
-  w0 = 2.*np.pi*np.random.rand(opts.ntraining) # uniform from 0 -> 2pi
-  T0 = np.random.rand(opts.ntraining)          # uniform from 0 -> 1
-  ecc = 0.5*np.random.rand(opts.ntraining)     # uniform from 0 -> 0.5
+  w0 = 2.*np.pi*np.random.rand(opts.ntraining)     # uniform from 0 -> 2pi
+  T0 = np.random.rand(opts.ntraining)              # uniform from 0 -> 1
+  ecc = opts.maxecc*np.random.rand(opts.ntraining) # uniform from 0 -> max eccentricity
 
   fp = open(opts.outfile, 'w')
   for i in range(opts.ntraining):
