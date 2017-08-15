@@ -142,11 +142,14 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
   // set asini to be 1
   REAL8 asini = 1.;
 
-  BinaryPulsarInput binInput;
-  BinaryPulsarOutput binOutput;
+  BinaryPulsarInput binInput, binInput2;
+  BinaryPulsarOutput binOutput, binOutput2;
 
   char model[256] = "BT";
   
+  // deduce whether wanting to output the time delay derivative
+  int tdot = lal_help::get_binary_barycenter_tags(model_tag);
+
   // variables for calculating barycenter time delay
   PulsarParameters *pars = (PulsarParameters*)XLALCalloc(sizeof(PulsarParameters *), 1);
 
@@ -163,9 +166,19 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
     // calculate binary time delay
     XLALBinaryPulsarDeltaTNew( &binOutput, &binInput, pars );
 
+    // if working using time derivatives increment time by 1 second
+    if ( tdot ){
+      binInput2.tb = binInput.tb + 1.;
+      XLALBinaryPulsarDeltaTNew( &binOutput2, &binInput2, pars );
+    }
+
     // fill in the output training buffer
     gsl_complex emitdt;
-    GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.);
+    if ( tdot ){
+      // set time derivative
+      GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaT-binOutput.deltaT)/1., 0.);
+    }
+    else{ GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.); }
     gsl_vector_complex_set(wv, i, emitdt);
   }
 

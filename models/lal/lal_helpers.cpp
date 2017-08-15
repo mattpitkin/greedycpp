@@ -204,25 +204,25 @@ std::string model_tag2mode_part(const std::string model_tag,
 
 std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
-  
+
   if ( x.size() != 4 && x.size() != 5 ){
     fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\" or \"Barycenter_DET_EPHEM_UNITS_NOSHAPIRO\"\n");
     exit(1);
   }
   // get the last three parts of the vector (i.e. DET, EPHEM, UNITS)
   std::vector<std::string> y(x.begin()+1, x.begin()+4);
-  
+
   // add whether to include Shapiro delay in model or not
   if ( x.size() == 4 ){ y.push_back("SHAPIRO"); }
   else { y.push_back(x[4]); } 
- 
+
   // check ephem is DE200, DE405, DE414 or DE421
   if ( strcmp(y[1].c_str(), "DE200") && strcmp(y[1].c_str(), "DE405") &&
        strcmp(y[1].c_str(), "DE414") && strcmp(y[1].c_str(), "DE421") ){
     fprintf(stderr, "Ephemeris must be either \"DE200\", \"DE405\", \"DE414\", or \"DE421\"\n");
     exit(1);
   }
-  
+
   // check units is either TDB or TCB
   if ( strcmp(y[2].c_str(), "TCB") && strcmp(y[2].c_str(), "TDB" ) ){
     fprintf(stderr, "Time units must be either \"TCB\" or \"TDB\"\n");
@@ -238,6 +238,24 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   fprintf(stdout, "Detector: \"%s\", ephemeris: \"%s\", time units: \"%s\"\n", y[0].c_str(), y[1].c_str(), y[2].c_str());
 
   return y;
+}
+
+int get_binary_barycenter_tags(const std::string model_tag){
+  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
+
+  if ( x.size() != 1 && x.size() != 2 ){
+    fprintf(stderr, "Model tag should have format \"BinaryBarycenter\" or \"BinaryBarycenter_TDOT\"\n");
+    exit(1);
+  }
+
+  if ( x.size() == 1 ){ return 0; }
+
+  // check for TDOT
+  if ( !strcmp(x[1].c_str(), "TDOT") ){ return 1; }
+  else {
+    fprintf(stderr, "Warning... suffix was not the expected \"TDOT\" value. Defaulting to work with time delays");
+    return 0;
+  }
 }
 
 }
