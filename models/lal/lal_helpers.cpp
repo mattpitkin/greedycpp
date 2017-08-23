@@ -203,7 +203,7 @@ std::string model_tag2mode_part(const std::string model_tag,
 }
 
 std::vector<std::string> get_barycenter_tags(const std::string model_tag){
-  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
+  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores
 
   if ( x.size() != 4 && x.size() != 5 ){
     fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\" or \"Barycenter_DET_EPHEM_UNITS_NOSHAPIRO\"\n");
@@ -241,7 +241,7 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
 }
 
 int get_binary_barycenter_tags(const std::string model_tag){
-  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores 
+  std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores
 
   if ( x.size() != 1 && x.size() != 2 ){
     fprintf(stderr, "Model tag should have format \"BinaryBarycenter\" or \"BinaryBarycenter_TDOT\"\n");
