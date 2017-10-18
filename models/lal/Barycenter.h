@@ -144,21 +144,23 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
 
   BinaryPulsarInput binInput, binInput2;
   BinaryPulsarOutput binOutput, binOutput2;
-
-  char model[256] = "BT";
   
   // deduce whether wanting to output the time delay derivative
-  int tdot = lal_help::get_binary_barycenter_tags(model_tag);
+  std::vector<std::string> vals = lal_help::get_binary_barycenter_tags(model_tag);
+  int tdot = 0, btasini = 1, btasini2 = 0;
+
+  if ( !strcmp(vals[1].c_str(), "TDOT") ){ tdot = 1; } // get time delay derivative
+  if ( !strcmp(vals[0].c_str(), "BTASINI2") ){ btasini2 = 1; } // get part of BT time delay that requires multiplying by asini^2 (x^2) rather than just asini 
 
   // variables for calculating barycenter time delay
   PulsarParameters *pars = (PulsarParameters*)XLALCalloc(sizeof(PulsarParameters *), 1);
 
-  PulsarAddParam( pars, "OM", &w0, PULSARTYPE_REAL8_t );
-  PulsarAddParam( pars, "T0", &T0, PULSARTYPE_REAL8_t );
-  PulsarAddParam( pars, "ECC", &ecc, PULSARTYPE_REAL8_t );
-  PulsarAddParam( pars, "A1", &asini, PULSARTYPE_REAL8_t );
-  PulsarAddParam( pars, "PB", &Pb, PULSARTYPE_REAL8_t );
-  PulsarAddParam( pars, "BINARY", model, PULSARTYPE_string_t );
+  PulsarAddREAL8Param( pars, "OM", w0 );
+  PulsarAddREAL8Param( pars, "T0", T0 );
+  PulsarAddREAL8Param( pars, "ECC", ecc );
+  PulsarAddREAL8Param( pars, "A1", asini );
+  PulsarAddREAL8Param( pars, "PB", Pb );
+  PulsarAddStringParam( pars, "BINARY", "BT" );
 
   for ( int i=0; i < n; i++ ){
     binInput.tb = gsl_vector_get(timestamps, i);
@@ -176,9 +178,19 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
     gsl_complex emitdt;
     if ( tdot ){
       // set time derivative
-      GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaT-binOutput.deltaT)/1., 0.);
+      if ( btasini2 ){
+        //GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaT-binOutput.deltaT)/1., 0.);
+        GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaTW2-binOutput.deltaTW2)/1., 0.);
+      }
+      else{
+        GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaTW1-binOutput.deltaTW1)/1., 0.);
+      }
     }
-    else{ GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.); }
+    else{
+      if ( btasini2 ){ GSL_SET_COMPLEX(&emitdt, binOutput.deltaTW2, 0.); } // part of BT time delay multiplied by 2*pi*asini/Pb
+      else { GSL_SET_COMPLEX(&emitdt, binOutput.deltaTW1, 0.); }           // part of BT time delay multiplied by asini
+      //GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.);
+    }
     gsl_vector_complex_set(wv, i, emitdt);
   }
 

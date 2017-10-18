@@ -240,22 +240,32 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   return y;
 }
 
-int get_binary_barycenter_tags(const std::string model_tag){
+std::vector<std::string> get_binary_barycenter_tags(const std::string model_tag){
   std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores
 
-  if ( x.size() != 1 && x.size() != 2 ){
-    fprintf(stderr, "Model tag should have format \"BinaryBarycenter\" or \"BinaryBarycenter_TDOT\"\n");
+  if ( x.size() != 2 && x.size() != 3 ){
+    fprintf(stderr, "Model tag should have format \"BinaryBarycenter_BTASINI[2]\" or \"BinaryBarycenter_BTASINI[2]_TDOT\"\n");
     exit(1);
   }
 
-  if ( x.size() == 1 ){ return 0; }
-
-  // check for TDOT
-  if ( !strcmp(x[1].c_str(), "TDOT") ){ return 1; }
-  else {
-    fprintf(stderr, "Warning... suffix was not the expected \"TDOT\" value. Defaulting to work with time delays");
-    return 0;
+  // get parts of the vector (i.e. BTASINI[2], TDOT)
+  std::vector<std::string> y(x.begin()+1, x.begin()+2);
+  
+  if ( x.size() == 2 ) { y.push_back("NOTDOT"); }
+  else{
+    if ( !strcmp(x[2].c_str(), "TDOT") ) { y.push_back(x[2]); }
+    else {
+      fprintf(stderr, "Warning... suffix expected \"TDOT\". Defaulting to work with time delays.\n");
+      y.push_back("NOTDOT");
+    }
   }
+
+  if ( strcmp(x[1].c_str(), "BTASINI") && strcmp(x[1].c_str(), "BTASINI2") ){
+    fprintf(stderr, "Error... suffix should be \"BTASINI\" or \"BTASINI2\".\n");
+    exit(0);
+  }
+  
+  return y;
 }
 
 }

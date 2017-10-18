@@ -54,8 +54,7 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag);
 
 // the binary barycentring tag is BinaryBarycenter, but if proceeding by
 // _TDOT the code will work with time delay derivatives rather than time delays
-int get_binary_barycenter_tags(const std::string model_tag);
-
+std::vector<std::string> get_binary_barycenter_tags(const std::string model_tag);
 };
 
 #endif
