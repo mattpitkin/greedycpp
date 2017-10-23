@@ -240,32 +240,21 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   return y;
 }
 
-std::vector<std::string> get_binary_barycenter_tags(const std::string model_tag){
+int get_binary_barycenter_tags(const std::string model_tag){
   std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores
 
-  if ( x.size() != 2 && x.size() != 3 ){
-    fprintf(stderr, "Model tag should have format \"BinaryBarycenter_BTASINI[2]\" or \"BinaryBarycenter_BTASINI[2]_TDOT\"\n");
+  if ( x.size() != 2 ){
+    fprintf(stderr, "Model tag should have format \"BinaryBarycenter_SinU\" or \"BinaryBarycenter_CosU\"\n");
     exit(1);
   }
 
-  // get parts of the vector (i.e. BTASINI[2], TDOT)
-  std::vector<std::string> y(x.begin()+1, x.begin()+2);
-  
-  if ( x.size() == 2 ) { y.push_back("NOTDOT"); }
-  else{
-    if ( !strcmp(x[2].c_str(), "TDOT") ) { y.push_back(x[2]); }
-    else {
-      fprintf(stderr, "Warning... suffix expected \"TDOT\". Defaulting to work with time delays.\n");
-      y.push_back("NOTDOT");
-    }
+  // check for sine or cosine of eccentric anomaly
+  if ( !strcmp(x[1].c_str(), "SinU") ){ return 1; }
+  else if ( !strcmp(x[1].c_str(), "CosU") ){ return 2; }
+  else {
+    fprintf(stderr, "Warning... suffix was not the expected \"SinU\" or \"CosU\" value.");
+    exit(1);
   }
-
-  if ( strcmp(x[1].c_str(), "BTASINI") && strcmp(x[1].c_str(), "BTASINI2") ){
-    fprintf(stderr, "Error... suffix should be \"BTASINI\" or \"BTASINI2\".\n");
-    exit(0);
-  }
-  
-  return y;
 }
 
 }

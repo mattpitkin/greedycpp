@@ -52,9 +52,10 @@ std::string model_tag2mode_part(const std::string model_tag,
 // in the string vector.
 std::vector<std::string> get_barycenter_tags(const std::string model_tag);
 
-// the binary barycentring tag is BinaryBarycenter, but if proceeding by
-// _TDOT the code will work with time delay derivatives rather than time delays
-std::vector<std::string> get_binary_barycenter_tags(const std::string model_tag);
+// the binary barycentring tag is BinaryBarycenter proceeding by
+// _SinU or _CosU to indicate whether using the sine or cosine of
+// the eccentric anomaly
+int get_binary_barycenter_tags(const std::string model_tag);
 };
 
 #endif

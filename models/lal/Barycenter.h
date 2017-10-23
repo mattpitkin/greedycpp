@@ -130,70 +130,34 @@ void Binary_Barycenter_Waveform(gsl_vector_complex *wv,
                                 const double *params,
                                 const std::string model_tag){
   int n = timestamps->size;
-  REAL8 w0 = params[0];  // angle of periastron (0 -> 2*pi)
-  REAL8 T0 = params[1];  // time of periastron  (0 -> 1) - re-scale to Pb range
-  REAL8 ecc = params[2]; // eccentricity
+  REAL8 T0 = params[0];    // time of periastron  (0 -> 1) - re-scale to Pb range
+  REAL8 ecc = params[1];   // eccentricity
 
   // period is just set to be the whole timespan
   REAL8 Pb = gsl_vector_get(timestamps, timestamps->size-1) - gsl_vector_get(timestamps, 0);
 
   T0 *= Pb; // rescale to be between 0 and Pb
 
-  // set asini to be 1
-  REAL8 asini = 1.;
-
-  BinaryPulsarInput binInput, binInput2;
-  BinaryPulsarOutput binOutput, binOutput2;
-  
   // deduce whether wanting to output the time delay derivative
-  std::vector<std::string> vals = lal_help::get_binary_barycenter_tags(model_tag);
-  int tdot = 0, btasini = 1, btasini2 = 0;
+  int sinorcos = lal_help::get_binary_barycenter_tags(model_tag);
 
-  if ( !strcmp(vals[1].c_str(), "TDOT") ){ tdot = 1; } // get time delay derivative
-  if ( !strcmp(vals[0].c_str(), "BTASINI2") ){ btasini2 = 1; } // get part of BT time delay that requires multiplying by asini^2 (x^2) rather than just asini 
-
-  // variables for calculating barycenter time delay
-  PulsarParameters *pars = (PulsarParameters*)XLALCalloc(sizeof(PulsarParameters *), 1);
-
-  PulsarAddREAL8Param( pars, "OM", w0 );
-  PulsarAddREAL8Param( pars, "T0", T0 );
-  PulsarAddREAL8Param( pars, "ECC", ecc );
-  PulsarAddREAL8Param( pars, "A1", asini );
-  PulsarAddREAL8Param( pars, "PB", Pb );
-  PulsarAddStringParam( pars, "BINARY", "BT" );
+  REAL8 phase = 0., orbits = 0., U = 0.;
+  INT4 norbits = 0;
 
   for ( int i=0; i < n; i++ ){
-    binInput.tb = gsl_vector_get(timestamps, i);
-
-    // calculate binary time delay
-    XLALBinaryPulsarDeltaTNew( &binOutput, &binInput, pars );
-
-    // if working using time derivatives increment time by 1 second
-    if ( tdot ){
-      binInput2.tb = binInput.tb + 1.;
-      XLALBinaryPulsarDeltaTNew( &binOutput2, &binInput2, pars );
-    }
+    orbits = (gsl_vector_get(timestamps, i) - T0)/Pb;
+    norbits = (INT4)orbits;
+    if ( orbits < 0. ) norbits--;
+    phase = LAL_TWOPI*(orbits - (REAL8)norbits);
+    XLALComputeEccentricAnomaly( phase, ecc, &U );
 
     // fill in the output training buffer
     gsl_complex emitdt;
-    if ( tdot ){
-      // set time derivative
-      if ( btasini2 ){
-        //GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaT-binOutput.deltaT)/1., 0.);
-        GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaTW2-binOutput.deltaTW2)/1., 0.);
-      }
-      else{
-        GSL_SET_COMPLEX(&emitdt, (binOutput2.deltaTW1-binOutput.deltaTW1)/1., 0.);
-      }
-    }
-    else{
-      if ( btasini2 ){ GSL_SET_COMPLEX(&emitdt, binOutput.deltaTW2, 0.); } // part of BT time delay multiplied by 2*pi*asini/Pb
-      else { GSL_SET_COMPLEX(&emitdt, binOutput.deltaTW1, 0.); }           // part of BT time delay multiplied by asini
-      //GSL_SET_COMPLEX(&emitdt, binOutput.deltaT, 0.);
-    }
+
+    if ( sinorcos == 1 ){ GSL_SET_COMPLEX(&emitdt, sin(U), 0.); }
+    else { GSL_SET_COMPLEX(&emitdt, cos(U), 0.); }
+
     gsl_vector_complex_set(wv, i, emitdt);
   }
-
-  PulsarClearParams( pars );
 }
 
