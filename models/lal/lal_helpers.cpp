@@ -205,16 +205,31 @@ std::string model_tag2mode_part(const std::string model_tag,
 std::vector<std::string> get_barycenter_tags(const std::string model_tag){
   std::vector<std::string> x = split_string(model_tag, '_'); // split tag on underscores
 
-  if ( x.size() != 4 && x.size() != 5 ){
-    fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\" or \"Barycenter_DET_EPHEM_UNITS_NOSHAPIRO\"\n");
+  if ( x.size() != 4 && x.size() != 5 && x.size() != 6 ){
+    fprintf(stderr, "Model tag should have format \"Barycenter_DET_EPHEM_UNITS\", \"Barycenter_DET_EPHEM_UNITS_TEMPO\", \"Barycenter_DET_EPHEM_UNITS_NOSHAPIRO\" or \"Barycenter_DET_EPHEM_UNITS_TEMPO_NOSHAPIRO\"\n");
     exit(1);
   }
   // get the last three parts of the vector (i.e. DET, EPHEM, UNITS)
   std::vector<std::string> y(x.begin()+1, x.begin()+4);
 
   // add whether to include Shapiro delay in model or not
-  if ( x.size() == 4 ){ y.push_back("SHAPIRO"); }
-  else { y.push_back(x[4]); } 
+  if ( x.size() == 4 ){
+    y.push_back("SHAPIRO");
+    y.push_back("NOTEMPO");
+  }
+  else if ( x.size() == 5 ) {
+    if ( !strcmp(x[4].c_str(), "TEMPO"){
+      y.push_back("SHAPIRO");
+      y.push_back("TEMPO");
+    }
+    else{
+      y.push_back(x[4]);
+      y.push_back("NOTEMPO");
+    }
+  else{
+    y.push_back(x[5]); // NOSHAPIRO
+    y.push_back(x[4]); // TEMPO
+  }
 
   // check ephem is DE200, DE405, DE414 or DE421
   if ( strcmp(y[1].c_str(), "DE200") && strcmp(y[1].c_str(), "DE405") &&

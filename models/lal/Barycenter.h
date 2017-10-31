@@ -26,6 +26,8 @@ extern "C"{
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
+pulsar *psr = NULL;
+int usetempo = 0;
 LALDetector det;
 TimeCorrectionType ttype;
 int noshapiro = 0;
@@ -38,12 +40,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
 
-  // variables for calculating barycenter time delay
-  EarthState earth;
-  EmissionTime emit;
-  BarycenterInput baryinput;
-
-  if ( !edat && !tdat ){
+  if ( !edat && !tdat && !usetempo ){
     #ifdef USE_OPENMP
     #pragma omp master
     {
@@ -66,29 +63,51 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       exit(-1);
     }
 
-    // set earth and sun ephemeris files
-    char earthfile[256], sunfile[256];
-    snprintf(earthfile, sizeof(char)*256, "earth00-19-%s.dat.gz", vals[1].c_str());
-    snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
-    edat = XLALInitBarycenter( earthfile, sunfile );
+    // check whether using LAL or tempo2...
+    if ( !strcmp("TEMPO", vals[3].c_str()) ){
+      usetempo = 1;
+    }
+
+    if ( usetempo ){
+      // initialise pulsar
+      psr = (pulsar *)malloc(sizeof(pulsar)*1));
+      initialiseOne(psr, 1, 1); // initialise pulsar
+    }
+    
+    if ( !usetempo ){
+      // set earth and sun ephemeris files
+      char earthfile[256], sunfile[256];
+      snprintf(earthfile, sizeof(char)*256, "earth00-19-%s.dat.gz", vals[1].c_str());
+      snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
+      edat = XLALInitBarycenter( earthfile, sunfile );
+    }
 
     // set time units file
     char timecorrfile[256];
     if ( !strcmp("TCB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TCB;
+      if ( usetempo ) {
+        psr->units = SI_UNITS;
+      }
     }
     else if ( !strcmp("TDB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TDB;
+      if ( usetempo ) {
+        psr->units = TDB_UNITS;
+      }
     }
     else{
       fprintf(stderr, "Error... time system must be \"TDB\" or \"TCB\".\n");
       exit(-1);
     }
-    tdat = XLALInitTimeCorrections( timecorrfile );
-    
-    if ( !strcmp("NOSHAPIRO", vals[3].c_str()) ){
+    if ( !usetempo ) { tdat = XLALInitTimeCorrections( timecorrfile ); }
+    else{
+       
+    }
+
+    if ( !strcmp("NOSHAPIRO", vals[4].c_str()) ){
       noshapiro = 1; // do not include Shapiro delay in barycenter calculation
     }
     #ifdef USE_OPENMP
@@ -97,30 +116,40 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     #endif
   }
 
-  /* set up location of detector */
-  baryinput.site.location[0] = det.location[0]/LAL_C_SI;
-  baryinput.site.location[1] = det.location[1]/LAL_C_SI;
-  baryinput.site.location[2] = det.location[2]/LAL_C_SI;
+  if ( !usetempo ){
+    // variables for calculating barycenter time delay
+    EarthState earth;
+    EmissionTime emit;
+    BarycenterInput baryinput;
 
-  // set source position
-  baryinput.dInv = 0.;
-  baryinput.delta = dec;
-  baryinput.alpha = ra;
+    /* set up location of detector */
+    baryinput.site.location[0] = det.location[0]/LAL_C_SI;
+    baryinput.site.location[1] = det.location[1]/LAL_C_SI;
+    baryinput.site.location[2] = det.location[2]/LAL_C_SI;
 
-  for ( int i=0; i < n; i++ ){
-    XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
-    XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
-    XLALBarycenter( &emit, &baryinput, &earth );
-    gsl_complex emitdt;
-    if ( noshapiro ){ // remove Shapiro delay
-      GSL_SET_COMPLEX(&emitdt, emit.deltaT+emit.shapiro, 0.); // add Shapiro delay as it is subtracted in LALBarycenter.c
+    // set source position
+    baryinput.dInv = 0.;
+    baryinput.delta = dec;
+    baryinput.alpha = ra;
+
+    for ( int i=0; i < n; i++ ){
+      XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
+      XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
+      XLALBarycenter( &emit, &baryinput, &earth );
+      gsl_complex emitdt;
+      if ( noshapiro ){ // remove Shapiro delay
+        GSL_SET_COMPLEX(&emitdt, emit.deltaT+emit.shapiro, 0.); // add Shapiro delay as it is subtracted in LALBarycenter.c
+      }
+      else{
+        GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
+      }
+
+      // fill in the output training buffer
+      gsl_vector_complex_set(wv, i, emitdt);
     }
-    else{
-      GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
-    }
-
-    // fill in the output training buffer
-    gsl_vector_complex_set(wv, i, emitdt);
+  }
+  else{ // use tempo2 for barycentring
+    
   }
 }
 
