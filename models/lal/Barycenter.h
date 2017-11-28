@@ -73,7 +73,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       psr = (pulsar *)malloc(sizeof(pulsar)*1));
       initialiseOne(psr, 1, 1); // initialise pulsar
     }
-    
+
     if ( !usetempo ){
       // set earth and sun ephemeris files
       char earthfile[256], sunfile[256];
@@ -105,6 +105,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     if ( !usetempo ) { tdat = XLALInitTimeCorrections( timecorrfile ); }
     else{
        
+    }
+
+    if ( usetempo ){
+      // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
+      strcpy(psr[0].obsn[0].telID, vals[0].c_str());
+      get_obsCoord(psr, 1);
     }
 
     if ( !strcmp("NOSHAPIRO", vals[4].c_str()) ){
@@ -149,7 +155,40 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     }
   }
   else{ // use tempo2 for barycentring
+    REAL8 batdt = 0.;
     
+    // set pulsar position
+    psr[0].param[param_raj].val[0] = ra;
+    psr[0].param[param_decj].val[0] = dec;
+    vectorPulsar(psr, 1);
+
+    for ( int i=0; i < n; i++ ){
+      // set SAT value of observation
+      REAL8 thistime = gsl_vector_get(timestamps, i);
+      gsl_complex emitdt;
+      REAL8 shapirodelay = 0.;
+      thistime = (thistime/86400.) + 44244. // convert to MJD
+
+      psr[0].obsn[nObs].sat = thistime;
+
+      tt2tb(psr, 1);
+      shapiro_delay(psr, 1, 0, 0, 0., 0.);
+      readEphemeris(psr, 1, 0); // read in, or intepolate, ephemeris data
+      calculate_bclt(psr, 1);
+
+      // get barycenter time delat
+      batdt = getCorrectionTT(psr[p].obsn+i)/86400. + (psr[0].obsn[0].correctionTT_TB
+               + psr[0].obsn[0].roemer)/SECDAY;
+      
+      if ( !noshapiro ){ // remove Shapiro delay
+        shapirodelay = psr[p].obsn[i].shapiroDelaySun; // only include Sun
+      }
+
+      GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
+      
+      // fill in the output training buffer
+      gsl_vector_complex_set(wv, i, emitdt);
+    }
   }
 }
 
