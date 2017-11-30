@@ -23,10 +23,16 @@ extern "C"{
 
 #include <omp.h>
 
+#ifdef MODEL_TEMPO
+#include <tempo2.h>
+#endif
+
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
-pulsar *psr = NULL;
+#ifdef MODEL_TEMPO
+struct pulsar *psr = NULL;
+#endif
 int usetempo = 0;
 LALDetector det;
 TimeCorrectionType ttype;
@@ -39,7 +45,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   int n = timestamps->size;
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
-
+  
   if ( !edat && !tdat && !usetempo ){
     #ifdef USE_OPENMP
     #pragma omp master
@@ -63,16 +69,22 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       exit(-1);
     }
 
+#ifdef MODEL_TEMPO
     // check whether using LAL or tempo2...
     if ( !strcmp("TEMPO", vals[3].c_str()) ){
       usetempo = 1;
     }
+#else
+    usetempo = 0;
+#endif
 
+#ifdef MODEL_TEMPO
     if ( usetempo ){
       // initialise pulsar
-      psr = (pulsar *)malloc(sizeof(pulsar)*1));
+      psr = (pulsar *)malloc(sizeof(pulsar)*1);
       initialiseOne(psr, 1, 1); // initialise pulsar
     }
+#endif
 
     if ( !usetempo ){
       // set earth and sun ephemeris files
@@ -81,37 +93,59 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
       edat = XLALInitBarycenter( earthfile, sunfile );
     }
-
+#ifdef MODEL_TEMPO
+    else{
+      strcpy(psr[0].JPL_EPHEMERIS, getenv(TEMPO2_ENVIRON));
+      char epfile[256];
+      snprintf(epfile, sizeof(char)*256, "/ephemeris/%s.1950.2050", vals[1].c_str());
+      strcpy(psr[0].ephemeris, vals[1].c_str());
+      strcat(psr[0].JPL_EPHEMERIS, epfile);
+    }
+#endif
+    
     // set time units file
     char timecorrfile[256];
     if ( !strcmp("TCB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TCB;
+#ifdef MODEL_TEMPO
       if ( usetempo ) {
-        psr->units = SI_UNITS;
+        psr[0].units = SI_UNITS;
       }
+#endif
     }
     else if ( !strcmp("TDB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TDB;
+#ifdef MODEL_TEMPO
       if ( usetempo ) {
-        psr->units = TDB_UNITS;
+        psr[0].units = TDB_UNITS;
       }
+#endif
     }
     else{
       fprintf(stderr, "Error... time system must be \"TDB\" or \"TCB\".\n");
       exit(-1);
     }
     if ( !usetempo ) { tdat = XLALInitTimeCorrections( timecorrfile ); }
-    else{
-       
-    }
 
+#ifdef MODEL_TEMPO
     if ( usetempo ){
       // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
-      strcpy(psr[0].obsn[0].telID, vals[0].c_str());
+      strcpy(psr[0].obsn[0].telID, "IMAG"); // set IMAG as observatory
+      psr[0].obsn[0].nFlags = 3;
+
+      // set observatory location
+      strcpy(psr[0].obsn[0].flagID[0], "-telx");
+      sprintf(psr[0].obsn[0].flagVal[0], "%.9lf", det.location[0]);
+      strcpy(psr[0].obsn[0].flagID[1], "-tely");
+      sprintf(psr[0].obsn[0].flagVal[1], "%.9lf", det.location[1]);
+      strcpy(psr[0].obsn[0].flagID[2], "-telz");
+      sprintf(psr[0].obsn[0].flagVal[2], "%.9lf", det.location[2]);
+
       get_obsCoord(psr, 1);
     }
+#endif
 
     if ( !strcmp("NOSHAPIRO", vals[4].c_str()) ){
       noshapiro = 1; // do not include Shapiro delay in barycenter calculation
@@ -154,6 +188,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       gsl_vector_complex_set(wv, i, emitdt);
     }
   }
+#ifdef MODEL_TEMPO
   else{ // use tempo2 for barycentring
     REAL8 batdt = 0.;
     
@@ -167,9 +202,9 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       REAL8 thistime = gsl_vector_get(timestamps, i);
       gsl_complex emitdt;
       REAL8 shapirodelay = 0.;
-      thistime = (thistime/86400.) + 44244. // convert to MJD
+      thistime = (thistime/86400.) + 44244.; // convert to MJD
 
-      psr[0].obsn[nObs].sat = thistime;
+      psr[0].obsn[0].sat = thistime;
 
       tt2tb(psr, 1);
       shapiro_delay(psr, 1, 0, 0, 0., 0.);
@@ -177,11 +212,11 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       calculate_bclt(psr, 1);
 
       // get barycenter time delat
-      batdt = getCorrectionTT(psr[p].obsn+i)/86400. + (psr[0].obsn[0].correctionTT_TB
+      batdt = getCorrectionTT(psr[0].obsn+i)/86400. + (psr[0].obsn[0].correctionTT_TB
                + psr[0].obsn[0].roemer)/SECDAY;
       
       if ( !noshapiro ){ // remove Shapiro delay
-        shapirodelay = psr[p].obsn[i].shapiroDelaySun; // only include Sun
+        shapirodelay = psr[0].obsn[0].shapiroDelaySun; // only include Sun
       }
 
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
@@ -190,6 +225,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       gsl_vector_complex_set(wv, i, emitdt);
     }
   }
+#endif
 }
 
 

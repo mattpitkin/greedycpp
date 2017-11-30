@@ -218,7 +218,7 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
     y.push_back("NOTEMPO");
   }
   else if ( x.size() == 5 ) {
-    if ( !strcmp(x[4].c_str(), "TEMPO"){
+    if ( !strcmp(x[4].c_str(), "TEMPO") ){
       y.push_back("SHAPIRO");
       y.push_back("TEMPO");
     }
@@ -226,6 +226,7 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
       y.push_back(x[4]);
       y.push_back("NOTEMPO");
     }
+  }
   else{
     y.push_back(x[5]); // NOSHAPIRO
     y.push_back(x[4]); // TEMPO

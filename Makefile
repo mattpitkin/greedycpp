@@ -49,6 +49,10 @@ OPTFLAGS=-O3 -ffast-math -ftree-vectorizer-verbose=6 -ftree-vectorize -mavx -DOP
 # icc optimizations (see README) #
 #OPTFLAGS=-O3 -xHOST -DOPTIMIZE_AVX
 
+#TEMPO= # if you do not have TEMPO2 install
+TEMPO=-DMODEL_TEMPO
+TEMPOLIBS=-lsofa -ltempo2
+TEMPOFLAGS=-L/usr/local/lib -I/usr/local/include
 
 ### model specific flags, headers, sources ###
 MODELFLAGS=
@@ -107,14 +111,14 @@ $(BINDIR)/greedyOMP: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) 
 	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
 
 $(BINDIR)/greedyBarycenterOMP: $(SRCDIR)/greedy_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(TEMPOFLAGS) $(OPENMP) $(LAL) $(NUMPY) $(TEMPO) $(GIT_FLAGS) \
 	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyBarycenterOMP $(SRCDIR)/greedy_barycenter.cpp \
-	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS) $(TEMPOLIBS)
 
 $(BINDIR)/greedyBarycenter: $(SRCDIR)/greedy_barycenter.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
-	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) $(TEMPOFLAGS) -fopenmp $(LAL) $(NUMPY) $(TEMPO) $(GIT_FLAGS) \
 	$(NUMPYHEADERS) -DCOMPILE_WITHOUT_MPI -o $(BINDIR)/greedyBarycenter $(SRCDIR)/greedy_barycenter.cpp \
-	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS)
+	$(SOURCES) $(MODELSOURCES) $(LDLIBS) $(MODELLIBS) $(NUMPYLIBS) $(TEMPOLIBS)
 
 $(BINDIR)/greedy_mpi: $(SRCDIR)/greedy.cpp $(SOURCES) $(HEADERS) $(MODELSOURCES) $(MODELHEADERS)
 	$(CXX_MPI) $(CXXFLAGS) $(OPTFLAGS) $(MODELFLAGS) -fopenmp $(LAL) $(NUMPY) $(GIT_FLAGS) \
