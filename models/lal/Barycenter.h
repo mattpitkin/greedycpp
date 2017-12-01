@@ -30,9 +30,6 @@ extern "C"{
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
-#ifdef MODEL_TEMPO
-struct pulsar *psr = NULL;
-#endif
 int usetempo = 0;
 LALDetector det;
 TimeCorrectionType ttype;
@@ -46,6 +43,10 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
   
+#ifdef MODEL_TEMPO
+  struct pulsar *psr = NULL;
+#endif
+
   if ( !edat && !tdat && !usetempo ){
     #ifdef USE_OPENMP
     #pragma omp master
@@ -71,19 +72,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
 
 #ifdef MODEL_TEMPO
     // check whether using LAL or tempo2...
-    if ( !strcmp("TEMPO", vals[3].c_str()) ){
+    if ( !strcmp("TEMPO", vals[4].c_str()) ){
       usetempo = 1;
+      fprintf(stderr, "using TEMPO model\n");
     }
 #else
     usetempo = 0;
-#endif
-
-#ifdef MODEL_TEMPO
-    if ( usetempo ){
-      // initialise pulsar
-      psr = (pulsar *)malloc(sizeof(pulsar)*1);
-      initialiseOne(psr, 1, 1); // initialise pulsar
-    }
 #endif
 
     if ( !usetempo ){
@@ -93,35 +87,16 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
       edat = XLALInitBarycenter( earthfile, sunfile );
     }
-#ifdef MODEL_TEMPO
-    else{
-      strcpy(psr[0].JPL_EPHEMERIS, getenv(TEMPO2_ENVIRON));
-      char epfile[256];
-      snprintf(epfile, sizeof(char)*256, "/ephemeris/%s.1950.2050", vals[1].c_str());
-      strcpy(psr[0].ephemeris, vals[1].c_str());
-      strcat(psr[0].JPL_EPHEMERIS, epfile);
-    }
-#endif
-    
+
     // set time units file
     char timecorrfile[256];
     if ( !strcmp("TCB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "te405_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TCB;
-#ifdef MODEL_TEMPO
-      if ( usetempo ) {
-        psr[0].units = SI_UNITS;
-      }
-#endif
     }
     else if ( !strcmp("TDB", vals[2].c_str()) ){
       snprintf(timecorrfile, sizeof(char)*256, "tdb_2000-2019.dat.gz");
       ttype = TIMECORRECTION_TDB;
-#ifdef MODEL_TEMPO
-      if ( usetempo ) {
-        psr[0].units = TDB_UNITS;
-      }
-#endif
     }
     else{
       fprintf(stderr, "Error... time system must be \"TDB\" or \"TCB\".\n");
@@ -129,25 +104,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     }
     if ( !usetempo ) { tdat = XLALInitTimeCorrections( timecorrfile ); }
 
-#ifdef MODEL_TEMPO
-    if ( usetempo ){
-      // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
-      strcpy(psr[0].obsn[0].telID, "IMAG"); // set IMAG as observatory
-      psr[0].obsn[0].nFlags = 3;
-
-      // set observatory location
-      strcpy(psr[0].obsn[0].flagID[0], "-telx");
-      sprintf(psr[0].obsn[0].flagVal[0], "%.9lf", det.location[0]);
-      strcpy(psr[0].obsn[0].flagID[1], "-tely");
-      sprintf(psr[0].obsn[0].flagVal[1], "%.9lf", det.location[1]);
-      strcpy(psr[0].obsn[0].flagID[2], "-telz");
-      sprintf(psr[0].obsn[0].flagVal[2], "%.9lf", det.location[2]);
-
-      get_obsCoord(psr, 1);
-    }
-#endif
-
-    if ( !strcmp("NOSHAPIRO", vals[4].c_str()) ){
+    if ( !strcmp("NOSHAPIRO", vals[3].c_str()) ){
       noshapiro = 1; // do not include Shapiro delay in barycenter calculation
     }
     #ifdef USE_OPENMP
@@ -155,6 +112,40 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     #pragma omp barrier
     #endif
   }
+
+#ifdef MODEL_TEMPO
+  // setup pulsar
+  if ( usetempo ){
+    std::vector<std::string> vals = lal_help::get_barycenter_tags(model_tag);
+
+    // initialise pulsar
+    psr = (pulsar *)malloc(sizeof(pulsar)*1);
+    initialiseOne(psr, 1, 1); // initialise pulsar
+  
+    strcpy(psr[0].JPL_EPHEMERIS, getenv(TEMPO2_ENVIRON));
+    char epfile[256];
+    snprintf(epfile, sizeof(char)*256, "/ephemeris/%s.1950.2050", vals[1].c_str());
+    strcpy(psr[0].ephemeris, vals[1].c_str());
+    strcat(psr[0].JPL_EPHEMERIS, epfile);
+
+    if ( !strcmp("TCB", vals[2].c_str()) ){ psr[0].units = SI_UNITS; }
+    if ( !strcmp("TDB", vals[2].c_str()) ){ psr[0].units = TDB_UNITS; }
+
+    // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
+    strcpy(psr[0].obsn[0].telID, "IMAG"); // set IMAG as observatory
+    psr[0].obsn[0].nFlags = 3;
+
+    // set observatory location
+    strcpy(psr[0].obsn[0].flagID[0], "-telx");
+    sprintf(psr[0].obsn[0].flagVal[0], "%.9lf", det.location[0]);
+    strcpy(psr[0].obsn[0].flagID[1], "-tely");
+    sprintf(psr[0].obsn[0].flagVal[1], "%.9lf", det.location[1]);
+    strcpy(psr[0].obsn[0].flagID[2], "-telz");
+    sprintf(psr[0].obsn[0].flagVal[2], "%.9lf", det.location[2]);
+
+    get_obsCoord(psr, 1);
+  }
+#endif
 
   if ( !usetempo ){
     // variables for calculating barycenter time delay
@@ -204,7 +195,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       REAL8 shapirodelay = 0.;
       thistime = (thistime/86400.) + 44244.; // convert to MJD
 
-      psr[0].obsn[0].sat = thistime;
+      psr[0].obsn[0].sat = (long double)thistime;
 
       tt2tb(psr, 1);
       shapiro_delay(psr, 1, 0, 0, 0., 0.);
@@ -220,7 +211,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       }
 
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
-      
+
       // fill in the output training buffer
       gsl_vector_complex_set(wv, i, emitdt);
     }

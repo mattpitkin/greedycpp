@@ -251,7 +251,7 @@ std::vector<std::string> get_barycenter_tags(const std::string model_tag){
     exit(1);
   }
 
-  fprintf(stdout, "Detector: \"%s\", ephemeris: \"%s\", time units: \"%s\"\n", y[0].c_str(), y[1].c_str(), y[2].c_str());
+  fprintf(stdout, "Detector: \"%s\", ephemeris: \"%s\", time units: \"%s\", TEMPO: \"%s\"\n", y[0].c_str(), y[1].c_str(), y[2].c_str(), y[4].c_str());
 
   return y;
 }
