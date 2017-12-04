@@ -20,6 +20,7 @@ extern "C"{
 #include <lal/LALInitBarycenter.h>
 #include <lal/SFTutils.h>
 #include <lal/BinaryPulsarTiming.h>
+#include <lal/Date.h>
 
 #include <omp.h>
 
@@ -175,7 +176,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       else{
         GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
       }
-
+      fprintf(stderr, "time = %.16lf\n", emit.roemer);
       // fill in the output training buffer
       gsl_vector_complex_set(wv, i, emitdt);
     }
@@ -197,6 +198,9 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       gsl_complex emitdt;
       REAL8 shapirodelay = 0.;
       thistime = (thistime/86400.) + 44244.; // convert to MJD
+
+      // subtract leap seconds from MJD time to get GPS reference (using XLALGPSLeapSeconds( (UINT4)t ))
+      thistime -= XLALGPSLeapSeconds( (UINT4)thistime ); // CHECK THIS
 
       psr[0].obsn[0].sat = (long double)thistime;
 
