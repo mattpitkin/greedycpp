@@ -208,8 +208,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       calculate_bclt(psr, 1);
 
       // get barycenter time delat
-      batdt = getCorrectionTT(psr[0].obsn+i)/86400. + (psr[0].obsn[0].correctionTT_TB
-               + psr[0].obsn[0].roemer)/SECDAY;
+      batdt = getCorrectionTT(psr[0].obsn+i) + psr[0].obsn[0].correctionTT_TB
+               + psr[0].obsn[0].roemer;
       
       if ( !noshapiro ){ // remove Shapiro delay
         shapirodelay = psr[0].obsn[0].shapiroDelaySun; // only include Sun
@@ -218,7 +218,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
 
       // fill in the output training buffer
-      //if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
+      //fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt));
+      //fprintf(stderr, "time = %.16Lf\n", psr[0].obsn[0].roemer);
       gsl_vector_complex_set(wv, i, emitdt);
     }
   }
