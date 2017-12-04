@@ -132,18 +132,19 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     if ( !strcmp("TDB", vals[2].c_str()) ){ psr[0].units = TDB_UNITS; }
 
     // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
-    strcpy(psr[0].obsn[0].telID, "IMAG"); // set IMAG as observatory
-    psr[0].obsn[0].nFlags = 3;
-
-    // set observatory location
-    strcpy(psr[0].obsn[0].flagID[0], "-telx");
-    sprintf(psr[0].obsn[0].flagVal[0], "%.9lf", det.location[0]);
-    strcpy(psr[0].obsn[0].flagID[1], "-tely");
-    sprintf(psr[0].obsn[0].flagVal[1], "%.9lf", det.location[1]);
-    strcpy(psr[0].obsn[0].flagID[2], "-telz");
-    sprintf(psr[0].obsn[0].flagVal[2], "%.9lf", det.location[2]);
-
-    get_obsCoord(psr, 1);
+    if ( strstr(vals[0].c_str(), "H1") != NULL ){
+      strcpy(psr[0].obsn[0].telID, "HANFORD");
+    }
+    else if ( strstr(vals[0].c_str(), "L1") != NULL ){
+      strcpy(psr[0].obsn[0].telID, "LIVINGSTON");
+    }
+    else if ( strstr(vals[0].c_str(), "V1") != NULL ){ 
+      strcpy(psr[0].obsn[0].telID, "VIRGO");
+    }
+    else{
+      fprintf(stderr, "Error... detector not found.\n");
+      exit(-1);
+    }
   }
 #endif
 
@@ -186,6 +187,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     // set pulsar position
     psr[0].param[param_raj].val[0] = ra;
     psr[0].param[param_decj].val[0] = dec;
+    psr[0].nobs = 1;
+    psr[0].obsn[0].delayCorr = 1;
     vectorPulsar(psr, 1);
 
     for ( int i=0; i < n; i++ ){
@@ -197,6 +200,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
 
       psr[0].obsn[0].sat = (long double)thistime;
 
+      get_obsCoord(psr, 1);
+      //if ( i == 0 ){ fprintf(stderr, "Site velocity = %lf\n", psr[0].obsn[0].siteVel[0]); }
       tt2tb(psr, 1);
       shapiro_delay(psr, 1, 0, 0, 0., 0.);
       readEphemeris(psr, 1, 0); // read in, or intepolate, ephemeris data
@@ -213,6 +218,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
 
       // fill in the output training buffer
+      //if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
       gsl_vector_complex_set(wv, i, emitdt);
     }
   }
