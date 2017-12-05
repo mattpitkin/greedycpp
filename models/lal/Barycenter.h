@@ -14,6 +14,7 @@ extern "C"{
 
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALBarycenter.h>
@@ -176,7 +177,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       else{
         GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
       }
-      fprintf(stderr, "time = %.16lf\n", emit.roemer);
+      //if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", emit.roemer+emit.erot); }
+      if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", emit.deltaT); }
       // fill in the output training buffer
       gsl_vector_complex_set(wv, i, emitdt);
     }
@@ -190,22 +192,30 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     psr[0].param[param_decj].val[0] = dec;
     psr[0].nobs = 1;
     psr[0].obsn[0].delayCorr = 1;
+    psr[0].obsn[0].clockCorr = 1;
+    psr[0].obsn[0].freq = INFINITY;
+    psr[0].correctTroposphere = 0;
     vectorPulsar(psr, 1);
 
     for ( int i=0; i < n; i++ ){
       // set SAT value of observation
       REAL8 thistime = gsl_vector_get(timestamps, i);
+      REAL8 fracsec = thistime - floor(thistime);     // if not an integer get remaining fraction of seconds
+      REAL8 mjd = 0.; // time as Modified Julian Date
+      
+      // this time is a GPS time, so this needs to be converted to UTC and then to an MJD
+      // NOTE: this requires the times to be integer seconds
+      struct tm utc;
+      XLALGPSToUTC( &utc, (INT4)floor(thistime) ); // convert GPS to UTC
+      mjd = XLALConvertCivilTimeToMJD( &utc );     // convert UTC into MJD format
+      mjd += fracsec/86400.;                       // add on fractional seconds
+
       gsl_complex emitdt;
       REAL8 shapirodelay = 0.;
-      thistime = (thistime/86400.) + 44244.; // convert to MJD
-
-      // subtract leap seconds from MJD time to get GPS reference (using XLALGPSLeapSeconds( (UINT4)t ))
-      thistime -= XLALGPSLeapSeconds( (UINT4)thistime ); // CHECK THIS
-
-      psr[0].obsn[0].sat = (long double)thistime;
+      if ( i == 0 ){ fprintf(stderr, "frac sec = %.16lf, MJD = %.16lf\n", fracsec, mjd); }
+      psr[0].obsn[0].sat = (long double)mjd;
 
       get_obsCoord(psr, 1);
-      //if ( i == 0 ){ fprintf(stderr, "Site velocity = %lf\n", psr[0].obsn[0].siteVel[0]); }
       tt2tb(psr, 1);
       shapiro_delay(psr, 1, 0, 0, 0., 0.);
       readEphemeris(psr, 1, 0); // read in, or intepolate, ephemeris data
@@ -222,8 +232,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
 
       // fill in the output training buffer
-      //fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt));
-      //fprintf(stderr, "time = %.16Lf\n", psr[0].obsn[0].roemer);
+      if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
+      //if ( i == 0 ) { fprintf(stderr, "time = %.16Lf\n", psr[0].obsn[0].roemer); }
       gsl_vector_complex_set(wv, i, emitdt);
     }
   }
