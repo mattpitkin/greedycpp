@@ -14,18 +14,25 @@ extern "C"{
 
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALBarycenter.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/SFTutils.h>
 #include <lal/BinaryPulsarTiming.h>
+#include <lal/Date.h>
 
 #include <omp.h>
+
+#ifdef MODEL_TEMPO
+#include <tempo2.h>
+#endif
 
 // global variables for barycentering (so ephemeris files are only read in once)
 EphemerisData *edat = NULL;
 TimeCorrectionData *tdat = NULL;
+int usetempo = 0;
 LALDetector det;
 TimeCorrectionType ttype;
 int noshapiro = 0;
@@ -37,13 +44,12 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
   int n = timestamps->size;
   REAL8 ra = params[0];  // right ascension
   REAL8 dec = params[1]; // declination
+  
+#ifdef MODEL_TEMPO
+  struct pulsar *psr = NULL;
+#endif
 
-  // variables for calculating barycenter time delay
-  EarthState earth;
-  EmissionTime emit;
-  BarycenterInput baryinput;
-
-  if ( !edat && !tdat ){
+  if ( !edat && !tdat && !usetempo ){
     #ifdef USE_OPENMP
     #pragma omp master
     {
@@ -66,11 +72,23 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       exit(-1);
     }
 
-    // set earth and sun ephemeris files
-    char earthfile[256], sunfile[256];
-    snprintf(earthfile, sizeof(char)*256, "earth00-19-%s.dat.gz", vals[1].c_str());
-    snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
-    edat = XLALInitBarycenter( earthfile, sunfile );
+#ifdef MODEL_TEMPO
+    // check whether using LAL or tempo2...
+    if ( !strcmp("TEMPO", vals[4].c_str()) ){
+      usetempo = 1;
+      fprintf(stderr, "using TEMPO model\n");
+    }
+#else
+    usetempo = 0;
+#endif
+
+    if ( !usetempo ){
+      // set earth and sun ephemeris files
+      char earthfile[256], sunfile[256];
+      snprintf(earthfile, sizeof(char)*256, "earth00-19-%s.dat.gz", vals[1].c_str());
+      snprintf(sunfile, sizeof(char)*256, "sun00-19-%s.dat.gz", vals[1].c_str());
+      edat = XLALInitBarycenter( earthfile, sunfile );
+    }
 
     // set time units file
     char timecorrfile[256];
@@ -86,8 +104,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       fprintf(stderr, "Error... time system must be \"TDB\" or \"TCB\".\n");
       exit(-1);
     }
-    tdat = XLALInitTimeCorrections( timecorrfile );
-    
+    if ( !usetempo ) { tdat = XLALInitTimeCorrections( timecorrfile ); }
+
     if ( !strcmp("NOSHAPIRO", vals[3].c_str()) ){
       noshapiro = 1; // do not include Shapiro delay in barycenter calculation
     }
@@ -97,31 +115,134 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     #endif
   }
 
-  /* set up location of detector */
-  baryinput.site.location[0] = det.location[0]/LAL_C_SI;
-  baryinput.site.location[1] = det.location[1]/LAL_C_SI;
-  baryinput.site.location[2] = det.location[2]/LAL_C_SI;
+#ifdef MODEL_TEMPO
+  // setup pulsar
+  if ( usetempo ){
+    std::vector<std::string> vals = lal_help::get_barycenter_tags(model_tag);
 
-  // set source position
-  baryinput.dInv = 0.;
-  baryinput.delta = dec;
-  baryinput.alpha = ra;
+    // initialise pulsar
+    psr = (pulsar *)malloc(sizeof(pulsar)*1);
+    MAX_OBSN = n; // define MAX_OBSN (in tempo2.h) as the number of observations
+    initialiseOne(psr, 1, 1); // initialise pulsar
 
-  for ( int i=0; i < n; i++ ){
-    XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
-    XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
-    XLALBarycenter( &emit, &baryinput, &earth );
-    gsl_complex emitdt;
-    if ( noshapiro ){ // remove Shapiro delay
-      GSL_SET_COMPLEX(&emitdt, emit.deltaT+emit.shapiro, 0.); // add Shapiro delay as it is subtracted in LALBarycenter.c
+    char epfile[MAX_FILELEN];
+    snprintf(epfile, sizeof(char)*MAX_FILELEN, "%s/ephemeris/%s.1950.2050", getenv(TEMPO2_ENVIRON), vals[1].c_str());
+    strncpy(psr[0].ephemeris, vals[1].c_str(), sizeof(char)*MAX_FILELEN);
+    strncpy(psr[0].JPL_EPHEMERIS, epfile, sizeof(char)*MAX_FILELEN);
+
+    if ( !strcmp("TCB", vals[2].c_str()) ){ psr[0].units = SI_UNITS; }
+    if ( !strcmp("TDB", vals[2].c_str()) ){ psr[0].units = TDB_UNITS; }
+
+    // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
+    if ( strstr(vals[0].c_str(), "H1") != NULL ){
+      strncpy(psr[0].obsn[0].telID, "HANFORD", sizeof(psr[0].obsn[0].telID));
+    }
+    else if ( strstr(vals[0].c_str(), "L1") != NULL ){
+      strncpy(psr[0].obsn[0].telID, "LIVINGSTON", sizeof(psr[0].obsn[0].telID));
+    }
+    else if ( strstr(vals[0].c_str(), "V1") != NULL ){ 
+      strncpy(psr[0].obsn[0].telID, "VIRGO", sizeof(psr[0].obsn[0].telID));
     }
     else{
-      GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
+      fprintf(stderr, "Error... detector not found.\n");
+      exit(-1);
+    }
+  }
+#endif
+
+  if ( !usetempo ){
+    // variables for calculating barycenter time delay
+    EarthState earth;
+    EmissionTime emit;
+    BarycenterInput baryinput;
+
+    /* set up location of detector */
+    baryinput.site.location[0] = det.location[0]/LAL_C_SI;
+    baryinput.site.location[1] = det.location[1]/LAL_C_SI;
+    baryinput.site.location[2] = det.location[2]/LAL_C_SI;
+
+    // set source position
+    baryinput.dInv = 0.;
+    baryinput.delta = dec;
+    baryinput.alpha = ra;
+
+    for ( int i=0; i < n; i++ ){
+      XLALGPSSetREAL8(&baryinput.tgps, gsl_vector_get(timestamps, i));
+      XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, tdat, ttype );
+      XLALBarycenter( &emit, &baryinput, &earth );
+      gsl_complex emitdt;
+      if ( noshapiro ){ // remove Shapiro delay
+        GSL_SET_COMPLEX(&emitdt, emit.deltaT+emit.shapiro, 0.); // add Shapiro delay as it is subtracted in LALBarycenter.c
+      }
+      else{
+        GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
+      }
+
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); } // for testing
+      // fill in the output training buffer
+      gsl_vector_complex_set(wv, i, emitdt);
+    }
+  }
+#ifdef MODEL_TEMPO
+  else{ // use tempo2 for barycentring
+    REAL8 batdt = 0.;
+    
+    // set pulsar position
+    psr[0].param[param_raj].val[0] = ra;
+    psr[0].param[param_decj].val[0] = dec;
+    psr[0].param[param_px].val[0] = 0.; // no parallax
+
+    psr[0].correctTroposphere = 0;
+    vectorPulsar(psr, 1);
+
+    psr[0].nobs = n;
+    for ( int i=0; i < n; i++ ){
+      psr[0].obsn[i].delayCorr = 1;
+      psr[0].obsn[i].clockCorr = 1;
+
+      // set SAT value of observation
+      REAL8 thistime = gsl_vector_get(timestamps, i);
+      REAL8 fracsec = thistime - floor(thistime);     // if not an integer get remaining fraction of seconds
+      REAL8 mjd = 0.; // time as Modified Julian Date
+      
+      // this time is a GPS time, so this needs to be converted to UTC and then to an MJD
+      // NOTE: this requires the times to be integer seconds
+      struct tm utc;
+      XLALGPSToUTC( &utc, (INT4)floor(thistime) ); // convert GPS to UTC
+      mjd = XLALConvertCivilTimeToMJD( &utc );     // convert UTC into MJD format
+      mjd += fracsec/86400.;                       // add on fractional seconds
+  
+      psr[0].obsn[i].sat = (long double)mjd;
+
+      if ( i > 0 ){
+        strncpy(psr[0].obsn[i].telID, psr[0].obsn[0].telID, sizeof(psr[0].obsn[0].telID));
+      }
     }
 
-    // fill in the output training buffer
-    gsl_vector_complex_set(wv, i, emitdt);
+    formBatsAll(psr, 1); // should contain everything that's required and in the right order
+
+    for ( int i=0; i < n; i++ ){
+      gsl_complex emitdt;
+      REAL8 shapirodelay = 0.;
+
+      // get barycenter time delat
+      batdt = psr[0].obsn[i].correctionTT_TB + psr[0].obsn[i].roemer;
+      
+      if ( !noshapiro ){ // include Shapiro delay
+        shapirodelay = psr[0].obsn[i].shapiroDelaySun; // only include Sun
+      }
+
+      //fprintf(stderr, "correction = %.16lf  ", getCorrectionTT(psr[0].obsn));
+      GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
+
+      // fill in the output training buffer
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); } // for testing
+      gsl_vector_complex_set(wv, i, emitdt);
+    }
+    destroyOne(psr); // free memory
+    free(psr);
   }
+#endif
 }
 
 
