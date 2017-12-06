@@ -124,25 +124,24 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     psr = (pulsar *)malloc(sizeof(pulsar)*1);
     MAX_OBSN = n; // define MAX_OBSN (in tempo2.h) as the number of observations
     initialiseOne(psr, 1, 1); // initialise pulsar
-  
-    strcpy(psr[0].JPL_EPHEMERIS, getenv(TEMPO2_ENVIRON));
-    char epfile[256];
-    snprintf(epfile, sizeof(char)*256, "/ephemeris/%s.1950.2050", vals[1].c_str());
-    strcpy(psr[0].ephemeris, vals[1].c_str());
-    strcat(psr[0].JPL_EPHEMERIS, epfile);
+
+    char epfile[MAX_FILELEN];
+    snprintf(epfile, sizeof(char)*MAX_FILELEN, "%s/ephemeris/%s.1950.2050", getenv(TEMPO2_ENVIRON), vals[1].c_str());
+    strncpy(psr[0].ephemeris, vals[1].c_str(), sizeof(char)*MAX_FILELEN);
+    strncpy(psr[0].JPL_EPHEMERIS, epfile, sizeof(char)*MAX_FILELEN);
 
     if ( !strcmp("TCB", vals[2].c_str()) ){ psr[0].units = SI_UNITS; }
     if ( !strcmp("TDB", vals[2].c_str()) ){ psr[0].units = TDB_UNITS; }
 
     // set the site (assume that LIGO sites have been added to the TEMPO2 observatories file)
     if ( strstr(vals[0].c_str(), "H1") != NULL ){
-      strcpy(psr[0].obsn[0].telID, "HANFORD");
+      strncpy(psr[0].obsn[0].telID, "HANFORD", sizeof(psr[0].obsn[0].telID));
     }
     else if ( strstr(vals[0].c_str(), "L1") != NULL ){
-      strcpy(psr[0].obsn[0].telID, "LIVINGSTON");
+      strncpy(psr[0].obsn[0].telID, "LIVINGSTON", sizeof(psr[0].obsn[0].telID));
     }
     else if ( strstr(vals[0].c_str(), "V1") != NULL ){ 
-      strcpy(psr[0].obsn[0].telID, "VIRGO");
+      strncpy(psr[0].obsn[0].telID, "VIRGO", sizeof(psr[0].obsn[0].telID));
     }
     else{
       fprintf(stderr, "Error... detector not found.\n");
@@ -179,7 +178,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
         GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
       }
 
-      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); } // for testing
       // fill in the output training buffer
       gsl_vector_complex_set(wv, i, emitdt);
     }
@@ -216,7 +215,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       psr[0].obsn[i].sat = (long double)mjd;
 
       if ( i > 0 ){
-        strcpy(psr[0].obsn[i].telID, psr[0].obsn[0].telID);
+        strncpy(psr[0].obsn[i].telID, psr[0].obsn[0].telID, sizeof(psr[0].obsn[0].telID));
       }
     }
 
@@ -237,10 +236,11 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
 
       // fill in the output training buffer
-      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); } // for testing
       gsl_vector_complex_set(wv, i, emitdt);
     }
     destroyOne(psr); // free memory
+    free(psr);
   }
 #endif
 }
