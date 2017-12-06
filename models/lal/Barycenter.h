@@ -122,6 +122,7 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
 
     // initialise pulsar
     psr = (pulsar *)malloc(sizeof(pulsar)*1);
+    MAX_OBSN = n; // define MAX_OBSN (in tempo2.h) as the number of observations
     initialiseOne(psr, 1, 1); // initialise pulsar
   
     strcpy(psr[0].JPL_EPHEMERIS, getenv(TEMPO2_ENVIRON));
@@ -177,8 +178,8 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       else{
         GSL_SET_COMPLEX(&emitdt, emit.deltaT, 0.);
       }
-      //if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", emit.roemer+emit.erot); }
-      if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", emit.deltaT); }
+
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
       // fill in the output training buffer
       gsl_vector_complex_set(wv, i, emitdt);
     }
@@ -190,14 +191,16 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
     // set pulsar position
     psr[0].param[param_raj].val[0] = ra;
     psr[0].param[param_decj].val[0] = dec;
-    psr[0].nobs = 1;
-    psr[0].obsn[0].delayCorr = 1;
-    psr[0].obsn[0].clockCorr = 1;
-    psr[0].obsn[0].freq = INFINITY;
+    psr[0].param[param_px].val[0] = 0.; // no parallax
+
     psr[0].correctTroposphere = 0;
     vectorPulsar(psr, 1);
 
+    psr[0].nobs = n;
     for ( int i=0; i < n; i++ ){
+      psr[0].obsn[i].delayCorr = 1;
+      psr[0].obsn[i].clockCorr = 1;
+
       // set SAT value of observation
       REAL8 thistime = gsl_vector_get(timestamps, i);
       REAL8 fracsec = thistime - floor(thistime);     // if not an integer get remaining fraction of seconds
@@ -209,33 +212,35 @@ void Barycenter_Waveform(gsl_vector_complex *wv,
       XLALGPSToUTC( &utc, (INT4)floor(thistime) ); // convert GPS to UTC
       mjd = XLALConvertCivilTimeToMJD( &utc );     // convert UTC into MJD format
       mjd += fracsec/86400.;                       // add on fractional seconds
+  
+      psr[0].obsn[i].sat = (long double)mjd;
 
+      if ( i > 0 ){
+        strcpy(psr[0].obsn[i].telID, psr[0].obsn[0].telID);
+      }
+    }
+
+    formBatsAll(psr, 1); // should contain everything that's required and in the right order
+
+    for ( int i=0; i < n; i++ ){
       gsl_complex emitdt;
       REAL8 shapirodelay = 0.;
-      if ( i == 0 ){ fprintf(stderr, "frac sec = %.16lf, MJD = %.16lf\n", fracsec, mjd); }
-      psr[0].obsn[0].sat = (long double)mjd;
-
-      get_obsCoord(psr, 1);
-      tt2tb(psr, 1);
-      shapiro_delay(psr, 1, 0, 0, 0., 0.);
-      readEphemeris(psr, 1, 0); // read in, or intepolate, ephemeris data
-      calculate_bclt(psr, 1);
 
       // get barycenter time delat
-      batdt = getCorrectionTT(psr[0].obsn+i) + psr[0].obsn[0].correctionTT_TB
-               + psr[0].obsn[0].roemer;
+      batdt = psr[0].obsn[i].correctionTT_TB + psr[0].obsn[i].roemer;
       
-      if ( !noshapiro ){ // remove Shapiro delay
-        shapirodelay = psr[0].obsn[0].shapiroDelaySun; // only include Sun
+      if ( !noshapiro ){ // include Shapiro delay
+        shapirodelay = psr[0].obsn[i].shapiroDelaySun; // only include Sun
       }
 
+      //fprintf(stderr, "correction = %.16lf  ", getCorrectionTT(psr[0].obsn));
       GSL_SET_COMPLEX(&emitdt, batdt - shapirodelay, 0.); // subtract shapiro as in TEMPO
 
       // fill in the output training buffer
-      if ( i == 0 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
-      //if ( i == 0 ) { fprintf(stderr, "time = %.16Lf\n", psr[0].obsn[0].roemer); }
+      //if ( i == 523 ){ fprintf(stderr, "time = %.16lf\n", GSL_REAL(emitdt)); }
       gsl_vector_complex_set(wv, i, emitdt);
     }
+    destroyOne(psr); // free memory
   }
 #endif
 }
